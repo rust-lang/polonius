@@ -12,8 +12,10 @@ extern crate abomonation;
 #[macro_use]
 extern crate abomonation_derive;
 extern crate differential_dataflow;
+extern crate fxhash;
 extern crate timely;
 
 mod facts;
 mod intern;
+mod output;
 mod tab_delim;
