@@ -26,14 +26,16 @@ crate fn dump_rows(title: &str, intern: &InternerTables, value: &impl OutputDump
     for row in &rows {
         let mut string = String::new();
 
-        for col in row {
+        let (last, not_last) = row.split_last().unwrap();
+        for col in not_last {
             string.push_str(col);
 
             let padding = col_width - col.len();
-            for _ in 0..padding {
+            for _ in 0..=padding {
                 string.push(' ');
             }
         }
+        string.push_str(last);
 
         println!("{}", string);
     }
