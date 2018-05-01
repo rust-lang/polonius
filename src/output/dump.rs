@@ -1,6 +1,7 @@
 use crate::facts::*;
 use crate::intern::*;
 use fxhash::FxHashMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 
 crate trait OutputDump {
@@ -59,6 +60,47 @@ where
                 let value = &self[key];
                 value.push_all(intern, prefix, output);
             });
+        }
+    }
+}
+
+impl<K, V> OutputDump for BTreeMap<K, V>
+where
+    K: Atom + Eq + Hash + Ord,
+    V: OutputDump,
+{
+    fn push_all(
+        &'a self,
+        intern: &'a InternerTables,
+        prefix: &mut Vec<&'a str>,
+        output: &mut Vec<Vec<&'a str>>,
+    ) {
+        let table = K::table(intern);
+        let mut keys: Vec<_> = self.keys().collect();
+        keys.sort();
+        for key in keys {
+            preserve(prefix, |prefix| {
+                prefix.push(table.untern(*key));
+
+                let value = &self[key];
+                value.push_all(intern, prefix, output);
+            });
+        }
+    }
+}
+
+impl<K> OutputDump for BTreeSet<K>
+where
+    K: OutputDump,
+{
+    fn push_all(
+        &'a self,
+        intern: &'a InternerTables,
+        prefix: &mut Vec<&'a str>,
+        output: &mut Vec<Vec<&'a str>>,
+    ) {
+        for key in self {
+            key.push_all(intern, prefix, output);
         }
     }
 }

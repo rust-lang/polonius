@@ -46,6 +46,12 @@ impl Output {
 
     crate fn dump(&self, intern: &InternerTables) {
         dump::dump_rows("borrow_live_at", intern, &self.borrow_live_at);
+
+        if self.dump_enabled {
+            dump::dump_rows("restricts", intern, &self.restricts);
+            dump::dump_rows("region_live_at", intern, &self.region_live_at);
+            dump::dump_rows("subset", intern, &self.subset);
+        }
     }
 
     crate fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {
