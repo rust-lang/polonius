@@ -28,6 +28,24 @@ This will generate a bunch of output tuples:
 ...
 ```
 
+### Want to see something slow?
+
+One of the goals with this repo is to experiment and compare different
+implementations of the same algorithm. The repo includes one
+particularly egregious case where we currently perform poorly, and you
+can test it against it like so:
+
+```bash
+> cargo +nightly run --release -- inputs/clap-rs/app-parser-{{impl}}-add_defaults/ | head
+    Finished release [optimized] target(s) in 0.05 secs
+     Running `target/release/borrow-check 'inputs/clap-rs/app-parser-{{impl}}-add_defaults/'`
+--------------------------------------------------
+Directory: inputs/clap-rs/app-parser-{{impl}}-add_defaults/
+Time: 113.316s
+```
+
+(You can see it is pretty dang slow on my machine!)
+
 ### How to generate your own inputs
 
 To run the borrow checker on an input, you first need to generate the
