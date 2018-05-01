@@ -16,3 +16,4 @@ extern crate timely;
 
 mod facts;
 mod intern;
+mod tab_delim;
