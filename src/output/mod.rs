@@ -8,11 +8,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::facts::{AllFacts, Loan, Region, Point};
+use crate::facts::{AllFacts, Loan, Point, Region};
+use crate::intern::InternerTables;
 use fxhash::FxHashMap;
 use std::borrow::Cow;
-use std::collections::{BTreeSet, BTreeMap};
+use std::collections::{BTreeMap, BTreeSet};
 
+mod dump;
 mod timely;
 
 #[derive(Clone, Debug)]
@@ -28,10 +30,7 @@ crate struct Output {
 }
 
 impl Output {
-    crate fn compute(
-        all_facts: AllFacts,
-        dump_enabled: bool,
-    ) -> Self {
+    crate fn compute(all_facts: AllFacts, dump_enabled: bool) -> Self {
         timely::timely_dataflow(dump_enabled, all_facts)
     }
 
@@ -45,31 +44,26 @@ impl Output {
         }
     }
 
-    crate fn borrows_in_scope_at(
-        &self,
-        location: Point,
-    ) -> &[Loan] {
+    crate fn dump(&self, intern: &InternerTables) {
+        dump::dump_rows("borrow_live_at", intern, &self.borrow_live_at);
+    }
+
+    crate fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {
         match self.borrow_live_at.get(&location) {
             Some(p) => p,
             None => &[],
         }
     }
 
-    crate fn restricts_at(
-        &self,
-        location: Point,
-    ) -> Cow<'_, BTreeMap<Region, BTreeSet<Loan>>> {
+    crate fn restricts_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Loan>>> {
         assert!(self.dump_enabled);
         match self.restricts.get(&location) {
             Some(map) => Cow::Borrowed(map),
-            None => Cow::Owned(BTreeMap::default())
+            None => Cow::Owned(BTreeMap::default()),
         }
     }
 
-    crate fn regions_live_at(
-        &self,
-        location: Point,
-    ) -> &[Region] {
+    crate fn regions_live_at(&self, location: Point) -> &[Region] {
         assert!(self.dump_enabled);
         match self.region_live_at.get(&location) {
             Some(v) => v,
@@ -77,10 +71,7 @@ impl Output {
         }
     }
 
-    crate fn subsets_at(
-        &self,
-        location: Point,
-    ) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {
+    crate fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {
         assert!(self.dump_enabled);
         match self.subset.get(&location) {
             Some(v) => Cow::Borrowed(v),
@@ -88,4 +79,3 @@ impl Output {
         }
     }
 }
-
