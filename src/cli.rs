@@ -3,6 +3,7 @@ use crate::output::Output;
 use crate::tab_delim;
 use failure::Error;
 use std::time::{Duration, Instant};
+use structopt::StructOpt;
 
 use std::path::PathBuf;
 
