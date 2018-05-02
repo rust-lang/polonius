@@ -5,6 +5,7 @@ use failure::Error;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
+use std::io;
 use std::path::PathBuf;
 
 arg_enum! {
@@ -26,6 +27,8 @@ pub struct Opt {
     skip_timing: bool,
     #[structopt(short = "v")]
     verbose: bool,
+    #[structopt(short = "o", long = "output")]
+    output_directory: Option<PathBuf>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<PathBuf>,
 }
@@ -52,7 +55,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         println!("Time: {:0.3}s", seconds + millis);
                     }
                     if !opt.skip_tuples {
-                        output.dump(tables);
+                        output.dump(&opt.output_directory, tables).expect("Failed to write output");
                     }
                 }
 
