@@ -1,3 +1,5 @@
+use abomonation_derive::Abomonation;
+
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Default)]
 crate struct AllFacts {
