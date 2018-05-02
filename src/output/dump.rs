@@ -3,6 +3,7 @@ use crate::intern::*;
 use fxhash::FxHashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
+use std::io::{self, Write};
 
 crate trait OutputDump {
     fn push_all(
@@ -13,9 +14,12 @@ crate trait OutputDump {
     );
 }
 
-crate fn dump_rows(title: &str, intern: &InternerTables, value: &impl OutputDump) {
-    println!("# {}", title);
-    println!();
+crate fn dump_rows(title: &str,
+                   stream: &mut Write,
+                   intern: &InternerTables,
+                   value: &impl OutputDump) -> io::Result<()> {
+    writeln!(stream, "# {}", title)?;
+    writeln!(stream, "")?;
 
     let mut rows = Vec::new();
     OutputDump::push_all(value, intern, &mut vec![], &mut rows);
@@ -37,8 +41,10 @@ crate fn dump_rows(title: &str, intern: &InternerTables, value: &impl OutputDump
         }
         string.push_str(last);
 
-        println!("{}", string);
+        writeln!(stream, "{}", string)?;
     }
+
+    Ok(())
 }
 
 impl<K, V> OutputDump for FxHashMap<K, V>

@@ -14,6 +14,7 @@ use crate::intern::InternerTables;
 use fxhash::FxHashMap;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::{self, Write};
 
 mod dump;
 mod timely;
@@ -48,14 +49,15 @@ impl Output {
         }
     }
 
-    crate fn dump(&self, intern: &InternerTables) {
-        dump::dump_rows("borrow_live_at", intern, &self.borrow_live_at);
+    crate fn dump<W: Write>(&self, stream: &mut W, intern: &InternerTables) -> io::Result<()> {
+        dump::dump_rows("borrow_live_at", stream, intern, &self.borrow_live_at)?;
 
         if self.dump_enabled {
-            dump::dump_rows("restricts", intern, &self.restricts);
-            dump::dump_rows("region_live_at", intern, &self.region_live_at);
-            dump::dump_rows("subset", intern, &self.subset);
+            dump::dump_rows("restricts", stream, intern, &self.restricts)?;
+            dump::dump_rows("region_live_at", stream, intern, &self.region_live_at)?;
+            dump::dump_rows("subset", stream, intern, &self.subset)?;
         }
+        Ok(())
     }
 
     crate fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {

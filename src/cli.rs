@@ -52,7 +52,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         println!("Time: {:0.3}s", seconds + millis);
                     }
                     if !opt.skip_tuples {
-                        output.dump(tables);
+                        let mut stdout = ::std::io::stdout();
+                        output.dump(&mut stdout.lock(), tables).expect("Failed to write output");
                     }
                 }
 
