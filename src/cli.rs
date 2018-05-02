@@ -6,9 +6,19 @@ use std::time::{Duration, Instant};
 
 use std::path::PathBuf;
 
+arg_enum! {
+    #[derive(Debug, Clone, Copy)]
+    pub enum Algorithm {
+        Naive,
+    }
+}
+
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
 pub struct Opt {
+    #[structopt(short = "a", default_value = "naive",
+                raw(possible_values = "&Algorithm::variants()", case_insensitive = "true"))]
+    algorithm: Algorithm,
     #[structopt(long = "skip-tuples")]
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
@@ -25,9 +35,10 @@ pub fn main(opt: Opt) -> Result<(), Error> {
             let tables = &mut intern::InternerTables::new();
 
             let result: Result<(Duration, Output), Error> = do catch {
-                let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
                 let verbose = opt.verbose;
-                timed(|| Output::compute(all_facts, verbose))
+                let algorithm = opt.algorithm;
+                let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+                timed(|| Output::compute(all_facts, algorithm, verbose))
             };
 
             match result {

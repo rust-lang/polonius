@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::cli::Algorithm;
 use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::intern::InternerTables;
 use fxhash::FxHashMap;
@@ -16,6 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod dump;
 mod timely;
+
 
 #[derive(Clone, Debug)]
 crate struct Output {
@@ -30,8 +32,10 @@ crate struct Output {
 }
 
 impl Output {
-    crate fn compute(all_facts: AllFacts, dump_enabled: bool) -> Self {
-        timely::timely_dataflow(dump_enabled, all_facts)
+    crate fn compute(all_facts: AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
+        match algorithm {
+            Algorithm::Naive => timely::timely_dataflow(dump_enabled, all_facts),
+        }
     }
 
     fn new(dump_enabled: bool) -> Self {
