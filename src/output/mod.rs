@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::cli::Algorithm;
 use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::intern::InternerTables;
 use fxhash::FxHashMap;
@@ -17,10 +18,6 @@ use std::collections::{BTreeMap, BTreeSet};
 mod dump;
 mod timely;
 
-#[derive(Debug)]
-crate enum Algorithm {
-    Naive,
-}
 
 #[derive(Clone, Debug)]
 crate struct Output {

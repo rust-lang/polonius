@@ -17,6 +17,9 @@ extern crate timely;
 #[macro_use]
 extern crate structopt;
 
+#[macro_use]
+extern crate clap;
+
 mod facts;
 mod intern;
 mod output;

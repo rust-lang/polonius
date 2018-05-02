@@ -1,7 +1,8 @@
 #![cfg(test)]
 
 use crate::intern;
-use crate::output::{Algorithm, Output};
+use crate::output::Output;
+use crate::cli::Algorithm;
 use crate::tab_delim;
 use failure::Error;
 use std::path::Path;
