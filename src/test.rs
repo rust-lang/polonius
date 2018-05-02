@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::intern;
-use crate::output::Output;
+use crate::output::{Algorithm, Output};
 use crate::tab_delim;
 use failure::Error;
 use std::path::Path;
@@ -16,7 +16,7 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         println!("facts_dir = {:?}", facts_dir);
         let tables = &mut intern::InternerTables::new();
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let _result = Output::compute(all_facts, false);
+        let _result = Output::compute(all_facts, Algorithm::Naive, false);
         // FIXME: check `_result` somehow
     }
 }

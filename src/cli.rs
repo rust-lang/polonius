@@ -1,5 +1,5 @@
 use crate::intern;
-use crate::output::Output;
+use crate::output::{Algorithm, Output};
 use crate::tab_delim;
 use failure::Error;
 use std::time::{Duration, Instant};
@@ -25,9 +25,9 @@ pub fn main(opt: Opt) -> Result<(), Error> {
             let tables = &mut intern::InternerTables::new();
 
             let result: Result<(Duration, Output), Error> = do catch {
-                let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
                 let verbose = opt.verbose;
-                timed(|| Output::compute(all_facts, verbose))
+                let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+                timed(|| Output::compute(all_facts, Algorithm::Naive, verbose))
             };
 
             match result {
