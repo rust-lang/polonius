@@ -13,6 +13,8 @@ pub struct Opt {
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
     skip_timing: bool,
+    #[structopt(short = "v")]
+    verbose: bool,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<PathBuf>,
 }
@@ -24,7 +26,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
             let result: Result<(Duration, Output), Error> = do catch {
                 let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-                timed(|| Output::compute(all_facts, false))
+                let verbose = opt.verbose;
+                timed(|| Output::compute(all_facts, verbose))
             };
 
             match result {
