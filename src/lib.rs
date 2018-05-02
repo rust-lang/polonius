@@ -14,6 +14,9 @@ extern crate failure;
 extern crate fxhash;
 extern crate timely;
 
+#[macro_use]
+extern crate structopt;
+
 mod facts;
 mod intern;
 mod output;
