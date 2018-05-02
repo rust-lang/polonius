@@ -14,13 +14,9 @@ crate trait OutputDump {
     );
 }
 
-crate fn dump_rows(title: &str,
-                   stream: &mut Write,
+crate fn dump_rows(stream: &mut Write,
                    intern: &InternerTables,
                    value: &impl OutputDump) -> io::Result<()> {
-    writeln!(stream, "# {}", title)?;
-    writeln!(stream, "")?;
-
     let mut rows = Vec::new();
     OutputDump::push_all(value, intern, &mut vec![], &mut rows);
     let col_width: usize = rows.iter()
