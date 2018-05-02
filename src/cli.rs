@@ -9,6 +9,8 @@ use std::path::PathBuf;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
 pub struct Opt {
+    #[structopt(long = "skip-timing")]
+    skip_timing: bool,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<PathBuf>,
 }
@@ -27,9 +29,11 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                 Ok((duration, output)) => {
                     println!("--------------------------------------------------");
                     println!("Directory: {}", facts_dir.display());
-                    let seconds: f64 = duration.as_secs() as f64;
-                    let millis: f64 = duration.subsec_nanos() as f64 * 0.000_000_001_f64;
-                    println!("Time: {:0.3}s", seconds + millis);
+                    if !opt.skip_timing {
+                        let seconds: f64 = duration.as_secs() as f64;
+                        let millis: f64 = duration.subsec_nanos() as f64 * 0.000_000_001_f64;
+                        println!("Time: {:0.3}s", seconds + millis);
+                    }
                     output.dump(tables);
                 }
 
