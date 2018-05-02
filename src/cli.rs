@@ -9,6 +9,8 @@ use std::path::PathBuf;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
 pub struct Opt {
+    #[structopt(long = "skip-tuples")]
+    skip_tuples: bool,
     #[structopt(long = "skip-timing")]
     skip_timing: bool,
     #[structopt(raw(required = "true"))]
@@ -34,7 +36,9 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         let millis: f64 = duration.subsec_nanos() as f64 * 0.000_000_001_f64;
                         println!("Time: {:0.3}s", seconds + millis);
                     }
-                    output.dump(tables);
+                    if !opt.skip_tuples {
+                        output.dump(tables);
+                    }
                 }
 
                 Err(error) => {
