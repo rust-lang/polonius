@@ -67,10 +67,8 @@ impl Output {
             use std::path::Path;
 
             Ok(match out_dir {
-                Some(ref dir) => {
-                    if !dir.exists() {
-                        fs::create_dir(&dir)?;
-                    }
+                Some(dir) => {
+                    fs::create_dir_all(&dir)?;
                     let mut of = dir.join(name);
                     of.set_extension("facts");
                     Box::new(fs::File::create(of)?)
