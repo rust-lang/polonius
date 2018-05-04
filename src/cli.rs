@@ -54,6 +54,17 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         let seconds: f64 = duration.as_secs() as f64;
                         let millis: f64 = duration.subsec_nanos() as f64 * 0.000_000_001_f64;
                         println!("Time: {:0.3}s", seconds + millis);
+
+                        if opt.verbose {
+                            println!("Max region graph in/out-degree: {} {}",
+                                     output.region_degrees.max_in_degree(),
+                                     output.region_degrees.max_out_degree());
+                            if output.region_degrees.has_multidegree() {
+                                println!("Found multidegree");
+                            } else {
+                                println!("No multidegree");
+                            }
+                        }
                     }
                     if !opt.skip_tuples {
                         output.dump(&output_directory, tables).expect("Failed to write output");

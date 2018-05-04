@@ -18,6 +18,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 mod dump;
+mod tracking;
 mod timely;
 
 
@@ -31,6 +32,7 @@ crate struct Output {
     restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
     region_live_at: FxHashMap<Point, Vec<Region>>,
     subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
+    crate region_degrees: tracking::RegionDegrees,
 }
 
 impl Output {
@@ -46,6 +48,7 @@ impl Output {
             restricts: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
             subset: FxHashMap::default(),
+            region_degrees: tracking::RegionDegrees::new(),
             dump_enabled,
         }
     }
