@@ -5,7 +5,6 @@ use failure::Error;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
-use std::io;
 use std::path::PathBuf;
 
 arg_enum! {
