@@ -64,7 +64,6 @@ impl Output {
             // create a writer for the provided output.
             // If we have an output directory use that, otherwise just dump to stdout
             use std::fs;
-            use std::path::Path;
 
             Ok(match out_dir {
                 Some(dir) => {
