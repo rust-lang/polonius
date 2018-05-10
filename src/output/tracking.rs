@@ -10,6 +10,7 @@
 
 use crate::facts::{Point, Region};
 use fxhash::FxHashMap;
+use histo::Histogram;
 
 #[derive(Clone, Debug)]
 crate struct RegionDegrees {
@@ -48,5 +49,17 @@ impl RegionDegrees {
             }
         }
         return false;
+    }
+
+    crate fn histogram(&self) -> (Histogram,Histogram) {
+        let mut histo_in = Histogram::with_buckets(10);
+        let mut histo_out= Histogram::with_buckets(10);
+        for v in self.in_degree.values() {
+            histo_in.add(*v as u64);
+        }
+        for v in self.in_degree.values() {
+            histo_out.add(*v as u64);
+        }
+        (histo_in, histo_out)
     }
 }
