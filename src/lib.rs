@@ -12,6 +12,7 @@ extern crate abomonation_derive;
 extern crate differential_dataflow;
 extern crate failure;
 extern crate fxhash;
+extern crate histo;
 extern crate timely;
 extern crate structopt;
 
