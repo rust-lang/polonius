@@ -1,8 +1,3 @@
-// macro `arg_enum!` uses some deprecated methods, and I can't find a
-// more targetd way to squelch the warnings:
-#![allow(deprecated)]
-
-use clap::{arg_enum, _clap_count_exprs};
 use crate::intern;
 use crate::output::Output;
 use crate::tab_delim;
