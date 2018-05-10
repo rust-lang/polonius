@@ -23,6 +23,8 @@ pub struct Opt {
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
     skip_timing: bool,
+    #[structopt(long = "stats")]
+    stats: bool,
     #[structopt(short = "v")]
     verbose: bool,
     #[structopt(short = "o", long = "output")]
@@ -40,7 +42,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
             let tables = &mut intern::InternerTables::new();
 
             let result: Result<(Duration, Output), Error> = do catch {
-                let verbose = opt.verbose;
+                let verbose = opt.verbose | opt.stats;
                 let algorithm = opt.algorithm;
                 let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
                 timed(|| Output::compute(all_facts, algorithm, verbose))
@@ -64,6 +66,12 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                             } else {
                                 println!("No multidegree");
                             }
+                        }
+
+                        if opt.stats {
+                            let (histo_in, histo_out) = output.region_degrees.histogram();
+                            println!("In-degree stats\n{}", histo_in);
+                            println!("Out-degree stats\n{}", histo_out);
                         }
                     }
                     if !opt.skip_tuples {
