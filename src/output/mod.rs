@@ -20,6 +20,7 @@ use std::path::PathBuf;
 mod dump;
 mod tracking;
 mod naive;
+mod timely_opt;
 
 
 #[derive(Clone, Debug)]
@@ -39,6 +40,7 @@ impl Output {
     crate fn compute(all_facts: AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
         match algorithm {
             Algorithm::Naive => naive::compute(dump_enabled, all_facts),
+            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts),
         }
     }
 

@@ -12,6 +12,7 @@ arg_enum! {
     #[derive(Debug, Clone, Copy)]
     pub enum Algorithm {
         Naive,
+        TimelyOpt,
     }
 }
 
