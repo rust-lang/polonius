@@ -10,9 +10,10 @@
 
 //! Timely dataflow runs on its own thread.
 
-use crate::facts::AllFacts;
+use crate::facts::{AllFacts, Point};
 use crate::output::Output;
 use differential_dataflow::collection::Collection;
+use differential_dataflow::operators::iterate::Variable;
 use differential_dataflow::operators::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem;
@@ -21,8 +22,23 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use timely;
 use timely::dataflow::operators::*;
+use timely::dataflow::Scope;
 
-pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
+pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
+    // Declare that each universal region is live at every point.
+    let all_points: BTreeSet<Point> = all_facts
+        .cfg_edge
+        .iter()
+        .map(|&(p, _)| p)
+        .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
+        .collect();
+
+    for &r in &all_facts.universal_region {
+        for &p in &all_points {
+            all_facts.region_live_at.push((r, p));
+        }
+    }
+
     let result = Arc::new(Mutex::new(Output::new(dump_enabled)));
 
     // Use a channel to send `all_facts` to one worker (and only one)
@@ -57,7 +73,6 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
                 let_collections! {
                     let (
                         borrow_region,
-                        universal_region,
                         cfg_edge,
                         killed,
                         outlives,
@@ -65,60 +80,119 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
                     ) = ..my_facts;
                 }
 
-                // .decl subset(Ra, Rb, P) -- at the point P, R1 <= R2 holds
-                let subset = outlives.iterate(|subset| {
-                    let outlives = outlives.enter(&subset.scope());
-                    let cfg_edge = cfg_edge.enter(&subset.scope());
-                    let region_live_at = region_live_at.enter(&subset.scope());
-                    let universal_region = universal_region.enter(&subset.scope());
+                // .decl subset(R1, R2, P)
+                //
+                // At the point P, R1 <= R2.
+                let subset = scope.scoped(|subset_scope| {
+                    let outlives = outlives.enter(&subset_scope);
+                    let cfg_edge = cfg_edge.enter(&subset_scope);
+                    let region_live_at = region_live_at.enter(&subset_scope);
 
                     // subset(R1, R2, P) :- outlives(R1, R2, P).
-                    let subset1 = outlives.clone();
+                    let subset_base = outlives.clone();
+                    let subset = Variable::from(subset_base.clone());
 
-                    // subset(R1, R3, P) :-
-                    //   subset(R1, R2, P),
-                    //   subset(R2, R3, P).
-                    let subset2 = subset
-                        .map(|(r1, r2, q)| ((r2, q), r1))
-                        .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
-                        .map(|((_r2, p), r1, r3)| (r1, r3, p));
-
-                    // subset(R1, R2, Q) :-
+                    // .decl live_to_dead_regions(R1, R2, P, Q)
+                    //
+                    // The regions `R1` and `R2` are "live to dead"
+                    // on the edge `P -> Q` if:
+                    //
+                    // - In P, `R1` <= `R2`
+                    // - In Q, `R1` is live but `R2` is dead.
+                    //
+                    // In that case, `Q` would like to add all the
+                    // live things reachable from `R2` to `R1`.
+                    //
+                    // live_to_dead_regions(R1, R2, P, Q) :-
                     //   subset(R1, R2, P),
                     //   cfg_edge(P, Q),
-                    //   (region_live_at(R1, Q); universal_region(R1)),
-                    //   (region_live_at(R2, Q); universal_region(R2)).
-                    let subset3base0 = subset.map(|(r1, r2, p)| (p, (r1, r2))).join(&cfg_edge);
-                    let subset3base1 = subset3base0
+                    //   region_live_at(R1, Q),
+                    //   !region_live_at(R2, Q).
+                    let live_to_dead_regions = {
+                        subset
+                            .map(|(r1, r2, p)| (p, (r1, r2)))
+                            .join(&cfg_edge)
+                            .map(|(p, (r1, r2), q)| ((r1, q), (r2, p)))
+                            .semijoin(&region_live_at)
+                            .map(|((r1, q), (r2, p))| ((r2, q), (r1, p)))
+                            .antijoin(&region_live_at)
+                            .map(|((r2, q), (r1, p))| (r1, r2, p, q))
+                    };
+
+                    // .decl dead_can_reach(R1, R2, P, Q)
+                    //
+                    // Indicates that the region `R1`, which is dead
+                    // in `Q`, can reach the region `R2` in P.
+                    //
+                    // This is effectively the transitive subset
+                    // relation, but we try to limit it to regions
+                    // that are dying on the edge P -> Q.
+                    let dead_can_reach = {
+                        // dead_can_reach(R2, R3, P, Q) :-
+                        //   live_to_dead_regions(_R1, R2, P, Q),
+                        //   subset(R2, R3, P).
+                        let dead_can_reach_base = {
+                            live_to_dead_regions
+                                .map(|(_r1, r2, p, q)| ((r2, p), q))
+                                .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
+                                .map(|((r2, p), q, r3)| (r2, r3, p, q))
+                        };
+
+                        let dead_can_reach = Variable::from(dead_can_reach_base.clone());
+
+                        // dead_can_reach(R1, R3, P, Q) :-
+                        //   dead_can_reach(R1, R2, P, Q),
+                        //   !region_live_at(R2, Q),
+                        //   subset(R2, R3, P).
+                        //
+                        // This is the "transitive closure" rule, but
+                        // note that we only apply it with the
+                        // "intermediate" region R2 is dead at Q.
+                        let dead_can_reach2 = {
+                            dead_can_reach
+                                .map(|(r1, r2, p, q)| ((r2, q), (r1, p)))
+                                .antijoin(&region_live_at)
+                                .map(|((r2, q), (r1, p))| ((r2, p), (r1, q)))
+                                .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
+                                .map(|((_r2, p), (r1, q), r3)| (r1, r3, p, q))
+                        };
+
+                        dead_can_reach.set(&dead_can_reach_base.concat(&dead_can_reach2).distinct())
+                    };
+
+                    // subset(R1, R2, Q) :-
+                    //   subset(R1, R2, P) :-
+                    //   cfg_edge(P, Q),
+                    //   region_live_at(R1, Q),
+                    //   region_live_at(R2, Q).
+                    //
+                    // Carry `R1 <= R2` from P into Q if both `R1` and
+                    // `R2` are live in Q.
+                    let subset1 = subset
+                        .map(|(r1, r2, p)| (p, (r1, r2)))
+                        .join(&cfg_edge)
                         .map(|(_p, (r1, r2), q)| ((r1, q), r2))
-                        .semijoin(&region_live_at);
-                    let subset3a = subset3base1
+                        .semijoin(&region_live_at)
                         .map(|((r1, q), r2)| ((r2, q), r1))
                         .semijoin(&region_live_at)
                         .map(|((r2, q), r1)| (r1, r2, q));
-                    let subset3b = subset3base1
-                        .map(|((r1, q), r2)| (r2, (q, r1)))
-                        .semijoin(&universal_region)
-                        .map(|(r2, (q, r1))| (r1, r2, q));
-                    let subset3base2 = subset3base0
-                        .map(|(_p, (r1, r2), q)| (r1, (q, r2)))
-                        .semijoin(&universal_region);
-                    let subset3c = subset3base2
-                        .map(|(r1, (q, r2))| (r2, (q, r1)))
-                        .semijoin(&universal_region)
-                        .map(|(r2, (q, r1))| (r1, r2, q));
-                    let subset3d = subset3base2
-                        .map(|(r1, (q, r2))| ((r2, q), r1))
-                        .semijoin(&region_live_at)
-                        .map(|((r2, q), r1)| (r1, r2, q));
 
-                    subset1
-                        .concat(&subset2)
-                        .concat(&subset3a)
-                        .concat(&subset3b)
-                        .concat(&subset3c)
-                        .concat(&subset3d)
-                        .distinct()
+                    // subset(R1, R3, Q) :-
+                    //   live_to_dead_regions(R1, R2, P, Q),
+                    //   dead_can_reach(R2, R3, P, Q),
+                    //   region_live_at(R3, Q).
+                    let subset2 = {
+                        live_to_dead_regions
+                            .map(|(r1, r2, p, q)| ((r2, p, q), r1))
+                            .join(&dead_can_reach.map(|(r2, r3, p, q)| ((r2, p, q), r3)))
+                            .map(|((_r2, _p, q), r1, r3)| ((r3, q), r1))
+                            .semijoin(&region_live_at)
+                            .map(|((r3, q), r1)| (r1, r3, q))
+                    };
+
+                    subset
+                        .set(&subset_base.concat(&subset1).concat(&subset2).distinct())
+                        .leave()
                 });
 
                 // .decl requires(R, B, P) -- at the point, things with region R
@@ -129,7 +203,6 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
                     let killed = killed.enter(&requires.scope());
                     let region_live_at = region_live_at.enter(&requires.scope());
                     let cfg_edge = cfg_edge.enter(&requires.scope());
-                    let universal_region = universal_region.enter(&requires.scope());
 
                     // requires(R, B, P) :- borrow_region(R, B, P).
                     let requires1 = borrow_region.clone();
@@ -146,25 +219,19 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
                     //   requires(R, B, P),
                     //   !killed(B, P),
                     //   cfg_edge(P, Q),
-                    //   (region_live_at(R, Q); universal_region(R)).
-                    let requires_propagate_base = requires
+                    //   region_live_at(R, Q).
+                    let requires3 = requires
                         .map(|(r, b, p)| ((b, p), r))
                         .antijoin(&killed)
                         .map(|((b, p), r)| (p, (r, b)))
-                        .join(&cfg_edge);
-                    let requires3 = requires_propagate_base
+                        .join(&cfg_edge)
                         .map(|(_p, (r, b), q)| ((r, q), b))
                         .semijoin(&region_live_at)
                         .map(|((r, q), b)| (r, b, q));
-                    let requires4 = requires_propagate_base
-                        .map(|(_p, (r, b), q)| (r, (q, b)))
-                        .semijoin(&universal_region)
-                        .map(|(r, (q, b))| (r, b, q));
 
                     requires1
                         .concat(&requires2)
                         .concat(&requires3)
-                        .concat(&requires4)
                         .distinct()
                 });
 
@@ -177,13 +244,7 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
                         .semijoin(&region_live_at)
                         .map(|((_r, p), b)| (b, p));
 
-                    // borrow_live_at(B, P) :- requires(R, B, P), universal_region(R).
-                    let borrow_live_at2 = requires
-                        .map(|(r, b, p)| (r, (p, b)))
-                        .semijoin(&universal_region)
-                        .map(|(_r, (p, b))| (b, p));
-
-                    borrow_live_at1.concat(&borrow_live_at2).distinct()
+                    borrow_live_at1.distinct()
                 };
 
                 if dump_enabled {
