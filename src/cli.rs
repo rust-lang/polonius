@@ -1,3 +1,5 @@
+#![allow(deprecated)] // arg_enum! uses deprecated stuff
+
 use crate::intern;
 use crate::output::Output;
 use crate::tab_delim;
