@@ -157,7 +157,9 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                                 .map(|((_r2, p), (r1, q), r3)| (r1, r3, p, q))
                         };
 
-                        dead_can_reach.set(&dead_can_reach_base.concat(&dead_can_reach2).distinct())
+                        dead_can_reach.set(&dead_can_reach_base
+                            .concat(&dead_can_reach2)
+                            .distinct_total())
                     };
 
                     // subset(R1, R2, Q) :-
@@ -191,7 +193,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     };
 
                     subset
-                        .set(&subset_base.concat(&subset1).concat(&subset2).distinct())
+                        .set(&subset_base
+                            .concat(&subset1)
+                            .concat(&subset2)
+                            .distinct_total())
                         .leave()
                 });
 
@@ -232,7 +237,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     requires1
                         .concat(&requires2)
                         .concat(&requires3)
-                        .distinct()
+                        .distinct_total()
                 });
 
                 // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
@@ -244,7 +249,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         .semijoin(&region_live_at)
                         .map(|((_r, p), b)| (b, p));
 
-                    borrow_live_at1.distinct()
+                    borrow_live_at1.distinct_total()
                 };
 
                 if dump_enabled {
