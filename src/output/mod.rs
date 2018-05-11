@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 mod dump;
 mod tracking;
-mod timely;
+mod naive;
 
 
 #[derive(Clone, Debug)]
@@ -38,7 +38,7 @@ crate struct Output {
 impl Output {
     crate fn compute(all_facts: AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
         match algorithm {
-            Algorithm::Naive => timely::timely_dataflow(dump_enabled, all_facts),
+            Algorithm::Naive => naive::compute(dump_enabled, all_facts),
         }
     }
 
