@@ -132,15 +132,18 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // .decl dead_region_requires(R, B, P, Q)
                     //
                     // The region `R` requires the borrow `B`, but the
-                    // region ``R goes dead along the edge `P -> Q`
+                    // region `R` goes dead along the edge `P -> Q`
                     //
                     // dead_region_requires(R, B, P, Q) :-
                     //   requires(R, B, P),
+                    //   !killed(B, P),
                     //   cfg_edge(P, Q),
                     //   !region_live_at(R, Q).
                     let dead_region_requires = {
                         requires
-                            .map(|(r, b, p)| (p, (r, b)))
+                            .map(|(r, b, p)| ((b, p), r))
+                            .antijoin(&killed)
+                            .map(|((b, p), r)| (p, (r, b)))
                             .join(&cfg_edge)
                             .map(|(p, (r, b), q)| ((r, q), (b, p)))
                             .antijoin(&region_live_at)
@@ -218,7 +221,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     let dead_can_reach_live = {
                         dead_can_reach.map(|(r1, r2, p, q)| ((r2, q), (r1, p)))
                             .semijoin(&region_live_at)
-                            .map(|((r2, q), (r1, p))| (r1, r2, p, q))
+                            .map(|((r2, q), (r1, p))| ((r1, p, q), r2))
                     };
 
                     // subset(R1, R2, Q) :-
@@ -244,17 +247,23 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     let subset2 = {
                         live_to_dead_regions
                             .map(|(r1, r2, p, q)| ((r2, p, q), r1))
-                            .join(&dead_can_reach_live.map(|(r2, r3, p, q)| ((r2, p, q), r3)))
+                            .join(&dead_can_reach_live)
                             .map(|((_r2, _p, q), r1, r3)| (r1, r3, q))
                     };
 
-                    // requires(R2, B, P) :-
-                    //   requires(R1, B, P),
-                    //   subset(R1, R2, P).
-                    let requires1 = requires
-                        .map(|(r1, b, p)| ((r1, p), b))
-                        .join(&subset.map(|(r1, r2, p)| ((r1, p), r2)))
-                        .map(|((_r1, p), b, r2)| (r2, b, p));
+                    // requires(R2, B, Q) :-
+                    //   dead_region_requires(R1, B, P, Q),
+                    //   dead_can_reach_live(R1, R2, P, Q).
+                    //
+                    // Communicate a `R1 requires B` relation across
+                    // an edge `P -> Q` where `R1` is dead in Q; in
+                    // that case, for each region `R2` live in `Q`
+                    // where `R1 <= R2` in P, we add `R2 requires B`
+                    // to `Q`.
+                    let requires1 = dead_region_requires
+                        .map(|(r1, b, p, q)| ((r1, p, q), b))
+                        .join(&dead_can_reach_live)
+                        .map(|((_r1, _p, q), b, r2)| (r2, b, q));
 
                     // requires(R, B, Q) :-
                     //   requires(R, B, P),
