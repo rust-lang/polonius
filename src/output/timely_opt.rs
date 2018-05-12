@@ -90,10 +90,17 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // .decl subset(R1, R2, P)
                     //
                     // At the point P, R1 <= R2.
-
+                    //
                     // subset(R1, R2, P) :- outlives(R1, R2, P).
                     let subset0 = outlives.clone();
                     let subset = Variable::from(subset0.clone());
+
+                    // .decl requires(R, B, P) -- at the point, things with region R
+                    // may depend on data from borrow B
+                    //
+                    // requires(R, B, P) :- borrow_region(R, B, P).
+                    let requires0 = borrow_region.clone();
+                    let requires = Variable::from(requires0.clone());
 
                     // .decl live_to_dead_regions(R1, R2, P, Q)
                     //
@@ -122,6 +129,43 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .map(|((r2, q), (r1, p))| (r1, r2, p, q))
                     };
 
+                    // .decl dead_region_requires(R, B, P, Q)
+                    //
+                    // The region `R` requires the borrow `B`, but the
+                    // region ``R goes dead along the edge `P -> Q`
+                    //
+                    // dead_region_requires(R, B, P, Q) :-
+                    //   requires(R, B, P),
+                    //   cfg_edge(P, Q),
+                    //   !region_live_at(R, Q).
+                    let dead_region_requires = {
+                        requires
+                            .map(|(r, b, p)| (p, (r, b)))
+                            .join(&cfg_edge)
+                            .map(|(p, (r, b), q)| ((r, q), (b, p)))
+                            .antijoin(&region_live_at)
+                            .map(|((r, q), (b, p))| (r, b, p, q))
+                    };
+
+                    // .decl dead_can_reach_origins(R, P, Q)
+                    //
+                    // Contains dead regions where we are interested
+                    // in computing the transitive closure of things they
+                    // can reach.
+                    let dead_can_reach_origins = {
+                        let dead_can_reach_origins0 = {
+                            live_to_dead_regions
+                                .map(|(_r1, r2, p, q)| ((r2, p), q))
+                        };
+                        let dead_can_reach_origins1 = {
+                            dead_region_requires
+                                .map(|(r, _b, p, q)| ((r, p), q))
+                        };
+                        dead_can_reach_origins0
+                            .concat(&dead_can_reach_origins1)
+                            .distinct_total()
+                    };
+
                     // .decl dead_can_reach(R1, R2, P, Q)
                     //
                     // Indicates that the region `R1`, which is dead
@@ -131,15 +175,13 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // relation, but we try to limit it to regions
                     // that are dying on the edge P -> Q.
                     let dead_can_reach = {
-                        // dead_can_reach(R2, R3, P, Q) :-
-                        //   live_to_dead_regions(_R1, R2, P, Q),
-                        //   subset(R2, R3, P).
+                        // dead_can_reach(R1, R2, P, Q) :-
+                        //   dead_can_reach_origins(R1, P, Q),
+                        //   subset(R1, R2, P).
                         let dead_can_reach0 = {
-                            live_to_dead_regions
-                                .map(|(_r1, r2, p, q)| ((r2, p), q))
-                                .distinct_total()
-                                .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
-                                .map(|((r2, p), q, r3)| (r2, r3, p, q))
+                            dead_can_reach_origins
+                                .join(&subset.map(|(r1, r2, p)| ((r1, p), r2)))
+                                .map(|((r1, p), q, r2)| (r1, r2, p, q))
                         };
 
                         let dead_can_reach = Variable::from(dead_can_reach0.clone());
@@ -165,6 +207,20 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .set(&dead_can_reach0.concat(&dead_can_reach1).distinct_total())
                     };
 
+                    // .decl dead_can_reach_live(R1, R2, P, Q)
+                    //
+                    // Indicates that, along the edge `P -> Q`, the
+                    // dead (in Q) region R1 can reach the live (in Q)
+                    // region R2 via a subset relation. This is a
+                    // subset of the full `dead_can_reach` relation
+                    // where we filter down to those cases where R2 is
+                    // live in Q.
+                    let dead_can_reach_live = {
+                        dead_can_reach.map(|(r1, r2, p, q)| ((r2, q), (r1, p)))
+                            .semijoin(&region_live_at)
+                            .map(|((r2, q), (r1, p))| (r1, r2, p, q))
+                    };
+
                     // subset(R1, R2, Q) :-
                     //   subset(R1, R2, P) :-
                     //   cfg_edge(P, Q),
@@ -184,23 +240,13 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
                     // subset(R1, R3, Q) :-
                     //   live_to_dead_regions(R1, R2, P, Q),
-                    //   dead_can_reach(R2, R3, P, Q),
-                    //   region_live_at(R3, Q).
+                    //   dead_can_reach_live(R2, R3, P, Q).
                     let subset2 = {
                         live_to_dead_regions
                             .map(|(r1, r2, p, q)| ((r2, p, q), r1))
-                            .join(&dead_can_reach.map(|(r2, r3, p, q)| ((r2, p, q), r3)))
-                            .map(|((_r2, _p, q), r1, r3)| ((r3, q), r1))
-                            .semijoin(&region_live_at)
-                            .map(|((r3, q), r1)| (r1, r3, q))
+                            .join(&dead_can_reach_live.map(|(r2, r3, p, q)| ((r2, p, q), r3)))
+                            .map(|((_r2, _p, q), r1, r3)| (r1, r3, q))
                     };
-
-                    // .decl requires(R, B, P) -- at the point, things with region R
-                    // may depend on data from borrow B
-
-                    // requires(R, B, P) :- borrow_region(R, B, P).
-                    let requires0 = borrow_region.clone();
-                    let requires = Variable::from(requires0.clone());
 
                     // requires(R2, B, P) :-
                     //   requires(R1, B, P),
