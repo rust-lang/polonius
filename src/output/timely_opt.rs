@@ -134,6 +134,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         let dead_can_reach_base = {
                             live_to_dead_regions
                                 .map(|(_r1, r2, p, q)| ((r2, p), q))
+                                .distinct_total()
                                 .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
                                 .map(|((r2, p), q, r3)| (r2, r3, p, q))
                         };
