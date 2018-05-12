@@ -121,8 +121,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     let live_to_dead_regions = {
                         subset
                             .map(|(r1, r2, p)| (p, (r1, r2)))
-                            .join(&cfg_edge)
-                            .map(|(p, (r1, r2), q)| ((r1, q), (r2, p)))
+                            .join_map(&cfg_edge, |&p, &(r1, r2), &q| ((r1, q), (r2, p)))
                             .semijoin(&region_live_at)
                             .map(|((r1, q), (r2, p))| ((r2, q), (r1, p)))
                             .antijoin(&region_live_at)
@@ -144,8 +143,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .map(|(r, b, p)| ((b, p), r))
                             .antijoin(&killed)
                             .map(|((b, p), r)| (p, (r, b)))
-                            .join(&cfg_edge)
-                            .map(|(p, (r, b), q)| ((r, q), (b, p)))
+                            .join_map(&cfg_edge, |&p, &(r, b), &q| ((r, q), (b, p)))
                             .antijoin(&region_live_at)
                             .map(|((r, q), (b, p))| (r, b, p, q))
                     };
@@ -156,14 +154,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // in computing the transitive closure of things they
                     // can reach.
                     let dead_can_reach_origins = {
-                        let dead_can_reach_origins0 = {
-                            live_to_dead_regions
-                                .map(|(_r1, r2, p, q)| ((r2, p), q))
-                        };
-                        let dead_can_reach_origins1 = {
-                            dead_region_requires
-                                .map(|(r, _b, p, q)| ((r, p), q))
-                        };
+                        let dead_can_reach_origins0 =
+                            { live_to_dead_regions.map(|(_r1, r2, p, q)| ((r2, p), q)) };
+                        let dead_can_reach_origins1 =
+                            { dead_region_requires.map(|(r, _b, p, q)| ((r, p), q)) };
                         dead_can_reach_origins0
                             .concat(&dead_can_reach_origins1)
                             .distinct_total()
@@ -188,9 +182,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         //   dead_can_reach_origins(R1, P, Q),
                         //   subset(R1, R2, P).
                         let dead_can_reach0 = {
-                            dead_can_reach_origins
-                                .join(&subset.map(|(r1, r2, p)| ((r1, p), r2)))
-                                .map(|((r1, p), q, r2)| ((r2, q), (r1, p)))
+                            dead_can_reach_origins.join_map(
+                                &subset.map(|(r1, r2, p)| ((r1, p), r2)),
+                                |&(r1, p), &q, &r2| ((r2, q), (r1, p)),
+                            )
                         };
 
                         let dead_can_reach = Variable::from(dead_can_reach0.clone());
@@ -207,8 +202,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             dead_can_reach
                                 .antijoin(&region_live_at)
                                 .map(|((r2, q), (r1, p))| ((r2, p), (r1, q)))
-                                .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
-                                .map(|((_r2, p), (r1, q), r3)| ((r3, q), (r1, p)))
+                                .join_map(
+                                    &subset.map(|(r2, r3, p)| ((r2, p), r3)),
+                                    |&(_r2, p), &(r1, q), &r3| ((r3, q), (r1, p)),
+                                )
                         };
 
                         dead_can_reach
@@ -244,8 +241,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // `R2` are live in Q.
                     let subset1 = subset
                         .map(|(r1, r2, p)| (p, (r1, r2)))
-                        .join(&cfg_edge)
-                        .map(|(_p, (r1, r2), q)| ((r1, q), r2))
+                        .join_map(&cfg_edge, |_p, &(r1, r2), &q| ((r1, q), r2))
                         .semijoin(&region_live_at)
                         .map(|((r1, q), r2)| ((r2, q), r1))
                         .semijoin(&region_live_at)
@@ -257,8 +253,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     let subset2 = {
                         live_to_dead_regions
                             .map(|(r1, r2, p, q)| ((r2, p, q), r1))
-                            .join(&dead_can_reach_live)
-                            .map(|((_r2, _p, q), r1, r3)| (r1, r3, q))
+                            .join_map(&dead_can_reach_live, |&(_r2, _p, q), &r1, &r3| (r1, r3, q))
                     };
 
                     // requires(R2, B, Q) :-
@@ -272,8 +267,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // to `Q`.
                     let requires1 = dead_region_requires
                         .map(|(r1, b, p, q)| ((r1, p, q), b))
-                        .join(&dead_can_reach_live)
-                        .map(|((_r1, _p, q), b, r2)| (r2, b, q));
+                        .join_map(&dead_can_reach_live, |&(_r1, _p, q), &b, &r2| (r2, b, q));
 
                     // requires(R, B, Q) :-
                     //   requires(R, B, P),
@@ -284,8 +278,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         .map(|(r, b, p)| ((b, p), r))
                         .antijoin(&killed)
                         .map(|((b, p), r)| (p, (r, b)))
-                        .join(&cfg_edge)
-                        .map(|(_p, (r, b), q)| ((r, q), b))
+                        .join_map(&cfg_edge, |&_p, &(r, b), &q| ((r, q), b))
                         .semijoin(&region_live_at)
                         .map(|((r, q), b)| (r, b, q));
 
