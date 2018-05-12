@@ -177,6 +177,12 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // This is effectively the transitive subset
                     // relation, but we try to limit it to regions
                     // that are dying on the edge P -> Q.
+                    //
+                    // NB. As a micro-optimization, `dead_can_reach`
+                    // is stored as `dead_can_reach((R2, Q), (R1,
+                    // P))`, since that happens to be the ordering
+                    // that is required for the joins it participates
+                    // in.
                     let dead_can_reach = {
                         // dead_can_reach(R1, R2, P, Q) :-
                         //   dead_can_reach_origins(R1, P, Q),
@@ -184,7 +190,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         let dead_can_reach0 = {
                             dead_can_reach_origins
                                 .join(&subset.map(|(r1, r2, p)| ((r1, p), r2)))
-                                .map(|((r1, p), q, r2)| (r1, r2, p, q))
+                                .map(|((r1, p), q, r2)| ((r2, q), (r1, p)))
                         };
 
                         let dead_can_reach = Variable::from(dead_can_reach0.clone());
@@ -199,11 +205,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         // "intermediate" region R2 is dead at Q.
                         let dead_can_reach1 = {
                             dead_can_reach
-                                .map(|(r1, r2, p, q)| ((r2, q), (r1, p)))
                                 .antijoin(&region_live_at)
                                 .map(|((r2, q), (r1, p))| ((r2, p), (r1, q)))
                                 .join(&subset.map(|(r2, r3, p)| ((r2, p), r3)))
-                                .map(|((_r2, p), (r1, q), r3)| (r1, r3, p, q))
+                                .map(|((_r2, p), (r1, q), r3)| ((r3, q), (r1, p)))
                         };
 
                         dead_can_reach
@@ -218,8 +223,13 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // subset of the full `dead_can_reach` relation
                     // where we filter down to those cases where R2 is
                     // live in Q.
+                    //
+                    // NB. As a micro-optimization,
+                    // `dead_can_reach_live` is stored as `((r1, p,
+                    // q), r2)` since that happens to be the ordering
+                    // required for the joins that it participates in.
                     let dead_can_reach_live = {
-                        dead_can_reach.map(|(r1, r2, p, q)| ((r2, q), (r1, p)))
+                        dead_can_reach
                             .semijoin(&region_live_at)
                             .map(|((r2, q), (r1, p))| ((r1, p, q), r2))
                     };
