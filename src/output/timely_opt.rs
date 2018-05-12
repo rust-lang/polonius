@@ -80,17 +80,20 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     ) = ..my_facts;
                 }
 
-                // .decl subset(R1, R2, P)
-                //
-                // At the point P, R1 <= R2.
-                let subset = scope.scoped(|subset_scope| {
-                    let outlives = outlives.enter(&subset_scope);
-                    let cfg_edge = cfg_edge.enter(&subset_scope);
-                    let region_live_at = region_live_at.enter(&subset_scope);
+                let (subset, requires) = scope.scoped(|subscope| {
+                    let outlives = outlives.enter(&subscope);
+                    let cfg_edge = cfg_edge.enter(&subscope);
+                    let region_live_at = region_live_at.enter(&subscope);
+                    let borrow_region = borrow_region.enter(&subscope);
+                    let killed = killed.enter(&subscope);
+
+                    // .decl subset(R1, R2, P)
+                    //
+                    // At the point P, R1 <= R2.
 
                     // subset(R1, R2, P) :- outlives(R1, R2, P).
-                    let subset_base = outlives.clone();
-                    let subset = Variable::from(subset_base.clone());
+                    let subset0 = outlives.clone();
+                    let subset = Variable::from(subset0.clone());
 
                     // .decl live_to_dead_regions(R1, R2, P, Q)
                     //
@@ -131,7 +134,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         // dead_can_reach(R2, R3, P, Q) :-
                         //   live_to_dead_regions(_R1, R2, P, Q),
                         //   subset(R2, R3, P).
-                        let dead_can_reach_base = {
+                        let dead_can_reach0 = {
                             live_to_dead_regions
                                 .map(|(_r1, r2, p, q)| ((r2, p), q))
                                 .distinct_total()
@@ -139,7 +142,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                                 .map(|((r2, p), q, r3)| (r2, r3, p, q))
                         };
 
-                        let dead_can_reach = Variable::from(dead_can_reach_base.clone());
+                        let dead_can_reach = Variable::from(dead_can_reach0.clone());
 
                         // dead_can_reach(R1, R3, P, Q) :-
                         //   dead_can_reach(R1, R2, P, Q),
@@ -149,7 +152,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         // This is the "transitive closure" rule, but
                         // note that we only apply it with the
                         // "intermediate" region R2 is dead at Q.
-                        let dead_can_reach2 = {
+                        let dead_can_reach1 = {
                             dead_can_reach
                                 .map(|(r1, r2, p, q)| ((r2, q), (r1, p)))
                                 .antijoin(&region_live_at)
@@ -158,9 +161,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                                 .map(|((_r2, p), (r1, q), r3)| (r1, r3, p, q))
                         };
 
-                        dead_can_reach.set(&dead_can_reach_base
-                            .concat(&dead_can_reach2)
-                            .distinct_total())
+                        dead_can_reach
+                            .set(&dead_can_reach0.concat(&dead_can_reach1).distinct_total())
                     };
 
                     // subset(R1, R2, Q) :-
@@ -193,30 +195,17 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .map(|((r3, q), r1)| (r1, r3, q))
                     };
 
-                    subset
-                        .set(&subset_base
-                            .concat(&subset1)
-                            .concat(&subset2)
-                            .distinct_total())
-                        .leave()
-                });
-
-                // .decl requires(R, B, P) -- at the point, things with region R
-                // may depend on data from borrow B
-                let requires = borrow_region.iterate(|requires| {
-                    let borrow_region = borrow_region.enter(&requires.scope());
-                    let subset = subset.enter(&requires.scope());
-                    let killed = killed.enter(&requires.scope());
-                    let region_live_at = region_live_at.enter(&requires.scope());
-                    let cfg_edge = cfg_edge.enter(&requires.scope());
+                    // .decl requires(R, B, P) -- at the point, things with region R
+                    // may depend on data from borrow B
 
                     // requires(R, B, P) :- borrow_region(R, B, P).
-                    let requires1 = borrow_region.clone();
+                    let requires0 = borrow_region.clone();
+                    let requires = Variable::from(requires0.clone());
 
                     // requires(R2, B, P) :-
                     //   requires(R1, B, P),
                     //   subset(R1, R2, P).
-                    let requires2 = requires
+                    let requires1 = requires
                         .map(|(r1, b, p)| ((r1, p), b))
                         .join(&subset.map(|(r1, r2, p)| ((r1, p), r2)))
                         .map(|((_r1, p), b, r2)| (r2, b, p));
@@ -226,7 +215,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     //   !killed(B, P),
                     //   cfg_edge(P, Q),
                     //   region_live_at(R, Q).
-                    let requires3 = requires
+                    let requires2 = requires
                         .map(|(r, b, p)| ((b, p), r))
                         .antijoin(&killed)
                         .map(|((b, p), r)| (p, (r, b)))
@@ -235,10 +224,15 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         .semijoin(&region_live_at)
                         .map(|((r, q), b)| (r, b, q));
 
-                    requires1
+                    let requires = requires.set(&requires0
+                        .concat(&requires1)
                         .concat(&requires2)
-                        .concat(&requires3)
-                        .distinct_total()
+                        .distinct_total());
+
+                    let subset =
+                        subset.set(&subset0.concat(&subset1).concat(&subset2).distinct_total());
+
+                    (subset.leave(), requires.leave())
                 });
 
                 // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
