@@ -13,6 +13,7 @@
 use crate::facts::{AllFacts, Point};
 use crate::output::Output;
 use differential_dataflow::collection::Collection;
+use differential_dataflow::operators::arrange::{ArrangeByKey, ArrangeBySelf};
 use differential_dataflow::operators::iterate::Variable;
 use differential_dataflow::operators::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -80,10 +81,14 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     ) = ..my_facts;
                 }
 
+                let cfg_edge = cfg_edge.arrange_by_key();
+                let region_live_at_by_self = region_live_at.arrange_by_self();
+
                 let (subset, requires) = scope.scoped(|subscope| {
                     let outlives = outlives.enter(&subscope);
                     let cfg_edge = cfg_edge.enter(&subscope);
                     let region_live_at = region_live_at.enter(&subscope);
+                    let region_live_at_by_self = region_live_at_by_self.enter(&subscope);
                     let borrow_region = borrow_region.enter(&subscope);
                     let killed = killed.enter(&subscope);
 
@@ -121,8 +126,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     let live_to_dead_regions = {
                         subset
                             .map(|(r1, r2, p)| (p, (r1, r2)))
-                            .join_map(&cfg_edge, |&p, &(r1, r2), &q| ((r1, q), (r2, p)))
-                            .semijoin(&region_live_at)
+                            .join_core(&cfg_edge, |&p, &(r1, r2), &q| Some(((r1, q), (r2, p))))
+                            .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
                             .map(|((r1, q), (r2, p))| ((r2, q), (r1, p)))
                             .antijoin(&region_live_at)
                             .map(|((r2, q), (r1, p))| (r1, r2, p, q))
@@ -143,7 +148,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .map(|(r, b, p)| ((b, p), r))
                             .antijoin(&killed)
                             .map(|((b, p), r)| (p, (r, b)))
-                            .join_map(&cfg_edge, |&p, &(r, b), &q| ((r, q), (b, p)))
+                            .join_core(&cfg_edge, |&p, &(r, b), &q| Some(((r, q), (b, p))))
                             .antijoin(&region_live_at)
                             .map(|((r, q), (b, p))| (r, b, p, q))
                     };
@@ -227,8 +232,9 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // required for the joins that it participates in.
                     let dead_can_reach_live = {
                         dead_can_reach
-                            .semijoin(&region_live_at)
+                            .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
                             .map(|((r2, q), (r1, p))| ((r1, p, q), r2))
+                            .arrange_by_key()
                     };
 
                     // subset(R1, R2, Q) :-
@@ -241,10 +247,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // `R2` are live in Q.
                     let subset1 = subset
                         .map(|(r1, r2, p)| (p, (r1, r2)))
-                        .join_map(&cfg_edge, |_p, &(r1, r2), &q| ((r1, q), r2))
-                        .semijoin(&region_live_at)
+                        .join_core(&cfg_edge, |_p, &(r1, r2), &q| Some(((r1, q), r2)))
+                        .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
                         .map(|((r1, q), r2)| ((r2, q), r1))
-                        .semijoin(&region_live_at)
+                        .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
                         .map(|((r2, q), r1)| (r1, r2, q));
 
                     // subset(R1, R3, Q) :-
@@ -253,7 +259,9 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     let subset2 = {
                         live_to_dead_regions
                             .map(|(r1, r2, p, q)| ((r2, p, q), r1))
-                            .join_map(&dead_can_reach_live, |&(_r2, _p, q), &r1, &r3| (r1, r3, q))
+                            .join_core(&dead_can_reach_live, |&(_r2, _p, q), &r1, &r3| {
+                                Some((r1, r3, q))
+                            })
                     };
 
                     // requires(R2, B, Q) :-
@@ -267,7 +275,9 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // to `Q`.
                     let requires1 = dead_region_requires
                         .map(|(r1, b, p, q)| ((r1, p, q), b))
-                        .join_map(&dead_can_reach_live, |&(_r1, _p, q), &b, &r2| (r2, b, q));
+                        .join_core(&dead_can_reach_live, |&(_r1, _p, q), &b, &r2| {
+                            Some((r2, b, q))
+                        });
 
                     // requires(R, B, Q) :-
                     //   requires(R, B, P),
@@ -278,8 +288,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         .map(|(r, b, p)| ((b, p), r))
                         .antijoin(&killed)
                         .map(|((b, p), r)| (p, (r, b)))
-                        .join_map(&cfg_edge, |&_p, &(r, b), &q| ((r, q), b))
-                        .semijoin(&region_live_at)
+                        .join_core(&cfg_edge, |&_p, &(r, b), &q| Some(((r, q), b)))
+                        .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
                         .map(|((r, q), b)| (r, b, q));
 
                     let requires = requires.set(&requires0
@@ -299,7 +309,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
                     let borrow_live_at1 = requires
                         .map(|(r, b, p)| ((r, p), b))
-                        .semijoin(&region_live_at)
+                        .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
                         .map(|((_r, p), b)| (b, p));
 
                     borrow_live_at1.distinct_total()
