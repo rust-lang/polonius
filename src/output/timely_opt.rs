@@ -10,7 +10,7 @@
 
 //! Timely dataflow runs on its own thread.
 
-use crate::facts::{AllFacts, Point};
+use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::output::Output;
 use differential_dataflow::collection::Collection;
 use differential_dataflow::operators::arrange::{ArrangeByKey, ArrangeBySelf};
@@ -97,15 +97,23 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // At the point P, R1 <= R2.
                     //
                     // subset(R1, R2, P) :- outlives(R1, R2, P).
+                    let subset = Variable::from(Collection::new(
+                        None::<((Region, Region, Point), _, _)>
+                            .into_iter()
+                            .to_stream(subscope),
+                    ));
                     let subset0 = outlives.clone();
-                    let subset = Variable::from(subset0.clone());
 
                     // .decl requires(R, B, P) -- at the point, things with region R
                     // may depend on data from borrow B
                     //
                     // requires(R, B, P) :- borrow_region(R, B, P).
+                    let requires = Variable::from(Collection::new(
+                        None::<((Region, Loan, Point), _, _)>
+                            .into_iter()
+                            .to_stream(subscope),
+                    ));
                     let requires0 = borrow_region.clone();
-                    let requires = Variable::from(requires0.clone());
 
                     // .decl live_to_dead_regions(R1, R2, P, Q)
                     //
@@ -183,6 +191,12 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // that is required for the joins it participates
                     // in.
                     let dead_can_reach = {
+                        let dead_can_reach = Variable::from(Collection::new(
+                            None::<(((Region, Point), (Region, Point)), _, _)>
+                                .into_iter()
+                                .to_stream(subscope),
+                        ));
+
                         // dead_can_reach(R1, R2, P, Q) :-
                         //   dead_can_reach_origins(R1, P, Q),
                         //   subset(R1, R2, P).
@@ -192,8 +206,6 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                                 |&(r1, p), &q, &r2| ((r2, q), (r1, p)),
                             )
                         };
-
-                        let dead_can_reach = Variable::from(dead_can_reach0.clone());
 
                         // dead_can_reach(R1, R3, P, Q) :-
                         //   dead_can_reach(R1, R2, P, Q),
