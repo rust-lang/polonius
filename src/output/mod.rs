@@ -19,12 +19,13 @@ use std::path::PathBuf;
 
 mod dump;
 mod tracking;
-mod timely;
+mod naive;
+mod timely_opt;
 
 
 #[derive(Clone, Debug)]
 crate struct Output {
-    borrow_live_at: FxHashMap<Point, Vec<Loan>>,
+    crate borrow_live_at: FxHashMap<Point, Vec<Loan>>,
 
     dump_enabled: bool,
 
@@ -36,9 +37,10 @@ crate struct Output {
 }
 
 impl Output {
-    crate fn compute(all_facts: AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
+    crate fn compute(all_facts: &AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
         match algorithm {
-            Algorithm::Naive => timely::timely_dataflow(dump_enabled, all_facts),
+            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
+            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts.clone()),
         }
     }
 

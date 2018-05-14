@@ -22,7 +22,7 @@ use std::sync::Mutex;
 use timely;
 use timely::dataflow::operators::*;
 
-pub(super) fn timely_dataflow(dump_enabled: bool, all_facts: AllFacts) -> Output {
+pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
     let result = Arc::new(Mutex::new(Output::new(dump_enabled)));
 
     // Use a channel to send `all_facts` to one worker (and only one)
