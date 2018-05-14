@@ -36,11 +36,21 @@ crate struct Output {
     crate region_degrees: tracking::RegionDegrees,
 }
 
+crate enum OutputStatsLevel {
+    Summary,
+    Precise,
+}
+
 impl Output {
-    crate fn compute(all_facts: &AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
+    crate fn compute(
+        all_facts: &AllFacts,
+        algorithm: Algorithm,
+        dump_enabled: bool,
+        stats_level: Option<OutputStatsLevel>,
+    ) -> Self {
         match algorithm {
             Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
-            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts.clone()),
+            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, stats_level, all_facts.clone()),
         }
     }
 

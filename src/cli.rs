@@ -1,7 +1,7 @@
 #![allow(deprecated)] // arg_enum! uses deprecated stuff
 
 use crate::intern;
-use crate::output::Output;
+use crate::output::{Output, OutputStatsLevel};
 use crate::tab_delim;
 use failure::Error;
 use std::path::Path;
@@ -46,9 +46,19 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
             let result: Result<(Duration, Output), Error> = do catch {
                 let verbose = opt.verbose | opt.stats;
+                let stats_level = if opt.stats {
+                    let stats_level = if opt.verbose {
+                        OutputStatsLevel::Precise
+                    } else {
+                        OutputStatsLevel::Summary
+                    };
+                    Some(stats_level)
+                } else {
+                    None
+                };
                 let algorithm = opt.algorithm;
                 let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-                timed(|| Output::compute(&all_facts, algorithm, verbose))
+                timed(|| Output::compute(&all_facts, algorithm, verbose, stats_level))
             };
 
             match result {
