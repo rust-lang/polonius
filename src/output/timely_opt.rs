@@ -11,7 +11,7 @@
 //! Timely dataflow runs on its own thread.
 
 use crate::facts::{AllFacts, Loan, Point, Region};
-use crate::output::Output;
+use crate::output::{Output, OutputStatsLevel};
 use differential_dataflow::collection::Collection;
 use differential_dataflow::operators::arrange::{ArrangeByKey, ArrangeBySelf};
 use differential_dataflow::operators::iterate::Variable;
@@ -25,7 +25,7 @@ use timely;
 use timely::dataflow::operators::*;
 use timely::dataflow::Scope;
 
-pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
+pub(super) fn compute(dump_enabled: bool, stats_level: Option<OutputStatsLevel>, mut all_facts: AllFacts) -> Output {
     // Declare that each universal region is live at every point.
     let all_points: BTreeSet<Point> = all_facts
         .cfg_edge
@@ -47,6 +47,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
     tx.send(all_facts).unwrap();
     mem::drop(tx);
     let rx = Mutex::new(rx);
+
+    let stats_enabled = stats_level.is_some();
 
     timely::execute_from_args(vec![].into_iter(), {
         let result = result.clone();
@@ -71,6 +73,30 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     }
                 }
 
+                let verbose_stats_enabled = match stats_level {
+                    Some(OutputStatsLevel::Precise) => true,
+                    _ => false,
+                };
+
+                if stats_enabled {
+                    println!("--------------------------------------------------");
+                    println!("Input relations stats:");
+                    println!("Point count: {}", all_points.len());
+                    println!("Region count (incl. universal regions): {}\n",
+                        my_facts.borrow_region.len() + my_facts.universal_region.len());
+
+                    println!("'cfg_edge' tuple count: {}", my_facts.cfg_edge.len());
+                    println!("'killed' tuple count: {}", my_facts.killed.len());
+                    println!("'outlives' tuple count: {}", my_facts.outlives.len());
+                    println!("'region_live_at' tuple count: {}", my_facts.region_live_at.len());
+                    println!("'universal_region' tuple count: {}", my_facts.universal_region.len());
+
+                    if verbose_stats_enabled {
+                        println!("--------------------------------------------------");
+                        println!("Timely computation stats:");
+                    }
+                }
+
                 let_collections! {
                     let (
                         borrow_region,
@@ -85,6 +111,15 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                 let region_live_at_by_self = region_live_at.arrange_by_self();
 
                 let (subset, requires) = scope.scoped(|subscope| {
+                    macro_rules! dump_timely_stats {
+                        ($e:ident) => {
+                            $e
+                                .map(|_| ())
+                                .consolidate()
+                                .inspect(|x| println!("'{}' - round {}, new facts: {:?}", stringify!($e), x.1.inner, x.2));
+                        };
+                    }
+
                     let outlives = outlives.enter(&subscope);
                     let cfg_edge = cfg_edge.enter(&subscope);
                     let region_live_at = region_live_at.enter(&subscope);
@@ -141,6 +176,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .map(|((r2, q), (r1, p))| (r1, r2, p, q))
                     };
 
+                    if verbose_stats_enabled {
+                        dump_timely_stats!(live_to_dead_regions);
+                    }
+
                     // .decl dead_region_requires(R, B, P, Q)
                     //
                     // The region `R` requires the borrow `B`, but the
@@ -161,6 +200,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .map(|((r, q), (b, p))| (r, b, p, q))
                     };
 
+                    if verbose_stats_enabled {
+                        dump_timely_stats!(dead_region_requires);
+                    }
+
                     // .decl dead_can_reach_origins(R, P, Q)
                     //
                     // Contains dead regions where we are interested
@@ -175,6 +218,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .concat(&dead_can_reach_origins1)
                             .distinct_total()
                     };
+
+                    if verbose_stats_enabled {
+                        dump_timely_stats!(dead_can_reach_origins);
+                    }
 
                     // .decl dead_can_reach(R1, R2, P, Q)
                     //
@@ -229,6 +276,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                             .set(&dead_can_reach0.concat(&dead_can_reach1).distinct_total())
                     };
 
+                    if verbose_stats_enabled {
+                        dump_timely_stats!(dead_can_reach);
+                    }
+
                     // .decl dead_can_reach_live(R1, R2, P, Q)
                     //
                     // Indicates that, along the edge `P -> Q`, the
@@ -243,10 +294,15 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     // q), r2)` since that happens to be the ordering
                     // required for the joins that it participates in.
                     let dead_can_reach_live = {
-                        dead_can_reach
+                        let dead_can_reach_live = dead_can_reach
                             .join_core(&region_live_at_by_self, |&k, &v, _| Some((k, v)))
-                            .map(|((r2, q), (r1, p))| ((r1, p, q), r2))
-                            .arrange_by_key()
+                            .map(|((r2, q), (r1, p))| ((r1, p, q), r2));
+
+                        if verbose_stats_enabled {
+                            dump_timely_stats!(dead_can_reach_live);
+                        }
+
+                        dead_can_reach_live.arrange_by_key()
                     };
 
                     // subset(R1, R2, Q) :-
@@ -309,8 +365,16 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                         .concat(&requires2)
                         .distinct_total());
 
+                    let subset_before_distinct = subset0.concat(&subset1).concat(&subset2);
+                    if verbose_stats_enabled {
+                        dump_timely_stats!(subset_before_distinct);
+                    }
+
                     let subset =
-                        subset.set(&subset0.concat(&subset1).concat(&subset2).distinct_total());
+                        subset.set(&subset_before_distinct.distinct_total());
+                    if verbose_stats_enabled {
+                        dump_timely_stats!(subset);
+                    }
 
                     (subset.leave(), requires.leave())
                 });
@@ -326,6 +390,31 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
                     borrow_live_at1.distinct_total()
                 };
+
+                if stats_enabled {
+                    subset
+                        .map(|_| ())
+                        .consolidate()
+                        .inspect(|x| {
+                            println!("--------------------------------------------------");
+                            println!("Main relations stats:");
+                            println!("'subset' final tuple count: {:?}", x.2);
+                        });
+
+                    requires
+                        .map(|_| ())
+                        .consolidate()
+                        .inspect(|x| println!("'requires' final tuple count: {:?}", x.2));
+
+                    borrow_live_at
+                        .map(|_| ())
+                        .consolidate()
+                        .inspect(|x| {
+                            println!("--------------------------------------------------");
+                            println!("Output stats:");
+                            println!("'borrow_live_at' final tuple count: {:?}", x.2);
+                        });
+                }
 
                 if dump_enabled {
                     region_live_at.inspect_batch({
