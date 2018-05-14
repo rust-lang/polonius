@@ -22,6 +22,9 @@ crate struct AllFacts {
 
     /// `region_live_at(R, P)` when the region R appears in a live variable at P
     crate region_live_at: Vec<(Region, Point)>,
+
+    /// `invalidates(P, B)` when the borrow B is invalidated at point P
+    crate invalidates: Vec<(Point, Loan)>,
 }
 
 macro_rules! index_type {
