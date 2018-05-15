@@ -37,10 +37,10 @@ crate struct Output {
 }
 
 impl Output {
-    crate fn compute(all_facts: &AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
+    crate fn compute(all_facts: &AllFacts, algorithm: Algorithm, dump_enabled: bool, workers: u32) -> Self {
         match algorithm {
-            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
-            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts.clone()),
+            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone(), workers),
+            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts.clone(), workers),
         }
     }
 

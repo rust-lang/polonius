@@ -22,7 +22,7 @@ use std::sync::Mutex;
 use timely;
 use timely::dataflow::operators::*;
 
-pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
+pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts, workers: u32) -> Output {
     let result = Arc::new(Mutex::new(Output::new(dump_enabled)));
 
     // Use a channel to send `all_facts` to one worker (and only one)
@@ -30,8 +30,13 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
     tx.send(all_facts).unwrap();
     mem::drop(tx);
     let rx = Mutex::new(rx);
+    let mut dataflow_arg = Vec::new();
+    if workers > 1 {
+        let item = format!("{}{}", "w", workers);
+        dataflow_arg.push(item);
+    }
 
-    timely::execute_from_args(vec![].into_iter(), {
+    timely::execute_from_args(dataflow_arg.into_iter(), {
         let result = result.clone();
         move |worker| {
             // First come, first serve: one worker gets all the facts;

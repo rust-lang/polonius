@@ -17,8 +17,8 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         println!("facts_dir = {:?}", facts_dir);
         let tables = &mut intern::InternerTables::new();
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let naive = Output::compute(&all_facts, Algorithm::Naive, false);
-        let timely_opt = Output::compute(&all_facts, Algorithm::TimelyOpt, false);
+        let naive = Output::compute(&all_facts, Algorithm::Naive, false, 1);
+        let timely_opt = Output::compute(&all_facts, Algorithm::TimelyOpt, false, 1);
         assert_eq!(naive.borrow_live_at, timely_opt.borrow_live_at);
         // FIXME: check `_result` somehow
     }
