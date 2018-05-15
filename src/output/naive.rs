@@ -32,8 +32,8 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts, workers: u32) -> 
     let rx = Mutex::new(rx);
     let mut dataflow_arg = Vec::new();
     if workers > 1 {
-        let item = format!("{}{}", "w", workers);
-        dataflow_arg.push(item);
+        dataflow_arg.push(format!("-w"));
+        dataflow_arg.push(format!("{}", workers));
     }
 
     timely::execute_from_args(dataflow_arg.into_iter(), {
