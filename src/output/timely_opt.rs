@@ -12,6 +12,7 @@
 
 use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::output::Output;
+use crate::output::timely_util::populate_args_for_differential_dataflow;
 use differential_dataflow::collection::Collection;
 use differential_dataflow::operators::arrange::{ArrangeByKey, ArrangeBySelf};
 use differential_dataflow::operators::iterate::Variable;
@@ -47,12 +48,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts, workers: u32)
     tx.send(all_facts).unwrap();
     mem::drop(tx);
     let rx = Mutex::new(rx);
-    let mut dataflow_arg = Vec::new();
-    if workers > 1 {
-        dataflow_arg.push(format!("-w"));
-        dataflow_arg.push(format!("{}", workers));
-    }
-
+    let dataflow_arg = populate_args_for_differential_dataflow(workers);
     timely::execute_from_args(dataflow_arg.into_iter(), {
         let result = result.clone();
         move |worker| {

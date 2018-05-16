@@ -21,6 +21,7 @@ mod dump;
 mod tracking;
 mod naive;
 mod timely_opt;
+mod timely_util;
 
 
 #[derive(Clone, Debug)]
