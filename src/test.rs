@@ -15,10 +15,11 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
             .join("nll-facts")
             .join(fn_name);
         println!("facts_dir = {:?}", facts_dir);
+        let no_of_workers = 1;
         let tables = &mut intern::InternerTables::new();
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let naive = Output::compute(&all_facts, Algorithm::Naive, false);
-        let timely_opt = Output::compute(&all_facts, Algorithm::TimelyOpt, false);
+        let naive = Output::compute(&all_facts, Algorithm::Naive, false, no_of_workers);
+        let timely_opt = Output::compute(&all_facts, Algorithm::TimelyOpt, false, no_of_workers);
         assert_eq!(naive.borrow_live_at, timely_opt.borrow_live_at);
         // FIXME: check `_result` somehow
     }

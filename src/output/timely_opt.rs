@@ -12,6 +12,7 @@
 
 use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::output::Output;
+use crate::output::timely_util::populate_args_for_differential_dataflow;
 use differential_dataflow::collection::Collection;
 use differential_dataflow::operators::arrange::{ArrangeByKey, ArrangeBySelf};
 use differential_dataflow::operators::iterate::Variable;
@@ -25,7 +26,7 @@ use timely;
 use timely::dataflow::operators::*;
 use timely::dataflow::Scope;
 
-pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
+pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts, workers: u32) -> Output {
     // Declare that each universal region is live at every point.
     let all_points: BTreeSet<Point> = all_facts
         .cfg_edge
@@ -47,8 +48,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
     tx.send(all_facts).unwrap();
     mem::drop(tx);
     let rx = Mutex::new(rx);
-
-    timely::execute_from_args(vec![].into_iter(), {
+    let dataflow_arg = populate_args_for_differential_dataflow(workers);
+    timely::execute_from_args(dataflow_arg.into_iter(), {
         let result = result.clone();
         move |worker| {
             // First come, first serve: one worker gets all the facts;

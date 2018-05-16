@@ -12,6 +12,7 @@
 
 use crate::facts::AllFacts;
 use crate::output::Output;
+use crate::output::timely_util::populate_args_for_differential_dataflow;
 use differential_dataflow::collection::Collection;
 use differential_dataflow::operators::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,7 +23,7 @@ use std::sync::Mutex;
 use timely;
 use timely::dataflow::operators::*;
 
-pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
+pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts, workers: u32) -> Output {
     let result = Arc::new(Mutex::new(Output::new(dump_enabled)));
 
     // Use a channel to send `all_facts` to one worker (and only one)
@@ -30,8 +31,8 @@ pub(super) fn compute(dump_enabled: bool, all_facts: AllFacts) -> Output {
     tx.send(all_facts).unwrap();
     mem::drop(tx);
     let rx = Mutex::new(rx);
-
-    timely::execute_from_args(vec![].into_iter(), {
+    let dataflow_arg = populate_args_for_differential_dataflow(workers);
+    timely::execute_from_args(dataflow_arg.into_iter(), {
         let result = result.clone();
         move |worker| {
             // First come, first serve: one worker gets all the facts;
