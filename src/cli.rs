@@ -13,6 +13,7 @@ arg_enum! {
     pub enum Algorithm {
         Naive,
         TimelyOpt,
+        LocationInsensitive,
     }
 }
 

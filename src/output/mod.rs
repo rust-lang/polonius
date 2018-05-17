@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 mod dump;
 mod tracking;
+mod location_insensitive;
 mod naive;
 mod timely_opt;
 mod timely_util;
@@ -32,8 +33,10 @@ crate struct Output {
 
     // these are just for debugging
     restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
+    restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
     region_live_at: FxHashMap<Point, Vec<Region>>,
     subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
+    subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
     crate region_degrees: tracking::RegionDegrees,
 }
 
@@ -42,6 +45,7 @@ impl Output {
         match algorithm {
             Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone(), workers),
             Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts.clone(), workers),
+            Algorithm::LocationInsensitive => location_insensitive::compute(dump_enabled, all_facts.clone(), workers),
         }
     }
 
@@ -49,8 +53,10 @@ impl Output {
         Output {
             borrow_live_at: FxHashMap::default(),
             restricts: FxHashMap::default(),
+            restricts_anywhere: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
             subset: FxHashMap::default(),
+            subset_anywhere: FxHashMap::default(),
             region_degrees: tracking::RegionDegrees::new(),
             dump_enabled,
         }
@@ -61,8 +67,10 @@ impl Output {
 
         if self.dump_enabled {
             dump::dump_rows(&mut writer_for(output_dir, "restricts")?, intern, &self.restricts)?;
+            dump::dump_rows(&mut writer_for(output_dir, "restricts_anywhere")?, intern, &self.restricts_anywhere)?;
             dump::dump_rows(&mut writer_for(output_dir, "region_live_at")?, intern, &self.region_live_at)?;
             dump::dump_rows(&mut writer_for(output_dir, "subset")?, intern, &self.subset)?;
+            dump::dump_rows(&mut writer_for(output_dir, "subset_anywhere")?, intern, &self.subset_anywhere)?;
         }
         return Ok(());
 
