@@ -1,10 +1,10 @@
-extern crate borrow_check;
+extern crate polonius;
 extern crate failure;
 extern crate structopt;
 
 use structopt::StructOpt;
 
 pub fn main() -> Result<(), failure::Error> {
-    let opt = borrow_check::cli::Opt::from_args();
-    borrow_check::cli::main(opt)
+    let opt = polonius::cli::Opt::from_args();
+    polonius::cli::main(opt)
 }
