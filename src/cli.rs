@@ -12,8 +12,8 @@ arg_enum! {
     #[derive(Debug, Clone, Copy)]
     pub enum Algorithm {
         Naive,
-        TimelyOpt,
-        LocationInsensitive,
+        DatafrogOpt,
+        // LocationInsensitive,
     }
 }
 
@@ -35,8 +35,6 @@ pub struct Opt {
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
-    #[structopt(short = "w", long = "workers", default_value = "1")]
-    workers: u32,
 }
 
 pub fn main(opt: Opt) -> Result<(), Error> {
@@ -50,9 +48,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
             let result: Result<(Duration, Output), Error> = do catch {
                 let verbose = opt.verbose | opt.stats;
                 let algorithm = opt.algorithm;
-                let workers = opt.workers;
                 let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-                timed(|| Output::compute(&all_facts, algorithm, verbose, workers))
+                timed(|| Output::compute(&all_facts, algorithm, verbose))
             };
 
             match result {

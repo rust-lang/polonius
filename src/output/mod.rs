@@ -19,10 +19,12 @@ use std::path::PathBuf;
 
 mod dump;
 mod tracking;
-mod location_insensitive;
 mod naive;
-mod timely_opt;
-mod timely_util;
+mod datafrog_opt;
+
+// NOTE: the following module was commented out as it contains a location-insensitive analysis
+// made using Differential Dataflow before the switch to datafrog, and needs to be converted to this different API.
+// mod location_insensitive;
 
 
 #[derive(Clone, Debug)]
@@ -41,11 +43,11 @@ crate struct Output {
 }
 
 impl Output {
-    crate fn compute(all_facts: &AllFacts, algorithm: Algorithm, dump_enabled: bool, workers: u32) -> Self {
+    crate fn compute(all_facts: &AllFacts, algorithm: Algorithm, dump_enabled: bool) -> Self {
         match algorithm {
-            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone(), workers),
-            Algorithm::TimelyOpt => timely_opt::compute(dump_enabled, all_facts.clone(), workers),
-            Algorithm::LocationInsensitive => location_insensitive::compute(dump_enabled, all_facts.clone(), workers),
+            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
+            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
+            // Algorithm::LocationInsensitive => location_insensitive::compute(dump_enabled, all_facts.clone(), workers),
         }
     }
 
