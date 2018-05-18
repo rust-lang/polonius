@@ -81,13 +81,13 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
         let cfg_edge_p = iteration.variable::<(Point, Point)>("cfg_edge_p");
 
-        let killed = Relation::from(all_facts.killed.iter().map(|&(l, p)| (l, p)));
+        let killed = all_facts.killed.into();
 
         // load initial facts.
         subset.insert(all_facts.outlives.into());
         requires.insert(all_facts.borrow_region.into());
         region_live_at_var.insert(Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ()))));
-        cfg_edge_p.insert(all_facts.cfg_edge.clone().into());
+        cfg_edge_p.insert(all_facts.cfg_edge.into());
 
         // .. and then start iterating rules!
         while iteration.changed() {
