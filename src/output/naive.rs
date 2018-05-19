@@ -159,7 +159,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //   region_live_at(R, Q).
             requires_1.from_antijoin(&requires_bp, &killed, |&(b,p),&r| (p,(b,r)));
             requires_2.from_join(&requires_1, &cfg_edge_p, |&_p, &(b,r), &q| ((r,q),b));
-            requires.from_join(&requires_2, &region_live_at, |&(r,p),&b,&()| (r,b,p));
+            requires.from_join(&requires_2, &region_live_at, |&(r,q),&b,&()| (r,b,q));
         }
 
         requires_rp.complete()
