@@ -70,6 +70,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
         let dead_can_reach = iteration.variable::<(Region, Region, Point, Point)>("dead_can_reach");
         let dead_can_reach_1 = iteration.variable_indistinct("dead_can_reach_1");
         let dead_can_reach_r2q = iteration.variable_indistinct("dead_can_reach_r2q");
+        // nmatsakis: I tried to merge `dead_can_reach_r2q` and
+        // `dead_can_reach`, but the result was ever so slightly slower, at least on clap.
 
         let dead_can_reach_live = iteration.variable::<((Region, Point, Point), Region)>("dead_can_reach_live");
         let dead_can_reach_live_r1pq = iteration.variable_indistinct("dead_can_reach_live_r1pq");
