@@ -50,9 +50,7 @@ Time: 113.316s
 
 To run the borrow checker on an input, you first need to generate the
 input facts.  For that, you will need to run rustc with the
-`-Znll-facts` option (note: [PR #50370] adds the `-Znll-facts` option,
-and it has not landed at the time of this writing, so you may need to
-build rustc yourself):
+`-Znll-facts` option:
 
 ```
 > rustc -Znll-facts inputs/issue-47680/issue-47680.rs
