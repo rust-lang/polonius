@@ -49,10 +49,10 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
         // temporaries as we perform a multi-way join, and more indices
         let requires = iteration.variable::<(Region, Loan, Point)>("requires");
-        let requires_1 = iteration.variable("requires_1");
-        let requires_2 = iteration.variable("requires_2");
-        let requires_bp = iteration.variable("requires_bp");
-        let requires_rp = iteration.variable("requires_rp");
+        let requires_1 = iteration.variable_indistinct("requires_1");
+        let requires_2 = iteration.variable_indistinct("requires_2");
+        let requires_bp = iteration.variable_indistinct("requires_bp");
+        let requires_rp = iteration.variable_indistinct("requires_rp");
 
         let borrow_live_at = iteration.variable::<(Loan, Point)>("borrow_live_at");
 
