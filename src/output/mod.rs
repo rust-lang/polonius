@@ -17,15 +17,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-mod dump;
-mod tracking;
-mod naive;
 mod datafrog_opt;
+mod dump;
+mod naive;
+mod tracking;
 
 // NOTE: the following module was commented out as it contains a location-insensitive analysis
 // made using Differential Dataflow before the switch to datafrog, and needs to be converted to this different API.
 // mod location_insensitive;
-
 
 #[derive(Clone, Debug)]
 crate struct Output {
@@ -65,14 +64,34 @@ impl Output {
     }
 
     crate fn dump(&self, output_dir: &Option<PathBuf>, intern: &InternerTables) -> io::Result<()> {
-        dump::dump_rows(&mut writer_for(output_dir, "borrow_live_at")?, intern, &self.borrow_live_at)?;
+        dump::dump_rows(
+            &mut writer_for(output_dir, "borrow_live_at")?,
+            intern,
+            &self.borrow_live_at,
+        )?;
 
         if self.dump_enabled {
-            dump::dump_rows(&mut writer_for(output_dir, "restricts")?, intern, &self.restricts)?;
-            dump::dump_rows(&mut writer_for(output_dir, "restricts_anywhere")?, intern, &self.restricts_anywhere)?;
-            dump::dump_rows(&mut writer_for(output_dir, "region_live_at")?, intern, &self.region_live_at)?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "restricts")?,
+                intern,
+                &self.restricts,
+            )?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "restricts_anywhere")?,
+                intern,
+                &self.restricts_anywhere,
+            )?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "region_live_at")?,
+                intern,
+                &self.region_live_at,
+            )?;
             dump::dump_rows(&mut writer_for(output_dir, "subset")?, intern, &self.subset)?;
-            dump::dump_rows(&mut writer_for(output_dir, "subset_anywhere")?, intern, &self.subset_anywhere)?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "subset_anywhere")?,
+                intern,
+                &self.subset_anywhere,
+            )?;
         }
         return Ok(());
 
@@ -87,7 +106,7 @@ impl Output {
                     let mut of = dir.join(name);
                     of.set_extension("facts");
                     Box::new(fs::File::create(of)?)
-                },
+                }
                 None => {
                     let mut stdout = io::stdout();
                     write!(&mut stdout, "# {}\n\n", name)?;

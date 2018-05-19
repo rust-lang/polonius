@@ -61,16 +61,17 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
         // load initial facts.
         subset.insert(all_facts.outlives.into());
-        region_live_at.insert(Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ()))));
+        region_live_at.insert(Relation::from(
+            all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
+        ));
         cfg_edge_p.insert(all_facts.cfg_edge.clone().into());
 
         // .. and then start iterating rules!
         while iteration1.changed() {
-
             // remap fields to re-index by keys.
-            subset_r1p.from_map(&subset, |&(r1,r2,p)| ((r1,p),r2));
-            subset_r2p.from_map(&subset, |&(r1,r2,p)| ((r2,p),r1));
-            subset_p.from_map(&subset, |&(r1,r2,p)| (p,(r1,r2)));
+            subset_r1p.from_map(&subset, |&(r1, r2, p)| ((r1, p), r2));
+            subset_r2p.from_map(&subset, |&(r1, r2, p)| ((r2, p), r1));
+            subset_p.from_map(&subset, |&(r1, r2, p)| (p, (r1, r2)));
 
             // subset(R1, R2, P) :- outlives(R1, R2, P).
             // Already loaded; outlives is static.
@@ -78,7 +79,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             // subset(R1, R3, P) :-
             //   subset(R1, R2, P),
             //   subset(R2, R3, P).
-            subset.from_join(&subset_r2p, &subset_r1p, |&(_r2,p),&r1,&r3| (r1,r3,p));
+            subset.from_join(&subset_r2p, &subset_r1p, |&(_r2, p), &r1, &r3| (r1, r3, p));
 
             // subset(R1, R2, Q) :-
             //   subset(R1, R2, P),
@@ -86,16 +87,22 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //   region_live_at(R1, Q),
             //   region_live_at(R2, Q).
 
-            subset_1.from_join(&subset_p, &cfg_edge_p, |&_p, &(r1,r2), &q| ((r1,q),r2));
-            subset_2.from_join(&subset_1, &region_live_at, |&(r1,q),&r2,&()| ((r2,q),r1));
-            subset.from_join(&subset_2, &region_live_at, |&(r2,q),&r1,&()| (r1,r2,q));
+            subset_1.from_join(&subset_p, &cfg_edge_p, |&_p, &(r1, r2), &q| ((r1, q), r2));
+            subset_2.from_join(&subset_1, &region_live_at, |&(r1, q), &r2, &()| {
+                ((r2, q), r1)
+            });
+            subset.from_join(&subset_2, &region_live_at, |&(r2, q), &r1, &()| (r1, r2, q));
         }
 
         subset_r1p.complete()
     };
 
     if dump_enabled {
-        println!("subset is complete: {} tuples, {:?}", subset.len(), subset_start.elapsed());
+        println!(
+            "subset is complete: {} tuples, {:?}",
+            subset.len(),
+            subset_start.elapsed()
+        );
 
         for ((r1, location), r2) in &subset.elements {
             result
@@ -136,13 +143,15 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
         let cfg_edge_p = iteration2.variable::<(Point, Point)>("cfg_edge_p"); // redundantly computed index
 
         // load initial facts.
-        region_live_at.insert(Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ()))));
+        region_live_at.insert(Relation::from(
+            all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
+        ));
         cfg_edge_p.insert(all_facts.cfg_edge.into());
 
         // .. and then start iterating rules!
         while iteration2.changed() {
-            requires_rp.from_map(&requires, |&(r,b,p)| ((r,p),b));
-            requires_bp.from_map(&requires, |&(r,b,p)| ((b,p),r));
+            requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
+            requires_bp.from_map(&requires, |&(r, b, p)| ((b, p), r));
 
             // requires(R, B, P) :- borrow_region(R, B, P).
             // Already loaded; borrow_region is static.
@@ -157,16 +166,20 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //   !killed(B, P),
             //   cfg_edge(P, Q),
             //   region_live_at(R, Q).
-            requires_1.from_antijoin(&requires_bp, &killed, |&(b,p),&r| (p,(b,r)));
-            requires_2.from_join(&requires_1, &cfg_edge_p, |&_p, &(b,r), &q| ((r,q),b));
-            requires.from_join(&requires_2, &region_live_at, |&(r,q),&b,&()| (r,b,q));
+            requires_1.from_antijoin(&requires_bp, &killed, |&(b, p), &r| (p, (b, r)));
+            requires_2.from_join(&requires_1, &cfg_edge_p, |&_p, &(b, r), &q| ((r, q), b));
+            requires.from_join(&requires_2, &region_live_at, |&(r, q), &b, &()| (r, b, q));
         }
 
         requires_rp.complete()
     };
 
     if dump_enabled {
-        println!("requires is complete: {} tuples, {:?}", requires.len(), requires_start.elapsed());
+        println!(
+            "requires is complete: {} tuples, {:?}",
+            requires.len(),
+            requires_start.elapsed()
+        );
 
         for ((region, location), borrow) in &requires.elements {
             result
@@ -195,20 +208,26 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
         let region_live_at = iteration3.variable::<((Region, Point), ())>("region_live_at"); // redundantly computed index
 
         // load initial facts.
-        region_live_at.insert(Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ()))));
+        region_live_at.insert(Relation::from(
+            all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
+        ));
 
         while iteration3.changed() {
             // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
-            borrow_live_at.from_join(&requires_rp, &region_live_at, |&(_r,p), &b, &()| (b, p));
+            borrow_live_at.from_join(&requires_rp, &region_live_at, |&(_r, p), &b, &()| (b, p));
         }
 
         borrow_live_at.complete()
     };
 
     if dump_enabled {
-        println!("borrow_live_at is complete: {} tuples, {:?}", borrow_live_at.len(), borrow_live_at_start.elapsed());
+        println!(
+            "borrow_live_at is complete: {} tuples, {:?}",
+            borrow_live_at.len(),
+            borrow_live_at_start.elapsed()
+        );
     }
-    
+
     for (borrow, location) in &borrow_live_at.elements {
         result
             .borrow_live_at

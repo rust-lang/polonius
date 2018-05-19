@@ -56,7 +56,7 @@ crate trait InternTo<To> {
 }
 
 macro_rules! intern_impl {
-    ($t: ident, $field: ident) => {
+    ($t:ident, $field:ident) => {
         impl InternTo<$t> for &str {
             fn intern(tables: &mut InternerTables, input: &str) -> $t {
                 tables.$field.intern(input)

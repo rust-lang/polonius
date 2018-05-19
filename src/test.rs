@@ -1,8 +1,8 @@
 #![cfg(test)]
 
+use crate::cli::Algorithm;
 use crate::intern;
 use crate::output::Output;
-use crate::cli::Algorithm;
 use crate::tab_delim;
 use failure::Error;
 use std::path::Path;
@@ -20,7 +20,7 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         let naive = Output::compute(&all_facts, Algorithm::Naive, false);
         let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
         assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
-     }
+    }
 }
 
 macro_rules! tests {

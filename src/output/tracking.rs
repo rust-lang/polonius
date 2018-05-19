@@ -44,16 +44,16 @@ impl RegionDegrees {
             match self.out_degree.get(region_point) {
                 Some(out_count) => if *out_count > 1 && *in_count > 1 {
                     return true;
-                }
+                },
                 None => {}
             }
         }
         return false;
     }
 
-    crate fn histogram(&self) -> (Histogram,Histogram) {
+    crate fn histogram(&self) -> (Histogram, Histogram) {
         let mut histo_in = Histogram::with_buckets(10);
-        let mut histo_out= Histogram::with_buckets(10);
+        let mut histo_out = Histogram::with_buckets(10);
         for v in self.in_degree.values() {
             histo_in.add(*v as u64);
         }

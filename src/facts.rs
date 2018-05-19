@@ -23,7 +23,7 @@ crate struct AllFacts {
 }
 
 macro_rules! index_type {
-    ($t: ident) => {
+    ($t:ident) => {
         #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug, Hash)]
         pub(crate) struct $t {
             index: u32,
@@ -31,7 +31,9 @@ macro_rules! index_type {
 
         impl From<usize> for $t {
             fn from(index: usize) -> $t {
-                $t { index: index as u32 }
+                $t {
+                    index: index as u32,
+                }
             }
         }
 
@@ -52,4 +54,3 @@ macro_rules! index_type {
 index_type!(Region);
 index_type!(Loan);
 index_type!(Point);
-
