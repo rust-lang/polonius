@@ -14,12 +14,15 @@ crate trait OutputDump {
     );
 }
 
-crate fn dump_rows(stream: &mut Write,
-                   intern: &InternerTables,
-                   value: &impl OutputDump) -> io::Result<()> {
+crate fn dump_rows(
+    stream: &mut Write,
+    intern: &InternerTables,
+    value: &impl OutputDump,
+) -> io::Result<()> {
     let mut rows = Vec::new();
     OutputDump::push_all(value, intern, &mut vec![], &mut rows);
-    let col_width: usize = rows.iter()
+    let col_width: usize = rows
+        .iter()
         .map(|cols| cols.iter().map(|s| s.len()).max().unwrap_or(0))
         .max()
         .unwrap_or(0);

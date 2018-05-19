@@ -1,5 +1,5 @@
-extern crate polonius;
 extern crate failure;
+extern crate polonius;
 extern crate structopt;
 
 use structopt::StructOpt;

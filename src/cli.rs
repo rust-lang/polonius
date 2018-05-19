@@ -12,16 +12,19 @@ arg_enum! {
     #[derive(Debug, Clone, Copy)]
     pub enum Algorithm {
         Naive,
-        TimelyOpt,
-        LocationInsensitive,
+        DatafrogOpt,
+        // LocationInsensitive,
     }
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
 pub struct Opt {
-    #[structopt(short = "a", default_value = "naive",
-                raw(possible_values = "&Algorithm::variants()", case_insensitive = "true"))]
+    #[structopt(
+        short = "a",
+        default_value = "naive",
+        raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
+    )]
     algorithm: Algorithm,
     #[structopt(long = "skip-tuples")]
     skip_tuples: bool,
@@ -35,24 +38,20 @@ pub struct Opt {
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
-    #[structopt(short = "w", long = "workers", default_value = "1")]
-    workers: u32,
 }
 
 pub fn main(opt: Opt) -> Result<(), Error> {
     do catch {
-        let output_directory = opt
-            .output_directory
-            .map(|x| {Path::new(&x).to_owned()} );
+        let output_directory = opt.output_directory.map(|x| Path::new(&x).to_owned());
         for facts_dir in opt.fact_dirs {
             let tables = &mut intern::InternerTables::new();
 
             let result: Result<(Duration, Output), Error> = do catch {
                 let verbose = opt.verbose | opt.stats;
                 let algorithm = opt.algorithm;
-                let workers = opt.workers;
-                let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-                timed(|| Output::compute(&all_facts, algorithm, verbose, workers))
+                let all_facts =
+                    tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+                timed(|| Output::compute(&all_facts, algorithm, verbose))
             };
 
             match result {
@@ -65,9 +64,11 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         println!("Time: {:0.3}s", seconds + millis);
 
                         if opt.verbose {
-                            println!("Max region graph in/out-degree: {} {}",
-                                     output.region_degrees.max_in_degree(),
-                                     output.region_degrees.max_out_degree());
+                            println!(
+                                "Max region graph in/out-degree: {} {}",
+                                output.region_degrees.max_in_degree(),
+                                output.region_degrees.max_out_degree()
+                            );
                             if output.region_degrees.has_multidegree() {
                                 println!("Found multidegree");
                             } else {
@@ -82,7 +83,9 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         }
                     }
                     if !opt.skip_tuples {
-                        output.dump(&output_directory, tables).expect("Failed to write output");
+                        output
+                            .dump(&output_directory, tables)
+                            .expect("Failed to write output");
                     }
                 }
 

@@ -1,5 +1,3 @@
-use abomonation_derive::Abomonation;
-
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Default)]
 crate struct AllFacts {
@@ -25,15 +23,17 @@ crate struct AllFacts {
 }
 
 macro_rules! index_type {
-    ($t: ident) => {
-        #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Abomonation, Debug, Hash)]
+    ($t:ident) => {
+        #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, Debug, Hash)]
         pub(crate) struct $t {
             index: u32,
         }
 
         impl From<usize> for $t {
             fn from(index: usize) -> $t {
-                $t { index: index as u32 }
+                $t {
+                    index: index as u32,
+                }
             }
         }
 
@@ -44,7 +44,7 @@ macro_rules! index_type {
         }
 
         impl $t {
-            fn index(self) -> usize {
+            pub(crate) fn index(self) -> usize {
                 self.into()
             }
         }
@@ -54,4 +54,3 @@ macro_rules! index_type {
 index_type!(Region);
 index_type!(Loan);
 index_type!(Point);
-

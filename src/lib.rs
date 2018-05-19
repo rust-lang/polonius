@@ -4,16 +4,12 @@
 #![feature(proc_macro)]
 #![feature(in_band_lifetimes)]
 #![feature(termination_trait_test)]
-
 #![allow(dead_code)]
 
-extern crate abomonation;
-extern crate abomonation_derive;
-extern crate differential_dataflow;
+extern crate datafrog;
 extern crate failure;
 extern crate fxhash;
 extern crate histo;
-extern crate timely;
 extern crate structopt;
 
 #[macro_use]
