@@ -18,10 +18,9 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         let tables = &mut intern::InternerTables::new();
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
         let naive = Output::compute(&all_facts, Algorithm::Naive, false);
-        let timely_opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
-        assert_eq!(naive.borrow_live_at, timely_opt.borrow_live_at);
-        // FIXME: check `_result` somehow
-    }
+        let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
+        assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+     }
 }
 
 macro_rules! tests {
