@@ -44,7 +44,6 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
         let subset_1 = iteration.variable_indistinct("subset_1");
         let subset_2 = iteration.variable_indistinct("subset_2");
         let subset_r1p = iteration.variable_indistinct("subset_r1p");
-        let subset_r2p = iteration.variable_indistinct("subset_r2p");
         let subset_p = iteration.variable_indistinct("subset_p");
 
         // temporaries as we perform a multi-way join, and more indices
@@ -60,7 +59,6 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             iteration.variable::<(Region, Region, Point, Point)>("live_to_dead_regions");
         let live_to_dead_regions_1 = iteration.variable_indistinct("live_to_dead_regions_1");
         let live_to_dead_regions_2 = iteration.variable_indistinct("live_to_dead_regions_2");
-        let live_to_dead_regions_p = iteration.variable_indistinct("live_to_dead_regions_p");
         let live_to_dead_regions_r2pq = iteration.variable_indistinct("live_to_dead_regions_r2pq");
 
         let dead_region_requires =
@@ -101,14 +99,11 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
         while iteration.changed() {
             // remap fields to re-index by the different keys
             subset_r1p.from_map(&subset, |&(r1, r2, p)| ((r1, p), r2));
-            subset_r2p.from_map(&subset, |&(r1, r2, p)| ((r2, p), r1));
             subset_p.from_map(&subset, |&(r1, r2, p)| (p, (r1, r2)));
 
             requires_bp.from_map(&requires, |&(r, b, p)| ((b, p), r));
             requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
 
-            live_to_dead_regions_p
-                .from_map(&live_to_dead_regions, |&(r1, r2, p, q)| (p, (r1, r2, q)));
             live_to_dead_regions_r2pq
                 .from_map(&live_to_dead_regions, |&(r1, r2, p, q)| ((r2, p, q), r1));
 
