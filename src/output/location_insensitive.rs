@@ -82,6 +82,53 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                 .from_join(&invalidates, &borrow_live_at_lp, |&(b, p), &(), &()| (b, p));
         }
 
+        if dump_enabled {
+            let subset = subset.complete();
+            for (r1, r2) in &subset.elements {
+                result
+                    .subset_anywhere
+                    .entry(*r1)
+                    .or_insert(BTreeSet::new())
+                    .insert(*r2);
+            }
+
+            let requires = requires.complete();
+            for (region, borrow) in &requires.elements {
+                result
+                    .restricts_anywhere
+                    .entry(*region)
+                    .or_insert(BTreeSet::new())
+                    .insert(*borrow);
+            }
+
+            let borrow_live_at = borrow_live_at.complete();
+            for (borrow, location) in &borrow_live_at.elements {
+                result
+                    .borrow_live_at
+                    .entry(*location)
+                    .or_insert(vec![])
+                    .push(*borrow);
+            }
+
+            let region_live_at = region_live_at.complete();
+            for (region, location) in &region_live_at.elements {
+                result
+                    .region_live_at
+                    .entry(*location)
+                    .or_insert(vec![])
+                    .push(*region);
+            }
+
+            let invalidates = invalidates.complete();
+            for ((borrow, location), _) in &invalidates.elements {
+                result
+                    .invalidates
+                    .entry(*location)
+                    .or_insert(vec![])
+                    .push(*borrow);
+            }
+        }
+
         potential_errors.complete()
     };
 

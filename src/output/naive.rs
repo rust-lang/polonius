@@ -10,7 +10,7 @@
 
 //! A version of the Naive datalog analysis using Datafrog.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use crate::facts::{AllFacts, Loan, Point, Region};
@@ -97,7 +97,9 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //   region_live_at(R2, Q).
 
             subset_1.from_join(&subset_p, &cfg_edge_p, |&_p, &(r1, r2), &q| ((r1, q), r2));
-            subset_2.from_join(&subset_1, &region_live_at, |&(r1, q), &r2, &()| ((r2, q), r1));
+            subset_2.from_join(&subset_1, &region_live_at, |&(r1, q), &r2, &()| {
+                ((r2, q), r1)
+            });
             subset.from_join(&subset_2, &region_live_at, |&(r2, q), &r1, &()| (r1, r2, q));
 
             // requires(R2, B, P) :-
@@ -116,6 +118,40 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
             // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
             borrow_live_at.from_join(&requires_rp, &region_live_at, |&(_r, p), &b, &()| (b, p));
+        }
+
+        if dump_enabled {
+            let subset = subset.complete();
+            for (r1, r2, location) in &subset.elements {
+                result
+                    .subset
+                    .entry(*location)
+                    .or_insert(BTreeMap::new())
+                    .entry(*r1)
+                    .or_insert(BTreeSet::new())
+                    .insert(*r2);
+                result.region_degrees.update_degrees(*r1, *r2, *location);
+            }
+
+            let requires = requires.complete();
+            for (region, borrow, location) in &requires.elements {
+                result
+                    .restricts
+                    .entry(*location)
+                    .or_insert(BTreeMap::new())
+                    .entry(*region)
+                    .or_insert(BTreeSet::new())
+                    .insert(*borrow);
+            }
+
+            let region_live_at = region_live_at.complete();
+            for ((region, location), _) in &region_live_at.elements {
+                result
+                    .region_live_at
+                    .entry(*location)
+                    .or_insert(vec![])
+                    .push(*region);
+            }
         }
 
         borrow_live_at.complete()
