@@ -33,6 +33,8 @@ crate struct Output {
     restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
     restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
     region_live_at: FxHashMap<Point, Vec<Region>>,
+    invalidates: FxHashMap<Point, Vec<Loan>>,
+    crate potential_errors: FxHashMap<Point, Vec<Loan>>,
     subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
     crate region_degrees: tracking::RegionDegrees,
@@ -55,6 +57,8 @@ impl Output {
             restricts: FxHashMap::default(),
             restricts_anywhere: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
+            invalidates: FxHashMap::default(),
+            potential_errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
             region_degrees: tracking::RegionDegrees::new(),
@@ -84,6 +88,16 @@ impl Output {
                 &mut writer_for(output_dir, "region_live_at")?,
                 intern,
                 &self.region_live_at,
+            )?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "invalidates")?,
+                intern,
+                &self.invalidates,
+            )?;
+            dump::dump_rows(
+                &mut writer_for(output_dir, "potential_errors")?,
+                intern,
+                &self.potential_errors,
             )?;
             dump::dump_rows(&mut writer_for(output_dir, "subset")?, intern, &self.subset)?;
             dump::dump_rows(
