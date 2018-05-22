@@ -13,7 +13,7 @@ arg_enum! {
     pub enum Algorithm {
         Naive,
         DatafrogOpt,
-        // LocationInsensitive,
+        LocationInsensitive,
     }
 }
 
