@@ -35,25 +35,37 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
 
     let mut result = Output::new(dump_enabled);
 
-    let borrow_live_at = {
+    let errors = {
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
 
-        // .. some variables and different indices for `subset`.
+        // static inputs
+        let cfg_edge = iteration.variable::<(Point, Point)>("cfg_edge");
+        let killed = all_facts.killed.into();
+
+        // `invalidates` facts, stored ready for joins
+        let invalidates = iteration.variable::<((Loan, Point), ())>("invalidates");
+
+        // we need `region_live_at` in both variable and relation forms.
+        // (respectively, for join and antijoin).
+        let region_live_at_rel =
+            Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| (r, p)));
+        let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
+
+        // variables, indices for the computation rules, and temporaries for the multi-way joins
         let subset = iteration.variable::<(Region, Region, Point)>("subset");
         let subset_1 = iteration.variable_indistinct("subset_1");
         let subset_2 = iteration.variable_indistinct("subset_2");
         let subset_r1p = iteration.variable_indistinct("subset_r1p");
         let subset_p = iteration.variable_indistinct("subset_p");
 
-        // temporaries as we perform a multi-way join, and more indices
         let requires = iteration.variable::<(Region, Loan, Point)>("requires");
         let requires_1 = iteration.variable_indistinct("requires_1");
         let requires_2 = iteration.variable_indistinct("requires_2");
         let requires_bp = iteration.variable_indistinct("requires_bp");
         let requires_rp = iteration.variable_indistinct("requires_rp");
 
-        let borrow_live_at = iteration.variable::<(Loan, Point)>("borrow_live_at");
+        let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
 
         let live_to_dead_regions =
             iteration.variable::<(Region, Region, Point, Point)>("live_to_dead_regions");
@@ -78,22 +90,19 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             iteration.variable::<((Region, Point, Point), Region)>("dead_can_reach_live");
         let dead_can_reach_live_r1pq = iteration.variable_indistinct("dead_can_reach_live_r1pq");
 
-        // We need both relation and variable forms of this (for join and antijoin).
-        let region_live_at_rel =
-            Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| (r, p)));
-        let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
-
-        let cfg_edge_p = iteration.variable::<(Point, Point)>("cfg_edge_p");
-
-        let killed = all_facts.killed.into();
+        // output
+        let errors = iteration.variable("errors");
 
         // load initial facts.
-        subset.insert(all_facts.outlives.into());
-        requires.insert(all_facts.borrow_region.into());
+        cfg_edge.insert(all_facts.cfg_edge.into());
+        invalidates.insert(Relation::from(
+            all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())),
+        ));
         region_live_at_var.insert(Relation::from(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
-        cfg_edge_p.insert(all_facts.cfg_edge.into());
+        subset.insert(all_facts.outlives.into());
+        requires.insert(all_facts.borrow_region.into());
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -142,9 +151,8 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //   cfg_edge(P, Q),
             //   region_live_at(R1, Q),
             //   !region_live_at(R2, Q).
-            live_to_dead_regions_1.from_join(&subset_p, &cfg_edge_p, |&p, &(r1, r2), &q| {
-                ((r1, q), (r2, p))
-            });
+            live_to_dead_regions_1
+                .from_join(&subset_p, &cfg_edge, |&p, &(r1, r2), &q| ((r1, q), (r2, p)));
             live_to_dead_regions_2.from_join(
                 &live_to_dead_regions_1,
                 &region_live_at_var,
@@ -169,7 +177,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             dead_region_requires_1.from_antijoin(&requires_bp, &killed, |&(b, p), &r| (p, (b, r)));
             dead_region_requires_2.from_join(
                 &dead_region_requires_1,
-                &cfg_edge_p,
+                &cfg_edge,
                 |&p, &(b, r), &q| ((r, q), (b, p)),
             );
             dead_region_requires.from_antijoin(
@@ -236,14 +244,14 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             );
 
             // subset(R1, R2, Q) :-
-            //   subset(R1, R2, P) :-
+            //   subset(R1, R2, P),
             //   cfg_edge(P, Q),
             //   region_live_at(R1, Q),
             //   region_live_at(R2, Q).
             //
             // Carry `R1 <= R2` from P into Q if both `R1` and
             // `R2` are live in Q.
-            subset_1.from_join(&subset_p, &cfg_edge_p, |&_p, &(r1, r2), &q| ((r1, q), r2));
+            subset_1.from_join(&subset_p, &cfg_edge, |&_p, &(r1, r2), &q| ((r1, q), r2));
             subset_2.from_join(&subset_1, &region_live_at_var, |&(r1, q), &r2, &()| {
                 ((r2, q), r1)
             });
@@ -281,7 +289,7 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //   cfg_edge(P, Q),
             //   region_live_at(R, Q).
             requires_1.from_antijoin(&requires_bp, &killed, |&(b, p), &r| (p, (r, b)));
-            requires_2.from_join(&requires_1, &cfg_edge_p, |&_p, &(r, b), &q| ((r, q), b));
+            requires_2.from_join(&requires_1, &cfg_edge, |&_p, &(r, b), &q| ((r, q), b));
             requires.from_join(&requires_2, &region_live_at_var, |&(r, q), &b, &()| {
                 (r, b, q)
             });
@@ -291,8 +299,11 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
             //
             // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
             borrow_live_at.from_join(&requires_rp, &region_live_at_var, |&(_r, p), &b, &()| {
-                (b, p)
+                ((b, p), ())
             });
+
+            // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
+            errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
         }
 
         if dump_enabled {
@@ -326,22 +337,31 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     .or_insert(BTreeSet::new())
                     .insert(*borrow);
             }
+
+            let borrow_live_at = borrow_live_at.complete();
+            for ((borrow, location), ()) in &borrow_live_at.elements {
+                result
+                    .borrow_live_at
+                    .entry(*location)
+                    .or_insert(Vec::new())
+                    .push(*borrow);
+            }
         }
 
-        borrow_live_at.complete()
+        errors.complete()
     };
 
     if dump_enabled {
         println!(
-            "borrow_live_at is complete: {} tuples, {:?}",
-            borrow_live_at.len(),
+            "errors is complete: {} tuples, {:?}",
+            errors.len(),
             timer.elapsed()
         );
     }
 
-    for (borrow, location) in &borrow_live_at.elements {
+    for (borrow, location) in &errors.elements {
         result
-            .borrow_live_at
+            .potential_errors
             .entry(*location)
             .or_insert(Vec::new())
             .push(*borrow);
