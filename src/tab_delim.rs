@@ -38,6 +38,7 @@ crate fn load_tab_delimited_facts(
             killed,
             outlives,
             region_live_at,
+            invalidates,
         }
     }
 }
