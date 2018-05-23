@@ -113,7 +113,7 @@ crate fn parse_from_program(
                 };
             }
 
-            // commonly reserved for
+            // commonly used to emit `invalidates` at Start points, like some rustc features do
             for effect in &statement.effects_start {
                 emit_effect(&mut facts, effect, start, tables);
             }
