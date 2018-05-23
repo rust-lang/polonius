@@ -16,9 +16,12 @@ extern crate polonius_engine;
 #[macro_use]
 extern crate clap;
 
+extern crate polonius_parser;
+
 mod facts;
 mod intern;
 mod output;
+mod program;
 mod tab_delim;
 mod test;
 
