@@ -1,0 +1,61 @@
+use ir::*;
+
+grammar;
+
+pub Input: Input = {
+    Comment* <universal_regions:UniversalRegions> Comment* <blocks:BlockDefn*> => Input { <> }
+};
+
+Comment: () = {
+    r"//.*"
+};
+
+UniversalRegions = "universal_regions" "{" <Comma<Region>> "}";
+BlockDefn : Block = {
+    "block" <name:Block> "{" <statements:Statement*> Comment* <goto:Goto> "}" => Block { <> },
+};
+
+Goto: Vec<String> = {
+    "goto" <Comma<Block>> ";",
+    () => Vec::new(),
+};
+
+Statement : Statement = {
+    Comment* <Effects> ";" => Statement::new(<>),
+    Comment* <start_effects:Effects> "/" <effects:Effects> ";" => Statement::with_start_effects(<>),
+};
+
+Effects = Comma<Effect>;
+Effect = { Fact, Use };
+
+Fact : Effect = {
+  "outlives" "(" <a:Region> ":" <b:Region> ")" => Effect::Outlives { <> },
+  "borrow_region_at" "(" <region:Region> "," <loan:Loan> ")" => Effect::BorrowRegionAt { <> },
+  "invalidates" "(" <loan:Loan> ")" => Effect::Invalidates { <> },
+  "kill" "(" <loan:Loan> ")" => Effect::Kill { <> },
+};
+
+Use : Effect = "use" "(" <region:Region> ")" => Effect::Use { <> };
+
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
+
+Region: String = {
+    r"'\w+" => <>.to_string()
+};
+
+Block: String = {
+    r"B\w+" => <>.to_string()
+};
+
+Loan: String = {
+    r"L\w+" => <>.to_string()
+};
