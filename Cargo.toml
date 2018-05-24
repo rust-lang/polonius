@@ -1,15 +1,18 @@
 [package]
 name = "polonius"
 version = "0.1.0"
-authors = ["Niko Matsakis <niko@alum.mit.edu>"]
+authors = ["The Rust Project Developers"]
 
 [dev-dependencies]
 assert_cli = "0.5.4"
 
 [dependencies]
-datafrog = { git = "https://github.com/frankmcsherry/datafrog", rev = "111e8d2" }
+datafrog = { git = "https://github.com/frankmcsherry/datafrog", rev = "4933ca6" }
 failure = "0.1.1"
 fxhash = "0.2.1"
 structopt = "0.2.8"
 clap = "2.31.2"
 histo = "0.1.0"
+polonius-engine = {version = "0.1.0", path = "polonius-engine" }
+
+[workspace]

@@ -1,29 +1,6 @@
-/// The "facts" which are the basis of the NLL borrow analysis.
-#[derive(Clone, Default)]
-crate struct AllFacts {
-    /// `borrow_region(R, B, P)` -- the region R may refer to data
-    /// from borrow B starting at the point P (this is usually the
-    /// point *after* a borrow rvalue)
-    crate borrow_region: Vec<(Region, Loan, Point)>,
+use polonius_engine;
 
-    /// `universal_region(R)` -- this is a "free region" within fn body
-    crate universal_region: Vec<Region>,
-
-    /// `cfg_edge(P,Q)` for each edge P -> Q in the control flow
-    crate cfg_edge: Vec<(Point, Point)>,
-
-    /// `killed(B,P)` when some prefix of the path borrowed at B is assigned at point P
-    crate killed: Vec<(Loan, Point)>,
-
-    /// `outlives(R1, R2, P)` when we require `R1@P: R2@P`
-    crate outlives: Vec<(Region, Region, Point)>,
-
-    /// `region_live_at(R, P)` when the region R appears in a live variable at P
-    crate region_live_at: Vec<(Region, Point)>,
-
-    /// `invalidates(P, B)` when the borrow B is invalidated at point P
-    crate invalidates: Vec<(Point, Loan)>,
-}
+crate type AllFacts = polonius_engine::AllFacts<Region, Loan, Point>;
 
 macro_rules! index_type {
     ($t:ident) => {
@@ -46,8 +23,8 @@ macro_rules! index_type {
             }
         }
 
-        impl $t {
-            pub(crate) fn index(self) -> usize {
+        impl polonius_engine::Atom for $t {
+            fn index(self) -> usize {
                 self.into()
             }
         }
