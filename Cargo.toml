@@ -16,6 +16,3 @@ histo = "0.1.0"
 polonius-engine = {version = "0.1.0", path = "polonius-engine" }
 
 [workspace]
-members = [
-    "polonius-engine",
-]
