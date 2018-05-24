@@ -13,3 +13,9 @@ fxhash = "0.2.1"
 structopt = "0.2.8"
 clap = "2.31.2"
 histo = "0.1.0"
+
+[dependencies.polonius-parser]
+version = "0.1.0"
+path = "polonius-parser"
+
+[workspace]

@@ -1,0 +1,16 @@
+[package]
+name = "polonius-parser"
+version = "0.1.0"
+description = "Parser for the Polonius project"
+license = "Apache-2.0/MIT"
+authors = ["Rust Compiler Team", "Polonius developers"]
+repository = "https://github.com/rust-lang-nursery/polonius"
+readme = "README.md"
+build = "build.rs" # LALRPOP preprocessing
+
+[build-dependencies]
+lalrpop = "0.15.2"
+
+[dependencies]
+lalrpop-util = "0.15.2"
+regex = "1.0.0"
