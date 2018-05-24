@@ -11,6 +11,7 @@ extern crate failure;
 extern crate fxhash;
 extern crate histo;
 extern crate structopt;
+extern crate polonius_engine;
 
 #[macro_use]
 extern crate clap;
