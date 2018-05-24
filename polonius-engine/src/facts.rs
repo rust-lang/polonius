@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Default)]
 pub struct AllFacts<R: Atom, L: Atom, P: Atom> {
@@ -25,6 +27,6 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom> {
     pub invalidates: Vec<(P, L)>
 }
 
-pub trait Atom: From<usize> + Into<usize> + Copy + Clone + Eq + Ord {
+pub trait Atom: From<usize> + Into<usize> + Copy + Clone + Eq + Ord + Hash + 'static {
     fn index(self) -> usize;
 }

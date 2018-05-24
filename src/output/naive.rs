@@ -13,12 +13,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
-use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::output::Output;
+use polonius_engine::{AllFacts, Atom};
 
 use datafrog::{Iteration, Relation};
 
-pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
+pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
+    dump_enabled: bool,
+    mut all_facts: AllFacts<Region, Loan, Point>,
+) -> Output<Region, Loan, Point> {
     let all_points: BTreeSet<Point> = all_facts
         .cfg_edge
         .iter()
@@ -130,7 +133,6 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     .entry(*r1)
                     .or_insert(BTreeSet::new())
                     .insert(*r2);
-                result.region_degrees.update_degrees(*r1, *r2, *location);
             }
 
             let requires = requires.complete();
