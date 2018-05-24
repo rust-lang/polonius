@@ -32,8 +32,6 @@ pub struct Opt {
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
     skip_timing: bool,
-    #[structopt(long = "stats")]
-    stats: bool,
     #[structopt(short = "v")]
     verbose: bool,
     #[structopt(short = "o", long = "output")]
@@ -49,7 +47,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
             let tables = &mut intern::InternerTables::new();
 
             let result: Result<(Duration, Output<Region, Loan, Point>), Error> = do catch {
-                let verbose = opt.verbose | opt.stats;
+                let verbose = opt.verbose;
                 let algorithm = opt.algorithm;
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
