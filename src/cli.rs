@@ -1,5 +1,7 @@
 #![allow(deprecated)] // arg_enum! uses deprecated stuff
 
+use crate::dump;
+use crate::facts::{Loan, Point, Region};
 use crate::intern;
 use crate::output::Output;
 use crate::tab_delim;
@@ -46,7 +48,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
         for facts_dir in opt.fact_dirs {
             let tables = &mut intern::InternerTables::new();
 
-            let result: Result<(Duration, Output), Error> = do catch {
+            let result: Result<(Duration, Output<Region, Loan, Point>), Error> = do catch {
                 let verbose = opt.verbose | opt.stats;
                 let algorithm = opt.algorithm;
                 let all_facts =
@@ -64,8 +66,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         println!("Time: {:0.3}s", seconds + millis);
                     }
                     if !opt.skip_tuples {
-                        output
-                            .dump(&output_directory, tables)
+                        dump::dump_output(&output, &output_directory, tables)
                             .expect("Failed to write output");
                     }
                 }

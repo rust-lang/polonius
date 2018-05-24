@@ -11,12 +11,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
-use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation};
+use polonius_engine::{AllFacts, Atom};
 
-pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
+pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
+    dump_enabled: bool,
+    mut all_facts: AllFacts<Region, Loan, Point>,
+) -> Output<Region, Loan, Point> {
     // Declare that each universal region is live at every point.
     let all_points: BTreeSet<Point> = all_facts
         .cfg_edge

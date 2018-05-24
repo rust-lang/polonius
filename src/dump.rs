@@ -1,11 +1,85 @@
 use crate::facts::*;
+use crate::intern::InternerTables;
 use crate::intern::*;
+use crate::output::Output;
 use fxhash::FxHashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
-crate trait OutputDump {
+crate fn dump_output(
+    output: &Output<Region, Loan, Point>,
+    output_dir: &Option<PathBuf>,
+    intern: &InternerTables,
+) -> io::Result<()> {
+    dump_rows(
+        &mut writer_for(output_dir, "borrow_live_at")?,
+        intern,
+        &output.borrow_live_at,
+    )?;
+
+    if output.dump_enabled {
+        dump_rows(
+            &mut writer_for(output_dir, "restricts")?,
+            intern,
+            &output.restricts,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "restricts_anywhere")?,
+            intern,
+            &output.restricts_anywhere,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "region_live_at")?,
+            intern,
+            &output.region_live_at,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "invalidates")?,
+            intern,
+            &output.invalidates,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "potential_errors")?,
+            intern,
+            &output.potential_errors,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "subset")?,
+            intern,
+            &output.subset,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "subset_anywhere")?,
+            intern,
+            &output.subset_anywhere,
+        )?;
+    }
+    return Ok(());
+
+    fn writer_for(out_dir: &Option<PathBuf>, name: &str) -> io::Result<Box<Write>> {
+        // create a writer for the provided output.
+        // If we have an output directory use that, otherwise just dump to stdout
+        use std::fs;
+
+        Ok(match out_dir {
+            Some(dir) => {
+                fs::create_dir_all(&dir)?;
+                let mut of = dir.join(name);
+                of.set_extension("facts");
+                Box::new(fs::File::create(of)?)
+            }
+            None => {
+                let mut stdout = io::stdout();
+                write!(&mut stdout, "# {}\n\n", name)?;
+                Box::new(stdout)
+            }
+        })
+    }
+}
+
+trait OutputDump {
     fn push_all(
         &'a self,
         intern: &'a InternerTables,
@@ -14,7 +88,7 @@ crate trait OutputDump {
     );
 }
 
-crate fn dump_rows(
+fn dump_rows(
     stream: &mut Write,
     intern: &InternerTables,
     value: &impl OutputDump,
