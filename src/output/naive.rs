@@ -130,7 +130,6 @@ pub(super) fn compute(dump_enabled: bool, mut all_facts: AllFacts) -> Output {
                     .entry(*r1)
                     .or_insert(BTreeSet::new())
                     .insert(*r2);
-                result.region_degrees.update_degrees(*r1, *r2, *location);
             }
 
             let requires = requires.complete();

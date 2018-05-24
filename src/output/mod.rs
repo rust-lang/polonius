@@ -37,7 +37,6 @@ crate struct Output {
     crate potential_errors: FxHashMap<Point, Vec<Loan>>,
     subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
-    crate region_degrees: tracking::RegionDegrees,
 }
 
 impl Output {
@@ -61,7 +60,6 @@ impl Output {
             potential_errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
-            region_degrees: tracking::RegionDegrees::new(),
             dump_enabled,
         }
     }
