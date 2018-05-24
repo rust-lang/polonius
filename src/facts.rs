@@ -23,7 +23,7 @@ macro_rules! index_type {
             }
         }
 
-        impl polonius_engine::IntoIndex for $t {
+        impl polonius_engine::Atom for $t {
             fn index(self) -> usize {
                 self.into()
             }

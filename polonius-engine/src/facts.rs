@@ -1,6 +1,6 @@
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Default)]
-pub struct AllFacts<R: IntoIndex, L: IntoIndex, P: IntoIndex> {
+pub struct AllFacts<R: Atom, L: Atom, P: Atom> {
     /// `borrow_region(R, B, P)` -- the region R may refer to data
     /// from borrow B starting at the point P (this is usually the
     /// point *after* a borrow rvalue)
@@ -25,6 +25,6 @@ pub struct AllFacts<R: IntoIndex, L: IntoIndex, P: IntoIndex> {
     pub invalidates: Vec<(P, L)>
 }
 
-pub trait IntoIndex: From<usize> + Into<usize> {
+pub trait Atom: From<usize> + Into<usize> + Copy + Clone + Eq + Ord {
     fn index(self) -> usize;
 }
