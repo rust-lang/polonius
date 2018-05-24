@@ -4,5 +4,5 @@
 mod facts;
 
 // Reexports of facts
-pub use facts::IntoIndex;
+pub use facts::Atom;
 pub use facts::AllFacts;
