@@ -14,7 +14,7 @@ assert_cli = "0.5.4"
 [dependencies]
 datafrog = "0.1.0"
 failure = "0.1.1"
-fxhash = "0.2.1"
+rustc-hash = "1.0.0"
 structopt = "0.2.8"
 clap = "2.31.2"
 histo = "0.1.0"

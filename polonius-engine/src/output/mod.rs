@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 

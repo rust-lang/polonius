@@ -4,7 +4,7 @@ use crate::facts::{Loan, Point};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use polonius_engine::{Algorithm, Output};
 use std::path::Path;
 

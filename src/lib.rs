@@ -8,7 +8,7 @@
 
 extern crate datafrog;
 extern crate failure;
-extern crate fxhash;
+extern crate rustc_hash;
 extern crate histo;
 extern crate polonius_engine;
 extern crate structopt;
