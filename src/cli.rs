@@ -5,17 +5,27 @@ use crate::facts::{Loan, Point, Region};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
-use polonius_engine::{self, Output};
+use polonius_engine::{Algorithm, Output};
 use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
 arg_enum! {
     #[derive(Debug, Clone, Copy)]
-    pub enum Algorithm {
+    pub enum AlgorithmOpts {
         Naive,
         DatafrogOpt,
         LocationInsensitive,
+    }
+}
+
+impl Into<Algorithm> for AlgorithmOpts {
+    fn into(self) -> Algorithm {
+        match self {
+            AlgorithmOpts::Naive => Algorithm::Naive,
+            AlgorithmOpts::DatafrogOpt => Algorithm::DatafrogOpt,
+            AlgorithmOpts::LocationInsensitive => Algorithm::LocationInsensitive,
+        }
     }
 }
 
@@ -25,9 +35,9 @@ pub struct Opt {
     #[structopt(
         short = "a",
         default_value = "naive",
-        raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
+        raw(possible_values = "&AlgorithmOpts::variants()", case_insensitive = "true")
     )]
-    algorithm: Algorithm,
+    algorithm: AlgorithmOpts,
     #[structopt(long = "skip-tuples")]
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
@@ -48,17 +58,9 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
             let result: Result<(Duration, Output<Region, Loan, Point>), Error> = do catch {
                 let verbose = opt.verbose;
-                // FIXME: temporary hack to avoid polonius-engine depend on clap or doing a
-                // refactor
-                let algorithm = match opt.algorithm {
-                    Algorithm::Naive => polonius_engine::Algorithm::Naive,
-                    Algorithm::DatafrogOpt => polonius_engine::Algorithm::DatafrogOpt,
-                    Algorithm::LocationInsensitive => {
-                        polonius_engine::Algorithm::LocationInsensitive
-                    }
-                };
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+                let algorithm = opt.algorithm.into();
                 timed(|| Output::compute(&all_facts, algorithm, verbose))
             };
 

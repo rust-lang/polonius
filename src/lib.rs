@@ -8,9 +8,9 @@
 
 extern crate datafrog;
 extern crate failure;
-extern crate rustc_hash;
 extern crate histo;
 extern crate polonius_engine;
+extern crate rustc_hash;
 extern crate structopt;
 
 #[macro_use]
