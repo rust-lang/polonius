@@ -9,3 +9,5 @@ readme = "README.md"
 keywords = ["compiler", "borrowck", "datalog"]
 
 [dependencies]
+datafrog = "0.1.0"
+rustc-hash = "1.0.0"

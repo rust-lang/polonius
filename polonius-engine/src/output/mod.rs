@@ -8,31 +8,36 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::cli::Algorithm;
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod datafrog_opt;
 mod location_insensitive;
 mod naive;
-mod tracking;
-use polonius_engine::{AllFacts, Atom};
+use facts::{AllFacts, Atom};
+
+#[derive(Debug, Clone, Copy)]
+pub enum Algorithm {
+    Naive,
+    DatafrogOpt,
+    LocationInsensitive,
+}
 
 #[derive(Clone, Debug)]
-crate struct Output<Region: Atom, Loan: Atom, Point: Atom> {
-    crate borrow_live_at: FxHashMap<Point, Vec<Loan>>,
+pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
+    pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
 
-    crate dump_enabled: bool,
+    pub dump_enabled: bool,
 
     // these are just for debugging
-    crate restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
-    crate restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
-    crate region_live_at: FxHashMap<Point, Vec<Region>>,
-    crate invalidates: FxHashMap<Point, Vec<Loan>>,
-    crate potential_errors: FxHashMap<Point, Vec<Loan>>,
-    crate subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
-    crate subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
+    pub restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
+    pub restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
+    pub region_live_at: FxHashMap<Point, Vec<Region>>,
+    pub invalidates: FxHashMap<Point, Vec<Loan>>,
+    pub potential_errors: FxHashMap<Point, Vec<Loan>>,
+    pub subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
+    pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
 }
 
 impl<Region, Loan, Point> Output<Region, Loan, Point>
@@ -41,7 +46,7 @@ where
     Loan: Atom,
     Point: Atom,
 {
-    crate fn compute(
+    pub fn compute(
         all_facts: &AllFacts<Region, Loan, Point>,
         algorithm: Algorithm,
         dump_enabled: bool,
@@ -69,14 +74,14 @@ where
         }
     }
 
-    crate fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {
+    pub fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {
         match self.borrow_live_at.get(&location) {
             Some(p) => p,
             None => &[],
         }
     }
 
-    crate fn restricts_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Loan>>> {
+    pub fn restricts_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Loan>>> {
         assert!(self.dump_enabled);
         match self.restricts.get(&location) {
             Some(map) => Cow::Borrowed(map),
@@ -84,7 +89,7 @@ where
         }
     }
 
-    crate fn regions_live_at(&self, location: Point) -> &[Region] {
+    pub fn regions_live_at(&self, location: Point) -> &[Region] {
         assert!(self.dump_enabled);
         match self.region_live_at.get(&location) {
             Some(v) => v,
@@ -92,7 +97,7 @@ where
         }
     }
 
-    crate fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {
+    pub fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {
         assert!(self.dump_enabled);
         match self.subset.get(&location) {
             Some(v) => Cow::Borrowed(v),

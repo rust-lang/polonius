@@ -8,10 +8,10 @@
 
 extern crate datafrog;
 extern crate failure;
-extern crate fxhash;
+extern crate rustc_hash;
 extern crate histo;
-extern crate structopt;
 extern crate polonius_engine;
+extern crate structopt;
 
 #[macro_use]
 extern crate clap;
@@ -19,7 +19,6 @@ extern crate clap;
 mod dump;
 mod facts;
 mod intern;
-mod output;
 mod tab_delim;
 mod test;
 

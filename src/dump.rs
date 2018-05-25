@@ -1,8 +1,8 @@
 use crate::facts::*;
 use crate::intern::InternerTables;
 use crate::intern::*;
-use crate::output::Output;
-use fxhash::FxHashMap;
+use rustc_hash::FxHashMap;
+use polonius_engine::Output;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 use std::io::{self, Write};
