@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use crate::output::Output;
-use polonius_engine::{AllFacts, Atom};
+use facts::{AllFacts, Atom};
 
 use datafrog::{Iteration, Relation};
 

@@ -9,3 +9,5 @@ readme = "README.md"
 keywords = ["compiler", "borrowck", "datalog"]
 
 [dependencies]
+datafrog = "0.1.0"
+fxhash = "0.2.1"

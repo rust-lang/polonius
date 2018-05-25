@@ -233,6 +233,10 @@ dependencies = [
 [[package]]
 name = "polonius-engine"
 version = "0.1.1"
+dependencies = [
+ "datafrog 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fxhash 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "proc-macro2"

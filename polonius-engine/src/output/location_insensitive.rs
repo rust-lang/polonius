@@ -14,7 +14,7 @@ use std::time::Instant;
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation};
-use polonius_engine::{AllFacts, Atom};
+use facts::{AllFacts, Atom};
 
 pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     dump_enabled: bool,

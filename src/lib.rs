@@ -19,7 +19,6 @@ extern crate clap;
 mod dump;
 mod facts;
 mod intern;
-mod output;
 mod tab_delim;
 mod test;
 

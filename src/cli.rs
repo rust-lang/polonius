@@ -3,7 +3,7 @@
 use crate::dump;
 use crate::facts::{Loan, Point, Region};
 use crate::intern;
-use crate::output::Output;
+use polonius_engine::{self, Output};
 use crate::tab_delim;
 use failure::Error;
 use std::path::Path;
@@ -48,7 +48,13 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
             let result: Result<(Duration, Output<Region, Loan, Point>), Error> = do catch {
                 let verbose = opt.verbose;
-                let algorithm = opt.algorithm;
+                // FIXME: temporary hack to avoid polonius-engine depend on clap or doing a
+                // refactor
+                let algorithm = match opt.algorithm {
+                    Algorithm::Naive => polonius_engine::Algorithm::Naive,
+                    Algorithm::DatafrogOpt => polonius_engine::Algorithm::DatafrogOpt,
+                    Algorithm::LocationInsensitive => polonius_engine::Algorithm::LocationInsensitive,
+                };
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
                 timed(|| Output::compute(&all_facts, algorithm, verbose))

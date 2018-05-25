@@ -1,7 +1,7 @@
 use crate::facts::*;
 use crate::intern::InternerTables;
 use crate::intern::*;
-use crate::output::Output;
+use polonius_engine::Output;
 use fxhash::FxHashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;

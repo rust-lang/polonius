@@ -1,9 +1,9 @@
 #![cfg(test)]
 
-use crate::cli::Algorithm;
 use crate::facts::{Loan, Point};
 use crate::intern;
-use crate::output::Output;
+use polonius_engine::Algorithm;
+use polonius_engine::Output;
 use crate::tab_delim;
 use failure::Error;
 use fxhash::FxHashMap;
