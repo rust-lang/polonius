@@ -5,7 +5,7 @@ use crate::facts::{Loan, Point, Region};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
-use polonius_engine::{self, Output};
+use polonius_engine::{Algorithm, Output};
 use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
@@ -16,6 +16,16 @@ arg_enum! {
         Naive,
         DatafrogOpt,
         LocationInsensitive,
+    }
+}
+
+impl Into<Algorithm> for AlgorithmOpts {
+    fn into(self) -> Algorithm {
+        match self {
+            AlgorithmOpts::Naive => Algorithm::Naive,
+            AlgorithmOpts::DatafrogOpt => Algorithm::DatafrogOpt,
+            AlgorithmOpts::LocationInsensitive => Algorithm::LocationInsensitive,
+        }
     }
 }
 
@@ -48,17 +58,9 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
             let result: Result<(Duration, Output<Region, Loan, Point>), Error> = do catch {
                 let verbose = opt.verbose;
-                // FIXME: temporary hack to avoid polonius-engine depend on clap or doing a
-                // refactor
-                let algorithm = match opt.algorithm {
-                    AlgorithmOpts::Naive => polonius_engine::Algorithm::Naive,
-                    AlgorithmOpts::DatafrogOpt => polonius_engine::Algorithm::DatafrogOpt,
-                    AlgorithmOpts::LocationInsensitive => {
-                        polonius_engine::Algorithm::LocationInsensitive
-                    }
-                };
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+                let algorithm = opt.algorithm.into();
                 timed(|| Output::compute(&all_facts, algorithm, verbose))
             };
 
