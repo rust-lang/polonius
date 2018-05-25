@@ -4,8 +4,8 @@ use crate::facts::{Loan, Point};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
-use rustc_hash::FxHashMap;
 use polonius_engine::{Algorithm, Output};
+use rustc_hash::FxHashMap;
 use std::path::Path;
 
 fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
