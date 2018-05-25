@@ -226,13 +226,13 @@ dependencies = [
  "failure 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxhash 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "histo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "polonius-engine 0.1.0",
+ "polonius-engine 0.1.1",
  "structopt 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "polonius-engine"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "proc-macro2"
