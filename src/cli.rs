@@ -12,7 +12,7 @@ use structopt::StructOpt;
 
 arg_enum! {
     #[derive(Debug, Clone, Copy)]
-    pub enum Algorithm {
+    pub enum AlgorithmOpts {
         Naive,
         DatafrogOpt,
         LocationInsensitive,
@@ -25,9 +25,9 @@ pub struct Opt {
     #[structopt(
         short = "a",
         default_value = "naive",
-        raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
+        raw(possible_values = "&AlgorithmOpts::variants()", case_insensitive = "true")
     )]
-    algorithm: Algorithm,
+    algorithm: AlgorithmOpts,
     #[structopt(long = "skip-tuples")]
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
@@ -51,9 +51,9 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                 // FIXME: temporary hack to avoid polonius-engine depend on clap or doing a
                 // refactor
                 let algorithm = match opt.algorithm {
-                    Algorithm::Naive => polonius_engine::Algorithm::Naive,
-                    Algorithm::DatafrogOpt => polonius_engine::Algorithm::DatafrogOpt,
-                    Algorithm::LocationInsensitive => {
+                    AlgorithmOpts::Naive => polonius_engine::Algorithm::Naive,
+                    AlgorithmOpts::DatafrogOpt => polonius_engine::Algorithm::DatafrogOpt,
+                    AlgorithmOpts::LocationInsensitive => {
                         polonius_engine::Algorithm::LocationInsensitive
                     }
                 };
