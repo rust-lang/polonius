@@ -24,7 +24,7 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom> {
     pub region_live_at: Vec<(R, P)>,
 
     ///  `invalidates(P, L)` when the loan L is invalidated at point P
-    pub invalidates: Vec<(P, L)>
+    pub invalidates: Vec<(P, L)>,
 }
 
 impl<R: Atom, L: Atom, P: Atom> Default for AllFacts<R, L, P> {

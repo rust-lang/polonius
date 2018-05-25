@@ -10,8 +10,8 @@ extern crate datafrog;
 extern crate failure;
 extern crate fxhash;
 extern crate histo;
-extern crate structopt;
 extern crate polonius_engine;
+extern crate structopt;
 
 #[macro_use]
 extern crate clap;

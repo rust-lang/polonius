@@ -2,11 +2,10 @@
 
 use crate::facts::{Loan, Point};
 use crate::intern;
-use polonius_engine::Algorithm;
-use polonius_engine::Output;
 use crate::tab_delim;
 use failure::Error;
 use fxhash::FxHashMap;
+use polonius_engine::{Algorithm, Output};
 use std::path::Path;
 
 fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
