@@ -16,7 +16,6 @@ use std::collections::{BTreeMap, BTreeSet};
 mod datafrog_opt;
 mod location_insensitive;
 mod naive;
-mod tracking;
 use polonius_engine::{AllFacts, Atom};
 
 #[derive(Clone, Debug)]
