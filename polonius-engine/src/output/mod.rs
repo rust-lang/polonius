@@ -97,6 +97,14 @@ where
         }
     }
 
+    pub fn errors_at(&self, location: Point) -> Cow<'_, Vec<Loan>> {
+        assert!(self.dump_enabled);
+        match self.errors.get(&location) {
+            Some(v) => Cow::Borrowed(v),
+            None => Cow::Owned(Vec::default()),
+        }
+    }
+
     pub fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {
         assert!(self.dump_enabled);
         match self.subset.get(&location) {
