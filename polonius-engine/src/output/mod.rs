@@ -35,7 +35,7 @@ pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
     pub region_live_at: FxHashMap<Point, Vec<Region>>,
     pub invalidates: FxHashMap<Point, Vec<Loan>>,
-    pub potential_errors: FxHashMap<Point, Vec<Loan>>,
+    pub errors: FxHashMap<Point, Vec<Loan>>,
     pub subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
 }
@@ -67,7 +67,7 @@ where
             restricts_anywhere: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
             invalidates: FxHashMap::default(),
-            potential_errors: FxHashMap::default(),
+            errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
             dump_enabled,
