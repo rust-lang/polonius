@@ -18,6 +18,6 @@ rustc-hash = "1.0.0"
 structopt = "0.2.8"
 clap = "2.31.2"
 histo = "0.1.0"
-polonius-engine = {version = "0.2.0", path = "polonius-engine" }
+polonius-engine = {version = "0.3.0", path = "polonius-engine" }
 
 [workspace]
