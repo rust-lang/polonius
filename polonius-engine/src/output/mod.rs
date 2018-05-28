@@ -74,6 +74,13 @@ where
         }
     }
 
+    pub fn errors_at(&self, location: Point) -> &[Loan] {
+        match self.errors.get(&location) {
+            Some(v) => v,
+            None => &[],
+        }
+    }
+
     pub fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {
         match self.borrow_live_at.get(&location) {
             Some(p) => p,
@@ -94,14 +101,6 @@ where
         match self.region_live_at.get(&location) {
             Some(v) => v,
             None => &[],
-        }
-    }
-
-    pub fn errors_at(&self, location: Point) -> Cow<'_, Vec<Loan>> {
-        assert!(self.dump_enabled);
-        match self.errors.get(&location) {
-            Some(v) => Cow::Borrowed(v),
-            None => Cow::Owned(Vec::default()),
         }
     }
 
