@@ -212,14 +212,14 @@ dependencies = [
  "datafrog 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "histo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "polonius-engine 0.2.0",
+ "polonius-engine 0.3.0",
  "rustc-hash 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "polonius-engine"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "datafrog 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-hash 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
