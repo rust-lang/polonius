@@ -41,9 +41,9 @@ crate fn dump_output(
             &output.invalidates,
         )?;
         dump_rows(
-            &mut writer_for(output_dir, "potential_errors")?,
+            &mut writer_for(output_dir, "errors")?,
             intern,
-            &output.potential_errors,
+            &output.errors,
         )?;
         dump_rows(
             &mut writer_for(output_dir, "subset")?,

@@ -363,7 +363,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
     for (borrow, location) in &errors.elements {
         result
-            .potential_errors
+            .errors
             .entry(*location)
             .or_insert(Vec::new())
             .push(*borrow);
