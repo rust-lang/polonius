@@ -1,3 +1,7 @@
+# v0.4.0
+
+avoid `Cow` for `errors_at`
+
 # v0.3.0
 
 renamed field from `potential_errors` to `errors`
