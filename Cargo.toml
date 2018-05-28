@@ -19,5 +19,6 @@ structopt = "0.2.8"
 clap = "2.31.2"
 histo = "0.1.0"
 polonius-engine = {version = "0.4.0", path = "polonius-engine" }
+polonius-parser = {version = "0.1.0", path = "polonius-parser" }
 
 [workspace]
