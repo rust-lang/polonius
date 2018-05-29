@@ -13,8 +13,6 @@ extern crate polonius_engine;
 extern crate polonius_parser;
 extern crate rustc_hash;
 extern crate structopt;
-
-#[macro_use]
 extern crate clap;
 
 mod dump;

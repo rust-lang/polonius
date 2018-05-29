@@ -1,5 +1,3 @@
-#![allow(deprecated)] // arg_enum! uses deprecated stuff
-
 use crate::dump;
 use crate::facts::{Loan, Point, Region};
 use crate::intern;
@@ -10,34 +8,16 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
-arg_enum! {
-    #[derive(Debug, Clone, Copy)]
-    pub enum AlgorithmOpts {
-        Naive,
-        DatafrogOpt,
-        LocationInsensitive,
-    }
-}
-
-impl Into<Algorithm> for AlgorithmOpts {
-    fn into(self) -> Algorithm {
-        match self {
-            AlgorithmOpts::Naive => Algorithm::Naive,
-            AlgorithmOpts::DatafrogOpt => Algorithm::DatafrogOpt,
-            AlgorithmOpts::LocationInsensitive => Algorithm::LocationInsensitive,
-        }
-    }
-}
-
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
 pub struct Opt {
     #[structopt(
         short = "a",
+        env = "POLONIUS_ALGORITHM",
         default_value = "naive",
-        raw(possible_values = "&AlgorithmOpts::variants()", case_insensitive = "true")
+        raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
     )]
-    algorithm: AlgorithmOpts,
+    algorithm: Algorithm,
     #[structopt(long = "skip-tuples")]
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
