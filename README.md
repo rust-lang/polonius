@@ -28,6 +28,13 @@ This will generate a bunch of output tuples:
 ...
 ```
 
+To generate a [graphviz](https://www.graphviz.org) file with the CFG enriched
+with input and output tuples at each point, do:
+
+```bash
+cargo +nightly run --release --graphviz_file=graph.dot -- inputs/issue-47680/nll-facts/main
+```
+
 ### Want to see something slow?
 
 One of the goals with this repo is to experiment and compare different

@@ -5,7 +5,7 @@ use crate::facts::{Loan, Point, Region};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
-use polonius_engine::{Algorithm, Output};
+use polonius_engine::{Algorithm, AllFacts, Output};
 use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
@@ -44,6 +44,8 @@ pub struct Opt {
     skip_timing: bool,
     #[structopt(short = "v")]
     verbose: bool,
+    #[structopt(long = "graphviz_file")]
+    graphviz_file: Option<String>,
     #[structopt(short = "o", long = "output")]
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
@@ -53,19 +55,23 @@ pub struct Opt {
 pub fn main(opt: Opt) -> Result<(), Error> {
     do catch {
         let output_directory = opt.output_directory.map(|x| Path::new(&x).to_owned());
+        let graphviz_file = opt.graphviz_file.map(|x| Path::new(&x).to_owned());
         for facts_dir in opt.fact_dirs {
             let tables = &mut intern::InternerTables::new();
 
-            let result: Result<(Duration, Output<Region, Loan, Point>), Error> = do catch {
+            let result: Result<(Duration, AllFacts<Region, Loan, Point>, Output<Region, Loan, Point>), Error> = do catch {
                 let verbose = opt.verbose;
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
                 let algorithm = opt.algorithm.into();
-                timed(|| Output::compute(&all_facts, algorithm, verbose))
+                let graphviz_output = graphviz_file.is_some();
+                let (duration, output) =
+                    timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
+                (duration, all_facts, output)
             };
 
             match result {
-                Ok((duration, output)) => {
+                Ok((duration, all_facts, output)) => {
                     println!("--------------------------------------------------");
                     println!("Directory: {}", facts_dir);
                     if !opt.skip_timing {
@@ -76,6 +82,10 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                     if !opt.skip_tuples {
                         dump::dump_output(&output, &output_directory, tables)
                             .expect("Failed to write output");
+                    }
+                    if let Some(ref graphviz_file) = graphviz_file {
+                        dump::graphviz(&output, &all_facts, graphviz_file, tables)
+                            .expect("Failed to write GraphViz");
                     }
                 }
 
