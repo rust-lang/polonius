@@ -24,6 +24,26 @@ pub enum Algorithm {
     LocationInsensitive,
 }
 
+impl Algorithm {
+    pub fn variants() -> [&'static str; 3] {
+        ["Naive", "DatafrogOpt", "LocationInsensitive"]
+    }
+}
+
+impl ::std::str::FromStr for Algorithm {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_ref() {
+            "naive" => Ok(Algorithm::Naive),
+            "datafrogopt" => Ok(Algorithm::DatafrogOpt),
+            "locationinsensitive" => Ok(Algorithm::LocationInsensitive),
+            _ => Err(String::from(
+                "valid values: Naive, DatafrogOpt, LocationInsensitive",
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
