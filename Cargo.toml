@@ -12,6 +12,8 @@ keywords = ["compiler", "borrowck", "datalog"]
 assert_cli = "0.5.4"
 
 [dependencies]
+log = "0.4"
+env_logger = "0.5"
 datafrog = "0.1.0"
 failure = "0.1.1"
 rustc-hash = "1.0.0"

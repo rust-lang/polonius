@@ -3,6 +3,8 @@
 /// Contains the core of the Polonius borrow checking engine.
 /// Input is fed in via AllFacts, and outputs are returned via Output
 extern crate datafrog;
+#[macro_use]
+extern crate log;
 extern crate rustc_hash;
 
 mod facts;

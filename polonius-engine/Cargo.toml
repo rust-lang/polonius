@@ -11,3 +11,4 @@ keywords = ["compiler", "borrowck", "datalog"]
 [dependencies]
 datafrog = "0.1.0"
 rustc-hash = "1.0.0"
+log = "0.4"

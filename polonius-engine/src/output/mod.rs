@@ -22,11 +22,13 @@ pub enum Algorithm {
     Naive,
     DatafrogOpt,
     LocationInsensitive,
+    /// Compare Naive and DatafrogOpt.
+    Compare,
 }
 
 impl Algorithm {
-    pub fn variants() -> [&'static str; 3] {
-        ["Naive", "DatafrogOpt", "LocationInsensitive"]
+    pub fn variants() -> [&'static str; 4] {
+        ["Naive", "DatafrogOpt", "LocationInsensitive", "Compare"]
     }
 }
 
@@ -41,6 +43,7 @@ impl ::std::str::FromStr for Algorithm {
             "LocationInsensitive" | _ if s.eq_ignore_ascii_case("LocationInsensitive") => {
                 Ok(Algorithm::LocationInsensitive)
             }
+            "Compare" | _ if s.eq_ignore_ascii_case("Compare") => Ok(Algorithm::Compare),
             _ => Err(String::from(
                 "valid values: Naive, DatafrogOpt, LocationInsensitive",
             )),
@@ -64,6 +67,42 @@ pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
 }
 
+/// Compares errors reported by Naive implementation with the errors
+/// reported by the optimized implementation.
+fn compare_errors<Loan: Atom, Point: Atom>(
+    all_naive_errors: &FxHashMap<Point, Vec<Loan>>,
+    all_opt_errors: &FxHashMap<Point, Vec<Loan>>,
+) -> bool {
+    let mut points: Vec<_> = all_naive_errors.keys().collect();
+    points.extend(all_opt_errors.keys());
+    let mut differ = false;
+    for point in points.iter() {
+        let mut naive_errors = all_naive_errors.get(&point).cloned().unwrap_or(Vec::new());
+        naive_errors.sort();
+        let mut opt_errors = all_opt_errors.get(&point).cloned().unwrap_or(Vec::new());
+        opt_errors.sort();
+        for err in naive_errors.iter() {
+            if !opt_errors.contains(err) {
+                error!(
+                    "Error {0:?} at {1:?} reported by naive, but not opt.",
+                    err, point
+                );
+                differ = true;
+            }
+        }
+        for err in opt_errors.iter() {
+            if !naive_errors.contains(err) {
+                error!(
+                    "Error {0:?} at {1:?} reported by opt, but not naive.",
+                    err, point
+                );
+                differ = true;
+            }
+        }
+    }
+    differ
+}
+
 impl<Region, Loan, Point> Output<Region, Loan, Point>
 where
     Region: Atom,
@@ -80,6 +119,20 @@ where
             Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
             Algorithm::LocationInsensitive => {
                 location_insensitive::compute(dump_enabled, all_facts.clone())
+            }
+            Algorithm::Compare => {
+                let naive_output = naive::compute(dump_enabled, all_facts.clone());
+                let opt_output = datafrog_opt::compute(dump_enabled, all_facts.clone());
+                if compare_errors(&naive_output.errors, &opt_output.errors) {
+                    panic!(concat!(
+                        "The errors reported by the naive algorithm differ from ",
+                        "the errors reported by the optimized algorithm. ",
+                        "See the error log for details."
+                    ));
+                } else {
+                    debug!("Naive and optimized algorithms reported the same errors.");
+                }
+                opt_output
             }
         }
     }
@@ -134,5 +187,62 @@ where
             Some(v) => Cow::Borrowed(v),
             None => Cow::Owned(BTreeMap::default()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl Atom for usize {
+        fn index(self) -> usize {
+            self
+        }
+    }
+
+    fn compare(
+        errors1: &FxHashMap<usize, Vec<usize>>,
+        errors2: &FxHashMap<usize, Vec<usize>>,
+    ) -> bool {
+        let diff1 = compare_errors(errors1, errors2);
+        let diff2 = compare_errors(errors2, errors1);
+        assert_eq!(diff1, diff2);
+        diff1
+    }
+
+    #[test]
+    fn test_compare_errors() {
+        let empty = FxHashMap::default();
+        assert_eq!(false, compare(&empty, &empty));
+        let mut empty_vec = FxHashMap::default();
+        empty_vec.insert(1, vec![]);
+        empty_vec.insert(2, vec![]);
+        assert_eq!(false, compare(&empty, &empty_vec));
+
+        let mut singleton1 = FxHashMap::default();
+        singleton1.insert(1, vec![10]);
+        assert_eq!(false, compare(&singleton1, &singleton1));
+        let mut singleton2 = FxHashMap::default();
+        singleton2.insert(1, vec![11]);
+        assert_eq!(false, compare(&singleton2, &singleton2));
+        let mut singleton3 = FxHashMap::default();
+        singleton3.insert(2, vec![10]);
+        assert_eq!(false, compare(&singleton3, &singleton3));
+
+        assert_eq!(true, compare(&singleton1, &singleton2));
+        assert_eq!(true, compare(&singleton2, &singleton3));
+        assert_eq!(true, compare(&singleton1, &singleton3));
+
+        assert_eq!(true, compare(&empty, &singleton1));
+        assert_eq!(true, compare(&empty, &singleton2));
+        assert_eq!(true, compare(&empty, &singleton3));
+
+        let mut errors1 = FxHashMap::default();
+        errors1.insert(1, vec![11]);
+        errors1.insert(2, vec![10]);
+        assert_eq!(false, compare(&errors1, &errors1));
+        assert_eq!(true, compare(&errors1, &singleton1));
+        assert_eq!(true, compare(&errors1, &singleton2));
+        assert_eq!(true, compare(&errors1, &singleton3));
     }
 }
