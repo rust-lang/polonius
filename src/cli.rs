@@ -13,6 +13,7 @@ use structopt::StructOpt;
 pub struct Opt {
     #[structopt(
         short = "a",
+        env = "POLONIUS_ALGORITHM",
         default_value = "naive",
         raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
     )]
