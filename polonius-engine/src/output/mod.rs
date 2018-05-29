@@ -24,6 +24,30 @@ pub enum Algorithm {
     LocationInsensitive,
 }
 
+impl Algorithm {
+    pub fn variants() -> [&'static str; 3] {
+        ["Naive", "DatafrogOpt", "LocationInsensitive"]
+    }
+}
+
+impl ::std::str::FromStr for Algorithm {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Naive" | _ if s.eq_ignore_ascii_case("Naive") => Ok(Algorithm::Naive),
+            "DatafrogOpt" | _ if s.eq_ignore_ascii_case("DatafrogOpt") => {
+                Ok(Algorithm::DatafrogOpt)
+            }
+            "LocationInsensitive" | _ if s.eq_ignore_ascii_case("LocationInsensitive") => {
+                Ok(Algorithm::LocationInsensitive)
+            }
+            _ => Err(String::from(
+                "valid values: Naive, DatafrogOpt, LocationInsensitive",
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
