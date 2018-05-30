@@ -35,37 +35,13 @@ impl Algorithm {
 impl ::std::str::FromStr for Algorithm {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Naive" | _ if s.eq_ignore_ascii_case("Naive") => Ok(Algorithm::Naive),
-            "DatafrogOpt" | _ if s.eq_ignore_ascii_case("DatafrogOpt") => {
-                Ok(Algorithm::DatafrogOpt)
-            }
-            "LocationInsensitive" | _ if s.eq_ignore_ascii_case("LocationInsensitive") => {
-                Ok(Algorithm::LocationInsensitive)
-            }
-            "Compare" | _ if s.eq_ignore_ascii_case("Compare") => Ok(Algorithm::Compare),
-            _ => Err(String::from(
-                "valid values: Naive, DatafrogOpt, LocationInsensitive",
-            )),
-        }
-    }
-}
-
-impl Algorithm {
-    pub fn variants() -> [&'static str; 3] {
-        ["Naive", "DatafrogOpt", "LocationInsensitive"]
-    }
-}
-
-impl ::std::str::FromStr for Algorithm {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_ref() {
             "naive" => Ok(Algorithm::Naive),
             "datafrogopt" => Ok(Algorithm::DatafrogOpt),
             "locationinsensitive" => Ok(Algorithm::LocationInsensitive),
+            "compare" => Ok(Algorithm::Compare),
             _ => Err(String::from(
-                "valid values: Naive, DatafrogOpt, LocationInsensitive",
+                "valid values: Naive, DatafrogOpt, LocationInsensitive, Compare",
             )),
         }
     }
