@@ -1,4 +1,5 @@
 use std::hash::Hash;
+use std::fmt::Debug;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone)]
@@ -41,6 +42,6 @@ impl<R: Atom, L: Atom, P: Atom> Default for AllFacts<R, L, P> {
     }
 }
 
-pub trait Atom: From<usize> + Into<usize> + Copy + Clone + Eq + Ord + Hash + 'static {
+pub trait Atom: From<usize> + Into<usize> + Copy + Clone + Debug + Eq + Ord + Hash + 'static {
     fn index(self) -> usize;
 }
