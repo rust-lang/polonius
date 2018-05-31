@@ -1,18 +1,32 @@
-# v0.4.0
+# polonius
 
-avoid `Cow` for `errors_at`
+## v0.2.0
 
-# v0.3.0
+- integrate the latest engine
+- add graphviz output
+- preliminary work towards a friendly front-end format
 
-renamed field from `potential_errors` to `errors`
+# polonius-engine
 
-# v0.2.0
+## v0.5.0
 
-added `Output` mode
+- add a new algorithm that permits comparing naive and optimized
 
-# v0.1.1
+## v0.4.0
 
-Made default more lenient
+- avoid `Cow` for `errors_at`
 
-# v0.1.0
+## v0.3.0
+
+- renamed field from `potential_errors` to `errors`
+
+## v0.2.0
+
+- added `Output` mode
+
+## v0.1.1
+
+- made default more lenient
+
+## v0.1.0
 
