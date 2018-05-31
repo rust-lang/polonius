@@ -1,18 +1,22 @@
+# v0.5.0
+
+- add a new algorithm that permits comparing naive and optimized
+
 # v0.4.0
 
-avoid `Cow` for `errors_at`
+- avoid `Cow` for `errors_at`
 
 # v0.3.0
 
-renamed field from `potential_errors` to `errors`
+- renamed field from `potential_errors` to `errors`
 
 # v0.2.0
 
-added `Output` mode
+- added `Output` mode
 
 # v0.1.1
 
-Made default more lenient
+- made default more lenient
 
 # v0.1.0
 
