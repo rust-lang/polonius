@@ -3,7 +3,7 @@ name = "polonius-parser"
 version = "0.1.0"
 description = "Parser for the Polonius project"
 license = "Apache-2.0/MIT"
-authors = ["The Rust Project Developers"]
+authors = ["The Rust Project Developers", "Polonius Developers"]
 repository = "https://github.com/rust-lang-nursery/polonius"
 build = "build.rs" # LALRPOP preprocessing
 
