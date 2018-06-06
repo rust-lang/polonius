@@ -117,7 +117,7 @@ fn effects_start() {
     let program = r"
         universal_regions { 'a, 'b, 'c }
         block B0 {
-            invalidates(L0) / use('a);
+            invalidates(L0), region_live_at('a) / use('a);
             invalidates(L1);
             invalidates(L0), invalidates(L1) / use('c);
         }
@@ -134,6 +134,8 @@ fn effects_start() {
         statements.effects_start,
         [Effect::Fact(Fact::Invalidates {
             loan: "L0".to_string()
+        }), Effect::Fact(Fact::RegionLiveAt {
+            region: "'a".to_string()
         })]
     );
     assert_eq!(
