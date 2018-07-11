@@ -44,12 +44,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // .. some variables, ..
         let subset = iteration.variable::<(Region, Region)>("subset");
         let requires = iteration.variable::<(Region, Loan)>("requires");
-        let borrow_live_at = iteration.variable::<(Loan, Point)>("borrow_live_at");
+        let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
         let region_live_at = iteration.variable::<(Region, Point)>("region_live_at");
         let invalidates = iteration.variable::<((Loan, Point), ())>("invalidates");
         let potential_errors = iteration.variable::<(Loan, Point)>("potential_errors");
-
-        let borrow_live_at_lp = iteration.variable::<((Loan, Point), ())>("borrow_live_at_lp");
 
         // load initial facts.
 
@@ -71,18 +69,15 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // .. and then start iterating rules!
         while iteration.changed() {
-            // remap fields to re-index by keys.
-            borrow_live_at_lp.from_map(&borrow_live_at, |&(b, p)| ((b, p), ()));
-
             // requires(R2, B) :- requires(R1, B), subset(R1, R2).
             requires.from_join(&requires, &subset, |&_r1, &b, &r2| (r2, b));
 
             // borrow_live_at(B, P) :- requires(R, B), region_live_at(R, P)
-            borrow_live_at.from_join(&requires, &region_live_at, |&_r, &b, &p| (b, p));
+            borrow_live_at.from_join(&requires, &region_live_at, |&_r, &b, &p| ((b, p), ()));
 
             // potential_errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
             potential_errors
-                .from_join(&invalidates, &borrow_live_at_lp, |&(b, p), &(), &()| (b, p));
+                .from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
         }
 
         if dump_enabled {
@@ -105,7 +100,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             }
 
             let borrow_live_at = borrow_live_at.complete();
-            for (borrow, location) in &borrow_live_at.elements {
+            for ((borrow, location), _) in &borrow_live_at.elements {
                 result
                     .borrow_live_at
                     .entry(*location)
