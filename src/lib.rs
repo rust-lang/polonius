@@ -1,5 +1,4 @@
 #![feature(catch_expr)]
-#![feature(crate_in_paths)]
 #![feature(crate_visibility_modifier)]
 #![feature(proc_macro)]
 #![feature(in_band_lifetimes)]
