@@ -1,4 +1,4 @@
-use facts::*;
+use crate::facts::*;
 use std::collections::HashMap;
 
 /// When we load facts out of the table, they are essentially random

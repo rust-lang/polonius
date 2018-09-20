@@ -9,7 +9,7 @@ use rustc_hash::FxHashMap;
 use std::path::Path;
 
 fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
-    do catch {
+    try {
         let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("inputs")
             .join(dir_name)
@@ -41,7 +41,7 @@ tests! {
 
 #[test]
 fn test_insensitive_errors() -> Result<(), Error> {
-    do catch {
+    try {
         let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("inputs")
             .join("issue-47680")
@@ -62,7 +62,7 @@ fn test_insensitive_errors() -> Result<(), Error> {
 
 #[test]
 fn test_sensitive_passes_issue_47680() -> Result<(), Error> {
-    do catch {
+    try {
         let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("inputs")
             .join("issue-47680")
