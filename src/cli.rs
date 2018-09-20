@@ -33,13 +33,13 @@ pub struct Opt {
 }
 
 pub fn main(opt: Opt) -> Result<(), Error> {
-    do catch {
+    try {
         let output_directory = opt.output_directory.map(|x| Path::new(&x).to_owned());
         let graphviz_file = opt.graphviz_file.map(|x| Path::new(&x).to_owned());
         for facts_dir in opt.fact_dirs {
             let tables = &mut intern::InternerTables::new();
 
-            let result: Result<(Duration, AllFacts<Region, Loan, Point>, Output<Region, Loan, Point>), Error> = do catch {
+            let result: Result<(Duration, AllFacts<Region, Loan, Point>, Output<Region, Loan, Point>), Error> = try {
                 let verbose = opt.verbose;
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
