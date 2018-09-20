@@ -9,6 +9,7 @@ extern crate histo;
 extern crate polonius_engine;
 extern crate polonius_parser;
 extern crate rustc_hash;
+#[macro_use]
 extern crate structopt;
 extern crate clap;
 
