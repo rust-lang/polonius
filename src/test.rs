@@ -76,6 +76,40 @@ fn test_sensitive_passes_issue_47680() -> Result<(), Error> {
     }
 }
 
+#[test]
+fn no_subset_symmetries_exist() -> Result<(), Error> {
+    try {
+        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("inputs")
+            .join("issue-47680")
+            .join("nll-facts")
+            .join("main");
+        let tables = &mut intern::InternerTables::new();
+        let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+
+        let subset_symmetries_exist = |output: &Output<Region, Loan, Point>| {
+            for (_, subsets) in &output.subset {
+                for (r1, rs) in subsets {
+                    if rs.contains(&r1) {
+                        return true;
+                    }
+                }
+            }
+            false
+        };
+
+        let naive = Output::compute(&all_facts, Algorithm::Naive, true);       
+        assert!(!subset_symmetries_exist(&naive));
+
+        // FIXME: the issue-47680 dataset is suboptimal here as DatafrogOpt does not
+        // produce subset symmetries for it. It does for clap, and it was used to manually verify
+        // that the assert in verbose  mode didn't trigger. Therefore, switch to this dataset
+        // whenever it's fast enough to be enabled in tests, or somehow create a test facts program
+        // or reduce it from clap. 
+        let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
+        assert!(!subset_symmetries_exist(&opt));
+    }
+}
 
 // The following 3 tests, `send_is_not_static_std_sync`, `escape_upvar_nested`, and `issue_31567`
 // are extracted from rustc's test suite, and fail because of differences between the Naive
