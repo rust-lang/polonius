@@ -77,6 +77,20 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // .. and then start iterating rules!
         while iteration.changed() {
+            // Cleanup step: remove symmetries
+            // - remove regions which are `subset`s of themselves
+            //
+            // FIXME: investigate whether is there a better way to do that without complicating
+            // the rules too much, because it would also require temporary variables and
+            // impact performance. Until then, the big reduction in tuples improves performance
+            // a lot, even if we're potentially adding a small number of tuples
+            // per round just to remove them in the next round.
+            subset
+                .recent
+                .borrow_mut()
+                .elements
+                .retain(|&(r1, r2, _)| r1 != r2);
+
             // remap fields to re-index by keys.
             subset_r1p.from_map(&subset, |&(r1, r2, p)| ((r1, p), r2));
             subset_r2p.from_map(&subset, |&(r1, r2, p)| ((r2, p), r1));
@@ -125,6 +139,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         if dump_enabled {
             let subset = subset.complete();
+            assert!(
+                subset.iter().filter(|&(r1, r2, _)| r1 == r2).count() == 0,
+                "unwanted subset symmetries"
+            );
             for (r1, r2, location) in &subset.elements {
                 result
                     .subset
