@@ -36,6 +36,7 @@ Fact : Fact = {
   "borrow_region_at" "(" <region:Region> "," <loan:Loan> ")" => Fact::BorrowRegionAt { <> },
   "invalidates" "(" <loan:Loan> ")" => Fact::Invalidates { <> },
   "kill" "(" <loan:Loan> ")" => Fact::Kill { <> },
+  "region_live_at" "(" <region:Region> ")" => Fact::RegionLiveAt { <> },
 };
 
 Use : Effect = "use" "(" <regions:Comma<Region>> ")" => Effect::Use { <> };

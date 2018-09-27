@@ -170,8 +170,16 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
         // facts: invalidates(Point, Loan)
         Fact::Invalidates { ref loan } => {
             let loan = tables.loans.intern(loan);
-            // invalides: a loan can be invalidated on both Start and Mid points
+            // invalidates: a loan can be invalidated on both Start and Mid points
             facts.invalidates.insert((point, loan));
+        }
+
+        // facts: region_live_at(Region, Point)
+        Fact::RegionLiveAt { ref region } => {
+            let region = tables.regions.intern(region);
+            // region_live_at: a region can be manually set live on both Start and Mid points
+            // but will mostly be computed and emitted automatically
+            facts.region_live_at.insert((region, point));
         }
     };
 }
@@ -193,7 +201,7 @@ mod tests {
                 invalidates(L0);
 
                 // 1:
-                invalidates(L1) / kill(L2);
+                invalidates(L1), region_live_at('d) / kill(L2);
 
                 // another comment
                 goto B1;
@@ -243,7 +251,7 @@ mod tests {
         // TODO: incomplete until either all the `region_live_at` are computed with liveness,
         // or they are emitted manually at Start points.
         // facts: region_live_at
-        assert_eq!(facts.region_live_at.len(), 2);
+        assert_eq!(facts.region_live_at.len(), 3);
         {
             let region = tables.regions.untern(facts.region_live_at[0].0);
             let point = tables.points.untern(facts.region_live_at[0].1);
@@ -256,6 +264,12 @@ mod tests {
 
             assert_eq!(region, "'b");
             assert_eq!(point, "\"Start(B1[0])\"");
+
+            let region = tables.regions.untern(facts.region_live_at[2].0);
+            let point = tables.points.untern(facts.region_live_at[2].1);
+
+            assert_eq!(region, "'d");
+            assert_eq!(point, "\"Start(B0[1])\"");
         }
 
         assert_eq!(facts.outlives.len(), 1);

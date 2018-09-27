@@ -32,6 +32,7 @@ pub enum Fact {
     BorrowRegionAt { region: String, loan: String },
     Invalidates { loan: String },
     Kill { loan: String },
+    RegionLiveAt { region: String },
 }
 
 impl Statement {
