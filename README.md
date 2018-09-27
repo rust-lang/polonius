@@ -63,7 +63,11 @@ input facts.  For that, you will need to run rustc with the
 > rustc -Znll-facts inputs/issue-47680/issue-47680.rs
 ```
 
-[PR #50370]: https://github.com/rust-lang/rust/pull/50370
+Or, for generating the input facts of a crate using the `#![feature(nll)]` flag:
+
+```
+> cargo rustc -- -Znll-facts
+```
 
 This will generate a `nll-facts` directory with one subdirectory per function:
 
