@@ -133,6 +133,45 @@ where
         }
     }
 
+    /// If the current `borrows_live_at` relation was computed over compressed facts
+    /// (and only contains results from "important points"), this function will decompress
+    /// the relation by duplicating the important points' borrows for each of the respective
+    /// compressed point in the equivalence table.
+    ///
+    /// For example:
+    /// `borrows_live_at` = (p, [L1, L2]), `equivalence_table`: (q, p)
+    /// will be decompressed with an additional result:
+    /// `borrows_live_at` += (q, [L1, L2])
+    ///
+    pub fn decompress(&mut self, equivalence_table: &FxHashMap<Point, Point>) {
+        let mut equivalence_map = FxHashMap::default();
+        for (compressed_point, important_point) in equivalence_table {
+            equivalence_map
+                .entry(*important_point)
+                .or_insert(Vec::new())
+                .push(*compressed_point);
+        }
+
+        // FIXME: this clones the borrows for convenience, and is less efficient.
+        // Eventually, when everything works correctly and we decide what is the best
+        // place for the decompression code (for example in the variants or an `Output` builder),
+        // it can be done there, as efficiently as possible. Until then, it only made a small
+        // difference in early testing and benchmarks.
+        for (important_point, compressed_points) in &equivalence_map {
+            let borrows = match self.borrow_live_at.get(&important_point) {
+                None => continue,
+                Some(borrows) => borrows.clone(),
+            };
+
+            for compressed_point in compressed_points {
+                self.borrow_live_at
+                    .entry(*compressed_point)
+                    .or_insert(Vec::new())
+                    .extend(borrows.iter());
+            }
+        }
+    }
+
     fn new(dump_enabled: bool) -> Self {
         Output {
             borrow_live_at: FxHashMap::default(),

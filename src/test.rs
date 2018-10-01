@@ -99,14 +99,14 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
             false
         };
 
-        let naive = Output::compute(&all_facts, Algorithm::Naive, true);       
+        let naive = Output::compute(&all_facts, Algorithm::Naive, true);
         assert!(!subset_symmetries_exist(&naive));
 
         // FIXME: the issue-47680 dataset is suboptimal here as DatafrogOpt does not
         // produce subset symmetries for it. It does for clap, and it was used to manually verify
         // that the assert in verbose  mode didn't trigger. Therefore, switch to this dataset
         // whenever it's fast enough to be enabled in tests, or somehow create a test facts program
-        // or reduce it from clap. 
+        // or reduce it from clap.
         let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
         assert!(!subset_symmetries_exist(&opt));
     }
@@ -211,4 +211,42 @@ fn borrowed_local_error() {
     let naive = Output::compute(&facts, Algorithm::Naive, true);
     let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
     assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+}
+
+#[test]
+fn compress_issue_47680() -> Result<(), Error> {
+    try {
+        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("inputs")
+            .join("issue-47680")
+            .join("nll-facts")
+            .join("main");
+        let tables = &mut intern::InternerTables::new();
+        let mut all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+
+        // 1 - do the computations uncompressed
+        let uncompressed_naive = Output::compute(&all_facts, Algorithm::Naive, true);
+        let uncompressed_opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
+
+        // 2 - compress the input facts
+        let equivalence_table = all_facts.compress();
+
+        // 3 - test the naive computation compressed: 
+        // - ensure that compressed results are indeed different from the uncompressed ones
+        // - ensure that decompressing the results produces the uncompressed results
+        let mut compressed_naive = Output::compute(&all_facts, Algorithm::Naive, true);
+        assert!(uncompressed_naive.borrow_live_at != compressed_naive.borrow_live_at);
+
+        compressed_naive.decompress(&equivalence_table);
+        assert_eq!(uncompressed_naive.borrow_live_at, compressed_naive.borrow_live_at);
+
+        // 4 - test the optimized computation compressed: 
+        // - ensure that compressed results are indeed different from the uncompressed ones
+        // - ensure that decompressing the results produces the uncompressed results
+        let mut compressed_opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
+        assert!(uncompressed_opt.borrow_live_at != compressed_opt.borrow_live_at);
+
+        compressed_opt.decompress(&equivalence_table);
+        assert_eq!(uncompressed_opt.borrow_live_at, compressed_opt.borrow_live_at);
+    }
 }
