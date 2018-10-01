@@ -18,6 +18,8 @@ pub struct Opt {
         raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
     )]
     algorithm: Algorithm,
+    #[structopt(long = "compress-cfg")]
+    compress_cfg: bool,
     #[structopt(long = "skip-tuples")]
     skip_tuples: bool,
     #[structopt(long = "skip-timing")]
@@ -41,12 +43,25 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
             let result: Result<(Duration, AllFacts<Region, Loan, Point>, Output<Region, Loan, Point>), Error> = try {
                 let verbose = opt.verbose;
-                let all_facts =
+                let mut all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+                let compression_table = if opt.compress_cfg {
+                    Some(all_facts.compress())
+                } else {
+                    None
+                };
+
                 let algorithm = opt.algorithm.into();
                 let graphviz_output = graphviz_file.is_some();
                 let (duration, output) =
-                    timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
+                    timed(|| {
+                        let mut output = Output::compute(&all_facts, algorithm, verbose || graphviz_output);
+                        if let Some(compression_table) = compression_table {
+                            output.decompress(&compression_table);
+                        }
+                        output
+                    }
+                );
                 (duration, all_facts, output)
             };
 
