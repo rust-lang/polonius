@@ -43,7 +43,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                 let verbose = opt.verbose;
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-                let algorithm = opt.algorithm.into();
+                let algorithm = opt.algorithm;
                 let graphviz_output = graphviz_file.is_some();
                 let (duration, output) =
                     timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
@@ -55,8 +55,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                     println!("--------------------------------------------------");
                     println!("Directory: {}", facts_dir);
                     if !opt.skip_timing {
-                        let seconds: f64 = duration.as_secs() as f64;
-                        let millis: f64 = duration.subsec_nanos() as f64 * 0.000_000_001_f64;
+                        let seconds = duration.as_secs() as f64;
+                        let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
                         println!("Time: {:0.3}s", seconds + millis);
                     }
                     if !opt.skip_tuples {

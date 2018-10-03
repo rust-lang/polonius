@@ -51,7 +51,7 @@ where
     let mut result = Vec::new();
     for (index, line) in io::BufReader::new(file).lines().enumerate() {
         let line = line?;
-        let mut columns = line.split("\t");
+        let mut columns = line.split('\t');
         let row = match FromTabDelimited::parse(tables, &mut columns) {
             None => {
                 eprintln!("error parsing line {} of `{}`", index + 1, path.display());
