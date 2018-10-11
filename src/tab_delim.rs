@@ -48,8 +48,8 @@ where
     Row: for<'input> FromTabDelimited<'input>,
 {
     let file = File::open(path)?;
-    let mut result = Vec::new();
-    for (index, line) in io::BufReader::new(file).lines().enumerate() {
+
+    io::BufReader::new(file).lines().enumerate().map(|(index, line)| {
         let line = line?;
         let mut columns = line.split("\t");
         let row = match FromTabDelimited::parse(tables, &mut columns) {
@@ -66,9 +66,8 @@ where
             process::exit(1);
         }
 
-        result.push(row);
-    }
-    Ok(result)
+        Ok(row)
+    }).collect()
 }
 
 impl<T> FromTabDelimited<'input> for T

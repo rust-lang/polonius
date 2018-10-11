@@ -69,10 +69,10 @@ fn compare_errors<Loan: Atom, Point: Atom>(
     all_naive_errors: &FxHashMap<Point, Vec<Loan>>,
     all_opt_errors: &FxHashMap<Point, Vec<Loan>>,
 ) -> bool {
-    let mut points: Vec<_> = all_naive_errors.keys().collect();
-    points.extend(all_opt_errors.keys());
+    let points = all_naive_errors.keys().chain(all_opt_errors.keys());
+
     let mut differ = false;
-    for point in points.iter() {
+    for point in points {
         let mut naive_errors = all_naive_errors.get(&point).cloned().unwrap_or(Vec::new());
         naive_errors.sort();
         let mut opt_errors = all_opt_errors.get(&point).cloned().unwrap_or(Vec::new());
