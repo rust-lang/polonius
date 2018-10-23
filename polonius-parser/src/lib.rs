@@ -1,4 +1,3 @@
-#![feature(crate_in_paths)]
 #![feature(crate_visibility_modifier)]
 
 pub mod ir;
