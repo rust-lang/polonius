@@ -408,8 +408,8 @@ crate fn graphviz(
 
 fn graphviz_for_edge(p1: Point, p2: Point, edge_index: usize,
                      seen_points: &mut BTreeSet<usize>,
-                     inputs_by_point: &Vec<HashMap<Point, String>>,
-                     outputs_by_point: &Vec<HashMap<Point, String>>,
+                     inputs_by_point: &[HashMap<Point, String>],
+                     outputs_by_point: &[HashMap<Point, String>],
                      intern: &InternerTables)
         -> Vec<String> {
     let mut ret = Vec::new();
@@ -424,8 +424,8 @@ fn graphviz_for_edge(p1: Point, p2: Point, edge_index: usize,
 
 fn maybe_render_point(pt: Point,
                       seen_points: &mut BTreeSet<usize>,
-                      inputs_by_point: &Vec<HashMap<Point, String>>,
-                      outputs_by_point: &Vec<HashMap<Point, String>>,
+                      inputs_by_point: &[HashMap<Point, String>],
+                      outputs_by_point: &[HashMap<Point, String>],
                       render_vec: &mut Vec<String>,
                       intern: &InternerTables) {
 
