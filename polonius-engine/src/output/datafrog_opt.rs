@@ -428,7 +428,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     };
 
     if dump_enabled {
-        println!(
+        info!(
             "errors is complete: {} tuples, {:?}",
             errors.len(),
             timer.elapsed()

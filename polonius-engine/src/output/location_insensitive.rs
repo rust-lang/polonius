@@ -131,7 +131,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     };
 
     if dump_enabled {
-        println!(
+        info!(
             "potential_errors is complete: {} tuples, {:?}",
             potential_errors.len(),
             potential_errors_start.elapsed()
