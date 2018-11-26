@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::facts::{Loan, Point, Region};
+use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
@@ -10,7 +10,16 @@ use polonius_engine::{Algorithm, Output};
 use rustc_hash::FxHashMap;
 use std::path::Path;
 
-fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
+fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
+    let naive = Output::compute(all_facts, Algorithm::Naive, false);
+    for &optimized_algorithm in algorithms {
+        println!("Algorithm {:?}", optimized_algorithm);
+        let opt = Output::compute(all_facts, optimized_algorithm, true);
+        assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+    }
+}
+
+fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Error> {
     try {
         let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("inputs")
@@ -20,18 +29,20 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         println!("facts_dir = {:?}", facts_dir);
         let tables = &mut intern::InternerTables::new();
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let naive = Output::compute(&all_facts, Algorithm::Naive, false);
-        let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
-        assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+        test_facts(&all_facts, &[algorithm])
     }
 }
 
 macro_rules! tests {
     ($($name:ident($dir:expr, $fn:expr),)*) => {
         $(
-            #[test]
-            fn $name() -> Result<(), Error> {
-                test_fn($dir, $fn)
+            mod $name {
+                use super::*;
+
+                #[test]
+                fn datafrog_opt() -> Result<(), Error> {
+                    test_fn($dir, $fn, Algorithm::DatafrogOpt)
+                }
             }
         )*
     }
@@ -133,10 +144,7 @@ fn send_is_not_static_std_sync() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }
 
 #[test]
@@ -155,10 +163,7 @@ fn escape_upvar_nested() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }
 
 #[test]
@@ -178,10 +183,7 @@ fn issue_31567() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }
 
 #[test]
@@ -208,8 +210,5 @@ fn borrowed_local_error() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }

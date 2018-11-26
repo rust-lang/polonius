@@ -27,6 +27,9 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
+    /// Optimized variants that ought to be equivalent to "naive"
+    pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt];
+
     pub fn variants() -> [&'static str; 4] {
         ["Naive", "DatafrogOpt", "LocationInsensitive", "Compare"]
     }
