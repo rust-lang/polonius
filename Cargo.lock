@@ -478,6 +478,7 @@ dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "datafrog 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "diff 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "histo 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

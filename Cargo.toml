@@ -11,6 +11,7 @@ edition = "2018"
 
 [dev-dependencies]
 assert_cli = "0.5.4"
+diff = "0.1.0"
 
 [dependencies]
 log = "0.4"

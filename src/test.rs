@@ -4,6 +4,7 @@ use crate::facts::{Loan, Point, Region};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
+use crate::test_util::assert_equal;
 use failure::Error;
 use polonius_engine::{Algorithm, Output};
 use rustc_hash::FxHashMap;
@@ -21,7 +22,7 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
         let naive = Output::compute(&all_facts, Algorithm::Naive, false);
         let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
-        assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+        assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
     }
 }
 
@@ -57,7 +58,7 @@ fn test_insensitive_errors() -> Result<(), Error> {
         expected.insert(Point::from(1), vec![Loan::from(1)]);
         expected.insert(Point::from(2), vec![Loan::from(2)]);
 
-        assert_eq!(insensitive.errors, expected);
+        assert_equal(&insensitive.errors, &expected);
     }
 }
 
@@ -135,7 +136,7 @@ fn send_is_not_static_std_sync() {
 
     let naive = Output::compute(&facts, Algorithm::Naive, true);
     let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
 }
 
 #[test]
@@ -157,7 +158,7 @@ fn escape_upvar_nested() {
 
     let naive = Output::compute(&facts, Algorithm::Naive, true);
     let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
 }
 
 #[test]
@@ -180,7 +181,7 @@ fn issue_31567() {
 
     let naive = Output::compute(&facts, Algorithm::Naive, true);
     let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
 }
 
 #[test]
@@ -210,5 +211,5 @@ fn borrowed_local_error() {
 
     let naive = Output::compute(&facts, Algorithm::Naive, true);
     let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
 }
