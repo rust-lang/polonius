@@ -35,23 +35,29 @@ with input and output tuples at each point, do:
 cargo +nightly run --release -- --graphviz_file=graph.dot inputs/issue-47680/nll-facts/main
 ```
 
-### Want to see something slow?
+### Want to run the code?
 
 One of the goals with this repo is to experiment and compare different
-implementations of the same algorithm. The repo includes one
-particularly egregious case where we currently perform poorly, and you
-can test it against it like so:
+implementations of the same algorithm. You can run the analysis by using `cargo run`
+and you can choose the analysis with `-a`. So for example to run against an example
+extract from clap, you might do:
 
 ```bash
-> cargo +nightly run --release -- inputs/clap-rs/app-parser-{{impl}}-add_defaults/
+> cargo +nightly run --release -- -a DatafrogOpt inputs/clap-rs/app-parser-{{impl}}-add_defaults/
     Finished release [optimized] target(s) in 0.05 secs
      Running `target/release/borrow-check 'inputs/clap-rs/app-parser-{{impl}}-add_defaults/'`
 --------------------------------------------------
 Directory: inputs/clap-rs/app-parser-{{impl}}-add_defaults/
-Time: 113.316s
+Time: 3.856s
 ```
 
-(You can see it is pretty dang slow on my machine!)
+You could also try `-a Naive` to get the naive rules (more readable, slower)
+or `-a LocationInsensitive` to use a location insensitive analysis.
+
+By default, `cargo run` just prints timing. If you also want to see
+the results, try `--show-tuples` (which will show errors) and maybe
+`-v` (to show more intermediate computations). You can supply `--help`
+to get more docs.
 
 ### How to generate your own inputs
 

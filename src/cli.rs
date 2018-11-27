@@ -18,15 +18,15 @@ pub struct Opt {
         raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
     )]
     algorithm: Algorithm,
-    #[structopt(long = "show-tuples")]
+    #[structopt(long = "show-tuples", help = "Show output tuples on stdout")]
     show_tuples: bool,
-    #[structopt(long = "skip-timing")]
+    #[structopt(long = "skip-timing", help = "Do not display timing results")]
     skip_timing: bool,
-    #[structopt(short = "v")]
+    #[structopt(short = "v", long = "verbose", help = "Show intermediate output tuples and not just errors")]
     verbose: bool,
-    #[structopt(long = "graphviz_file")]
+    #[structopt(long = "graphviz_file", help = "Generate a graphviz file to visualize the input")]
     graphviz_file: Option<String>,
-    #[structopt(short = "o", long = "output")]
+    #[structopt(short = "o", long = "output", help = "Directory where to output resulting tuples")]
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
