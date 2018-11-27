@@ -20,13 +20,13 @@ pub struct Statement {
     pub effects: Vec<Effect>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
     Use { regions: Vec<String> },
     Fact(Fact),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Fact {
     Outlives { a: String, b: String },
     BorrowRegionAt { region: String, loan: String },
