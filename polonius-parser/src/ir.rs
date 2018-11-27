@@ -37,8 +37,19 @@ pub enum Fact {
 
 impl Statement {
     crate fn new(effects: Vec<Effect>) -> Self {
+        // Anything live on entry to the "mid point" is also live on
+        // entry to the start point.
+        let effects_start = effects
+            .iter()
+            .filter(|effect| match effect {
+                Effect::Fact(Fact::RegionLiveAt { .. }) => true,
+                _ => false,
+            })
+            .cloned()
+            .collect();
+
         Self {
-            effects_start: Vec::new(),
+            effects_start,
             effects,
         }
     }
