@@ -91,7 +91,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let dying_can_reach_live =
             iteration.variable::<((Region, Point, Point), Region)>("dying_can_reach_live");
-        let dying_can_reach_live_r1pq = iteration.variable_indistinct("dying_can_reach_live_r1pq");
 
         // output
         let errors = iteration.variable("errors");
@@ -134,8 +133,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 .from_map(&live_to_dead_regions, |&(r1, r2, p, q)| ((r2, p, q), r1));
 
             dying_can_reach_r2q.from_map(&dying_can_reach, |&(r1, r2, p, q)| ((r2, q), (r1, p)));
-            dying_can_reach_live_r1pq
-                .from_map(&dying_can_reach_live, |&((r1, p, q), r2)| ((r1, p, q), r2));
 
             // it's now time ... to datafrog:
 
@@ -290,7 +287,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   dying_can_reach_live(R2, R3, P, Q).
             subset.from_join(
                 &live_to_dead_regions_r2pq,
-                &dying_can_reach_live_r1pq,
+                &dying_can_reach_live,
                 |&(_r2, _p, q), &r1, &r3| (r1, r3, q),
             );
 
@@ -305,7 +302,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // to `Q`.
             requires.from_join(
                 &dying_region_requires,
-                &dying_can_reach_live_r1pq,
+                &dying_can_reach_live,
                 |&(_r1, _p, q), &b, &r2| (r2, b, q),
             );
 
