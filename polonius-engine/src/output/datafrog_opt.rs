@@ -70,11 +70,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
 
-        let live_to_dead_regions =
-            iteration.variable::<(Region, Region, Point, Point)>("live_to_dead_regions");
+        let live_to_dead_regions_r2pq =
+            iteration.variable::<((Region, Point, Point), Region)>("live_to_dead_regions_r2pq");
         let live_to_dead_regions_1 = iteration.variable_indistinct("live_to_dead_regions_1");
         let live_to_dead_regions_2 = iteration.variable_indistinct("live_to_dead_regions_2");
-        let live_to_dead_regions_r2pq = iteration.variable_indistinct("live_to_dead_regions_r2pq");
 
         let dying_region_requires =
             iteration.variable::<((Region, Point, Point), Loan)>("dying_region_requires");
@@ -129,9 +128,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             requires_bp.from_map(&requires, |&(r, b, p)| ((b, p), r));
             requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
 
-            live_to_dead_regions_r2pq
-                .from_map(&live_to_dead_regions, |&(r1, r2, p, q)| ((r2, p, q), r1));
-
             dying_can_reach_r2q.from_map(&dying_can_reach, |&(r1, r2, p, q)| ((r2, q), (r1, p)));
 
             // it's now time ... to datafrog:
@@ -172,10 +168,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 &region_live_at_var,
                 |&(r1, q), &(r2, p), &()| ((r2, q), (r1, p)),
             );
-            live_to_dead_regions.from_antijoin(
+            live_to_dead_regions_r2pq.from_antijoin(
                 &live_to_dead_regions_2,
                 &region_live_at_rel,
-                |&(r2, q), &(r1, p)| (r1, r2, p, q),
+                |&(r2, q), &(r1, p)| ((r2, p, q), r1),
             );
 
             // .decl dying_region_requires((R, P, Q), B)
@@ -210,7 +206,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   live_to_dead_regions(_, R2, P, Q).
             // dying_can_reach_origins(R, P, Q) :-
             //   dying_region_requires_2(R, P, Q, B).
-            dying_can_reach_origins.from_map(&live_to_dead_regions, |&(_r1, r2, p, q)| ((r2, p), q));
+            dying_can_reach_origins.from_map(&live_to_dead_regions_r2pq, |&((r2, p, q), _r1)| ((r2, p), q));
             dying_can_reach_origins.from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
 
             // .decl dying_can_reach(R1, R2, P, Q)
