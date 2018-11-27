@@ -11,38 +11,6 @@ be"][nblnb], which comes from the character Polonius in Shakespeare's
 
 [nblnb]: https://literarydevices.net/neither-a-borrower-nor-a-lender-be/
 
-### How to use
-
-First off, you must use the **nightly** channel. To build, do something like this:
-
-```bash
-cargo +nightly build --release
-```
-
-You can try it on one our input tests like so:
-
-```bash
-cargo +nightly run --release -- inputs/issue-47680/nll-facts/main
-```
-
-This will generate a bunch of output tuples:
-
-```
-# borrow_live_at
-
-"Mid(bb3[2])"   "bw0"
-"Mid(bb3[2])"   "bw2"
-"Mid(bb10[2])"  "bw0"
-...
-```
-
-To generate a [graphviz](https://www.graphviz.org) file with the CFG enriched
-with input and output tuples at each point, do:
-
-```bash
-cargo +nightly run --release -- --graphviz_file=graph.dot inputs/issue-47680/nll-facts/main
-```
-
 ### Want to run the code?
 
 One of the goals with this repo is to experiment and compare different
