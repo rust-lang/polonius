@@ -131,7 +131,6 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
 // the length of the `outlives` chain reaching a live region at a specific point.
 
 #[test]
-#[should_panic]
 fn send_is_not_static_std_sync() {
     // Reduced from rustc test: ui/span/send-is-not-static-std-sync.rs
     // (in the functions: `mutex` and `rwlock`)
@@ -148,7 +147,6 @@ fn send_is_not_static_std_sync() {
 }
 
 #[test]
-#[should_panic]
 fn escape_upvar_nested() {
     // Reduced from rustc test: ui/nll/closure-requirements/escape-upvar-nested.rs
     // (in the function: `test-\{\{closure\}\}-\{\{closure\}\}/`)
@@ -167,7 +165,6 @@ fn escape_upvar_nested() {
 }
 
 #[test]
-#[should_panic]
 fn issue_31567() {
     // Reduced from rustc test: ui/nll/issue-31567.rs
     // This is one of two tuples present in the Naive results and missing from the Opt results,
@@ -177,7 +174,11 @@ fn issue_31567() {
     let program = r"
         universal_regions { }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c), outlives('c: 'd), region_live_at('d);
+            borrow_region_at('a, L0),
+            outlives('a: 'b),
+            outlives('b: 'c),
+            outlives('c: 'd),
+            region_live_at('d);
         }
     ";
 
@@ -187,7 +188,6 @@ fn issue_31567() {
 }
 
 #[test]
-#[should_panic]
 fn borrowed_local_error() {
     // This test is related to the previous 3: there is still a borrow_region outliving a live region,
     // through a chain of `outlives` at a single point, but this time there are also 2 points

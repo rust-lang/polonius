@@ -55,6 +55,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| (r, p)));
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
 
+        // `borrow_region` input but organized for join
+        let borrow_region_rp = iteration.variable::<((Region, Point), Loan)>("borrow_region_rp");
+
         // variables, indices for the computation rules, and temporaries for the multi-way joins
         let subset = iteration.variable::<(Region, Region, Point)>("subset");
         let subset_1 = iteration.variable_indistinct("subset_1");
@@ -88,11 +91,21 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let dying_can_reach_live =
             iteration.variable::<((Region, Point, Point), Region)>("dying_can_reach_live");
 
+        let dead_borrow_region_can_reach_root =
+            iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_root");
+        let dead_borrow_region_can_reach_dead =
+            iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_dead");
+        let dead_borrow_region_can_reach_dead_1 =
+            iteration.variable("dead_borrow_region_can_reach_dead_1");
+
         // output
         let errors = iteration.variable("errors");
 
         // load initial facts.
         cfg_edge.insert(all_facts.cfg_edge.into());
+        borrow_region_rp.insert(Relation::from(
+            all_facts.borrow_region.iter()
+                .map(|&(r, b, p)| ((r, p), b))));
         invalidates.insert(Relation::from(
             all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())),
         ));
@@ -100,7 +113,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
         subset.insert(all_facts.outlives.into());
-        requires.insert(all_facts.borrow_region.clone().into());
+        requires.insert(all_facts.borrow_region.into());
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -308,6 +321,39 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 (r, b, q)
             });
 
+            // dead_borrow_region_can_reach_root((R, P), B) :-
+            //   borrow_region(R, B, P),
+            //   !region_live_at(R, P).
+            dead_borrow_region_can_reach_root.from_antijoin(
+                &borrow_region_rp,
+                &region_live_at_rel,
+                |&(r, p), &b| ((r, p), b),
+            );
+
+            // dead_borrow_region_can_reach_dead((R, P), B) :-
+            //   dead_borrow_region_can_reach_root((R, P), B).
+            dead_borrow_region_can_reach_dead.from_map(
+                &dead_borrow_region_can_reach_root,
+                |&tuple| tuple,
+            );
+
+            // dead_borrow_region_can_reach_dead((R2, P), B) :-
+            //   dead_borrow_region_can_reach_dead(R1, B, P),
+            //   subset(R1, R2, P),
+            //   !region_live_at(R2, P).
+            dead_borrow_region_can_reach_dead_1.from_join(
+                &dead_borrow_region_can_reach_dead,
+                &subset_r1p,
+                |&(_r1, p), &b, &r2| ((r2, p), b),
+            );
+            dead_borrow_region_can_reach_dead.from_antijoin(
+                &dead_borrow_region_can_reach_dead_1,
+                &region_live_at_rel,
+                |&(r2, p), &b| ((r2, p), b),
+            );
+
+            // dead_borrow_region_can_reach_live(B, P) :-
+
             // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
             // need to be enforced at the point P
             //
@@ -315,6 +361,16 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             borrow_live_at.from_join(&requires_rp, &region_live_at_var, |&(_r, p), &b, &()| {
                 ((b, p), ())
             });
+
+            // borrow_live_at(B, P) :-
+            //   dead_borrow_region_can_reach_dead(R1, B, P),
+            //   subset(R1, R2, P),
+            //   region_live_at(R2, P).
+            borrow_live_at.from_join(
+                &dead_borrow_region_can_reach_dead_1,
+                &region_live_at_var,
+                |&(_r2, p), &b, &()| ((b, p), ()),
+            );
 
             // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
             errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
