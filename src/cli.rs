@@ -18,8 +18,8 @@ pub struct Opt {
         raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
     )]
     algorithm: Algorithm,
-    #[structopt(long = "skip-tuples")]
-    skip_tuples: bool,
+    #[structopt(long = "show-tuples")]
+    show_tuples: bool,
     #[structopt(long = "skip-timing")]
     skip_timing: bool,
     #[structopt(short = "v")]
@@ -59,7 +59,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
                         println!("Time: {:0.3}s", seconds + millis);
                     }
-                    if !opt.skip_tuples {
+                    if opt.show_tuples {
                         dump::dump_output(&output, &output_directory, tables)
                             .expect("Failed to write output");
                     }

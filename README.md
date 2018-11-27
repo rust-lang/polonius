@@ -43,7 +43,7 @@ particularly egregious case where we currently perform poorly, and you
 can test it against it like so:
 
 ```bash
-> cargo +nightly run --release -- inputs/clap-rs/app-parser-{{impl}}-add_defaults/ | head
+> cargo +nightly run --release -- inputs/clap-rs/app-parser-{{impl}}-add_defaults/
     Finished release [optimized] target(s) in 0.05 secs
      Running `target/release/borrow-check 'inputs/clap-rs/app-parser-{{impl}}-add_defaults/'`
 --------------------------------------------------

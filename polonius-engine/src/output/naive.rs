@@ -181,6 +181,15 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .or_insert(vec![])
                     .push(*region);
             }
+
+            let borrow_live_at = borrow_live_at.complete();
+            for &((loan, location), ()) in &borrow_live_at.elements {
+                result
+                    .borrow_live_at
+                    .entry(location)
+                    .or_insert(Vec::new())
+                    .push(loan);
+            }
         }
 
         errors.complete()

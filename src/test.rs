@@ -11,7 +11,7 @@ use rustc_hash::FxHashMap;
 use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
-    let naive = Output::compute(all_facts, Algorithm::Naive, false);
+    let naive = Output::compute(all_facts, Algorithm::Naive, true);
     for &optimized_algorithm in algorithms {
         println!("Algorithm {:?}", optimized_algorithm);
         let opt = Output::compute(all_facts, optimized_algorithm, true);
