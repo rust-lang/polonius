@@ -16,9 +16,9 @@ crate fn dump_output(
     intern: &InternerTables,
 ) -> io::Result<()> {
     dump_rows(
-        &mut writer_for(output_dir, "borrow_live_at")?,
+        &mut writer_for(output_dir, "errors")?,
         intern,
-        &output.borrow_live_at,
+        &output.errors,
     )?;
 
     if output.dump_enabled {
@@ -43,14 +43,9 @@ crate fn dump_output(
             &output.invalidates,
         )?;
         dump_rows(
-            &mut writer_for(output_dir, "errors")?,
+            &mut writer_for(output_dir, "borrow_live_at")?,
             intern,
-            &output.errors,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "subset")?,
-            intern,
-            &output.subset,
+            &output.borrow_live_at,
         )?;
         dump_rows(
             &mut writer_for(output_dir, "subset_anywhere")?,

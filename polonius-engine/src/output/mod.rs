@@ -52,16 +52,16 @@ impl ::std::str::FromStr for Algorithm {
 
 #[derive(Clone, Debug)]
 pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
-    pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
+    pub errors: FxHashMap<Point, Vec<Loan>>,
 
     pub dump_enabled: bool,
 
     // these are just for debugging
+    pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
     pub restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
     pub restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
     pub region_live_at: FxHashMap<Point, Vec<Region>>,
     pub invalidates: FxHashMap<Point, Vec<Loan>>,
-    pub errors: FxHashMap<Point, Vec<Loan>>,
     pub subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
 }
