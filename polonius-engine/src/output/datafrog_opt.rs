@@ -82,11 +82,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let dying_can_reach_origins =
             iteration.variable::<((Region, Point), Point)>("dying_can_reach_origins");
-        let dying_can_reach = iteration.variable::<(Region, Region, Point, Point)>("dying_can_reach");
+        let dying_can_reach_r2q = iteration.variable::<((Region, Point), (Region, Point))>("dying_can_reach");
         let dying_can_reach_1 = iteration.variable_indistinct("dying_can_reach_1");
-        let dying_can_reach_r2q = iteration.variable_indistinct("dying_can_reach_r2q");
-        // nmatsakis: I tried to merge `dying_can_reach_r2q` and
-        // `dying_can_reach`, but the result was ever so slightly slower, at least on clap.
 
         let dying_can_reach_live =
             iteration.variable::<((Region, Point, Point), Region)>("dying_can_reach_live");
@@ -127,8 +124,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
             requires_bp.from_map(&requires, |&(r, b, p)| ((b, p), r));
             requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
-
-            dying_can_reach_r2q.from_map(&dying_can_reach, |&(r1, r2, p, q)| ((r2, q), (r1, p)));
 
             // it's now time ... to datafrog:
 
@@ -221,8 +216,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // dying_can_reach(R1, R2, P, Q) :-
             //   dying_can_reach_origins(R1, P, Q),
             //   subset(R1, R2, P).
-            dying_can_reach.from_join(&dying_can_reach_origins, &subset_r1p, |&(r1, p), &q, &r2| {
-                (r1, r2, p, q)
+            dying_can_reach_r2q.from_join(&dying_can_reach_origins, &subset_r1p, |&(r1, p), &q, &r2| {
+                ((r2, q), (r1, p))
             });
 
             // dying_can_reach(R1, R3, P, Q) :-
@@ -238,10 +233,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 &region_live_at_rel,
                 |&(r2, q), &(r1, p)| ((r2, p), (r1, q)),
             );
-            dying_can_reach.from_join(
+            dying_can_reach_r2q.from_join(
                 &dying_can_reach_1,
                 &subset_r1p,
-                |&(_r2, p), &(r1, q), &r3| (r1, r3, p, q),
+                |&(_r2, p), &(r1, q), &r3| ((r3, q), (r1, p)),
             );
 
             // .decl dying_can_reach_live(R1, R2, P, Q)
