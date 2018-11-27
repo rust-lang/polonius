@@ -100,7 +100,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
         subset.insert(all_facts.outlives.into());
-        requires.insert(all_facts.borrow_region.into());
+        requires.insert(all_facts.borrow_region.clone().into());
 
         // .. and then start iterating rules!
         while iteration.changed() {
