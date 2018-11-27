@@ -70,10 +70,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
 
-        let live_to_dead_regions_r2pq =
-            iteration.variable::<((Region, Point, Point), Region)>("live_to_dead_regions_r2pq");
-        let live_to_dead_regions_1 = iteration.variable_indistinct("live_to_dead_regions_1");
-        let live_to_dead_regions_2 = iteration.variable_indistinct("live_to_dead_regions_2");
+        let live_to_dying_regions_r2pq =
+            iteration.variable::<((Region, Point, Point), Region)>("live_to_dying_regions_r2pq");
+        let live_to_dying_regions_1 = iteration.variable_indistinct("live_to_dying_regions_1");
+        let live_to_dying_regions_2 = iteration.variable_indistinct("live_to_dying_regions_2");
 
         let dying_region_requires =
             iteration.variable::<((Region, Point, Point), Loan)>("dying_region_requires");
@@ -134,13 +134,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // subset(R1, R2, P) :- outlives(R1, R2, P).
             // -> already loaded; outlives is a static input.
 
-            // .decl requires(R, B, P) -- at the point, things with region R
-            // may depend on data from borrow B
-            //
-            // requires(R, B, P) :- borrow_region(R, B, P).
-            // -> already loaded; borrow_region is a static input.
-
-            // .decl live_to_dead_regions(R1, R2, P, Q)
+            // .decl live_to_dying_regions(R1, R2, P, Q)
             //
             // The regions `R1` and `R2` are "live to dead"
             // on the edge `P -> Q` if:
@@ -151,20 +145,20 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // In that case, `Q` would like to add all the
             // live things reachable from `R2` to `R1`.
             //
-            // live_to_dead_regions(R1, R2, P, Q) :-
+            // live_to_dying_regions(R1, R2, P, Q) :-
             //   subset(R1, R2, P),
             //   cfg_edge(P, Q),
             //   region_live_at(R1, Q),
             //   !region_live_at(R2, Q).
-            live_to_dead_regions_1
+            live_to_dying_regions_1
                 .from_join(&subset_p, &cfg_edge, |&p, &(r1, r2), &q| ((r1, q), (r2, p)));
-            live_to_dead_regions_2.from_join(
-                &live_to_dead_regions_1,
+            live_to_dying_regions_2.from_join(
+                &live_to_dying_regions_1,
                 &region_live_at_var,
                 |&(r1, q), &(r2, p), &()| ((r2, q), (r1, p)),
             );
-            live_to_dead_regions_r2pq.from_antijoin(
-                &live_to_dead_regions_2,
+            live_to_dying_regions_r2pq.from_antijoin(
+                &live_to_dying_regions_2,
                 &region_live_at_rel,
                 |&(r2, q), &(r1, p)| ((r2, p, q), r1),
             );
@@ -198,10 +192,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // can reach.
             //
             // dying_can_reach_origins(R2, P, Q) :-
-            //   live_to_dead_regions(_, R2, P, Q).
+            //   live_to_dying_regions(_, R2, P, Q).
             // dying_can_reach_origins(R, P, Q) :-
-            //   dying_region_requires_2(R, P, Q, B).
-            dying_can_reach_origins.from_map(&live_to_dead_regions_r2pq, |&((r2, p, q), _r1)| ((r2, p), q));
+            //   dying_region_requires(R, P, Q, B).
+            dying_can_reach_origins.from_map(&live_to_dying_regions_r2pq, |&((r2, p, q), _r1)| ((r2, p), q));
             dying_can_reach_origins.from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
 
             // .decl dying_can_reach(R1, R2, P, Q)
@@ -274,13 +268,19 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             });
 
             // subset(R1, R3, Q) :-
-            //   live_to_dead_regions(R1, R2, P, Q),
+            //   live_to_dying_regions(R1, R2, P, Q),
             //   dying_can_reach_live(R2, R3, P, Q).
             subset.from_join(
-                &live_to_dead_regions_r2pq,
+                &live_to_dying_regions_r2pq,
                 &dying_can_reach_live,
                 |&(_r2, _p, q), &r1, &r3| (r1, r3, q),
             );
+
+            // .decl requires(R, B, P) -- at the point, things with region R
+            // may depend on data from borrow B
+            //
+            // requires(R, B, P) :- borrow_region(R, B, P).
+            // -> already loaded; borrow_region is a static input.
 
             // requires(R2, B, Q) :-
             //   dying_region_requires(R1, B, P, Q),
