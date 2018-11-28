@@ -24,7 +24,7 @@ pub struct Opt {
     skip_timing: bool,
     #[structopt(short = "v", long = "verbose", help = "Show intermediate output tuples and not just errors")]
     verbose: bool,
-    #[structopt(long = "graphviz_file", help = "Generate a graphviz file to visualize the input")]
+    #[structopt(long = "graphviz_file", help = "Generate a graphviz file to visualize the computation")]
     graphviz_file: Option<String>,
     #[structopt(short = "o", long = "output", help = "Directory where to output resulting tuples")]
     output_directory: Option<String>,
