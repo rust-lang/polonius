@@ -18,15 +18,15 @@ pub struct Opt {
         raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
     )]
     algorithm: Algorithm,
-    #[structopt(long = "skip-tuples")]
-    skip_tuples: bool,
-    #[structopt(long = "skip-timing")]
+    #[structopt(long = "show-tuples", help = "Show output tuples on stdout")]
+    show_tuples: bool,
+    #[structopt(long = "skip-timing", help = "Do not display timing results")]
     skip_timing: bool,
-    #[structopt(short = "v")]
+    #[structopt(short = "v", long = "verbose", help = "Show intermediate output tuples and not just errors")]
     verbose: bool,
-    #[structopt(long = "graphviz_file")]
+    #[structopt(long = "graphviz_file", help = "Generate a graphviz file to visualize the computation")]
     graphviz_file: Option<String>,
-    #[structopt(short = "o", long = "output")]
+    #[structopt(short = "o", long = "output", help = "Directory where to output resulting tuples")]
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
@@ -59,7 +59,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                         let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
                         println!("Time: {:0.3}s", seconds + millis);
                     }
-                    if !opt.skip_tuples {
+                    if opt.show_tuples {
                         dump::dump_output(&output, &output_directory, tables)
                             .expect("Failed to write output");
                     }

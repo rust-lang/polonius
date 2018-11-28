@@ -1,15 +1,25 @@
 #![cfg(test)]
 
-use crate::facts::{Loan, Point, Region};
+use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
+use crate::test_util::assert_equal;
 use failure::Error;
 use polonius_engine::{Algorithm, Output};
 use rustc_hash::FxHashMap;
 use std::path::Path;
 
-fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
+fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
+    let naive = Output::compute(all_facts, Algorithm::Naive, true);
+    for &optimized_algorithm in algorithms {
+        println!("Algorithm {:?}", optimized_algorithm);
+        let opt = Output::compute(all_facts, optimized_algorithm, true);
+        assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+    }
+}
+
+fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Error> {
     try {
         let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("inputs")
@@ -19,18 +29,20 @@ fn test_fn(dir_name: &str, fn_name: &str) -> Result<(), Error> {
         println!("facts_dir = {:?}", facts_dir);
         let tables = &mut intern::InternerTables::new();
         let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let naive = Output::compute(&all_facts, Algorithm::Naive, false);
-        let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
-        assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+        test_facts(&all_facts, &[algorithm])
     }
 }
 
 macro_rules! tests {
     ($($name:ident($dir:expr, $fn:expr),)*) => {
         $(
-            #[test]
-            fn $name() -> Result<(), Error> {
-                test_fn($dir, $fn)
+            mod $name {
+                use super::*;
+
+                #[test]
+                fn datafrog_opt() -> Result<(), Error> {
+                    test_fn($dir, $fn, Algorithm::DatafrogOpt)
+                }
             }
         )*
     }
@@ -57,7 +69,7 @@ fn test_insensitive_errors() -> Result<(), Error> {
         expected.insert(Point::from(1), vec![Loan::from(1)]);
         expected.insert(Point::from(2), vec![Loan::from(2)]);
 
-        assert_eq!(insensitive.errors, expected);
+        assert_equal(&insensitive.errors, &expected);
     }
 }
 
@@ -119,7 +131,6 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
 // the length of the `outlives` chain reaching a live region at a specific point.
 
 #[test]
-#[should_panic]
 fn send_is_not_static_std_sync() {
     // Reduced from rustc test: ui/span/send-is-not-static-std-sync.rs
     // (in the functions: `mutex` and `rwlock`)
@@ -132,14 +143,10 @@ fn send_is_not_static_std_sync() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }
 
 #[test]
-#[should_panic]
 fn escape_upvar_nested() {
     // Reduced from rustc test: ui/nll/closure-requirements/escape-upvar-nested.rs
     // (in the function: `test-\{\{closure\}\}-\{\{closure\}\}/`)
@@ -154,14 +161,10 @@ fn escape_upvar_nested() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }
 
 #[test]
-#[should_panic]
 fn issue_31567() {
     // Reduced from rustc test: ui/nll/issue-31567.rs
     // This is one of two tuples present in the Naive results and missing from the Opt results,
@@ -171,20 +174,20 @@ fn issue_31567() {
     let program = r"
         universal_regions { }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c), outlives('c: 'd), region_live_at('d);
+            borrow_region_at('a, L0),
+            outlives('a: 'b),
+            outlives('b: 'c),
+            outlives('c: 'd),
+            region_live_at('d);
         }
     ";
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }
 
 #[test]
-#[should_panic]
 fn borrowed_local_error() {
     // This test is related to the previous 3: there is still a borrow_region outliving a live region,
     // through a chain of `outlives` at a single point, but this time there are also 2 points
@@ -207,8 +210,5 @@ fn borrowed_local_error() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
-
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
-    let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
-    assert_eq!(naive.borrow_live_at, opt.borrow_live_at);
+    test_facts(&facts, Algorithm::OPTIMIZED);
 }

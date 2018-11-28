@@ -20,13 +20,13 @@ pub struct Statement {
     pub effects: Vec<Effect>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
     Use { regions: Vec<String> },
     Fact(Fact),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Fact {
     Outlives { a: String, b: String },
     BorrowRegionAt { region: String, loan: String },
@@ -37,8 +37,19 @@ pub enum Fact {
 
 impl Statement {
     crate fn new(effects: Vec<Effect>) -> Self {
+        // Anything live on entry to the "mid point" is also live on
+        // entry to the start point.
+        let effects_start = effects
+            .iter()
+            .filter(|effect| match effect {
+                Effect::Fact(Fact::RegionLiveAt { .. }) => true,
+                _ => false,
+            })
+            .cloned()
+            .collect();
+
         Self {
-            effects_start: Vec::new(),
+            effects_start,
             effects,
         }
     }
