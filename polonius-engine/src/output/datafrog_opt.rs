@@ -207,7 +207,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // dying_can_reach_origins(R2, P, Q) :-
             //   live_to_dying_regions(_, R2, P, Q).
             // dying_can_reach_origins(R, P, Q) :-
-            //   dying_region_requires(R, P, Q, B).
+            //   dying_region_requires(R, P, Q, _B).
             dying_can_reach_origins.from_map(&live_to_dying_regions_r2pq, |&((r2, p, q), _r1)| ((r2, p), q));
             dying_can_reach_origins.from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
 
