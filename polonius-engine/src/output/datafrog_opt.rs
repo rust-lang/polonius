@@ -352,8 +352,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 |&(r2, p), &b| ((r2, p), b),
             );
 
-            // dead_borrow_region_can_reach_live(B, P) :-
-
             // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
             // need to be enforced at the point P
             //
