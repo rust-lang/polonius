@@ -364,6 +364,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   dead_borrow_region_can_reach_dead(R1, B, P),
             //   subset(R1, R2, P),
             //   region_live_at(R2, P).
+            //
+            // NB: the datafrog code below uses
+            // `dead_borrow_region_can_reach_dead_1`, which is equal
+            // to `dead_borrow_region_can_reach_dead` and `subset`
+            // joined together.
             borrow_live_at.from_join(
                 &dead_borrow_region_can_reach_dead_1,
                 &region_live_at_var,
