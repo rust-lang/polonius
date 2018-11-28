@@ -96,7 +96,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let dead_borrow_region_can_reach_dead =
             iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_dead");
         let dead_borrow_region_can_reach_dead_1 =
-            iteration.variable("dead_borrow_region_can_reach_dead_1");
+            iteration.variable_indistinct("dead_borrow_region_can_reach_dead_1");
 
         // output
         let errors = iteration.variable("errors");
