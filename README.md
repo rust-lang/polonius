@@ -27,8 +27,10 @@ Directory: inputs/clap-rs/app-parser-{{impl}}-add_defaults/
 Time: 3.856s
 ```
 
-You could also try `-a Naive` to get the naive rules (more readable, slower)
-or `-a LocationInsensitive` to use a location insensitive analysis.
+You could also try `-a Naive` to get the naive rules (more readable,
+slower) -- these are the exact rules described in [the
+blogpost][post]. You can also use `-a LocationInsensitive` to use a
+location insensitive analysis (faster, but may yield spurious errors).
 
 By default, `cargo run` just prints timing. If you also want to see
 the results, try `--show-tuples` (which will show errors) and maybe
