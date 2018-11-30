@@ -77,7 +77,7 @@ pub(crate) fn dump_output(
 }
 
 trait OutputDump {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -122,7 +122,7 @@ where
     K: Atom + Eq + Hash + Ord,
     V: OutputDump,
 {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -147,7 +147,7 @@ where
     K: Atom + Eq + Hash + Ord,
     V: OutputDump,
 {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -171,7 +171,7 @@ impl<K> OutputDump for BTreeSet<K>
 where
     K: OutputDump,
 {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -187,7 +187,7 @@ impl<V> OutputDump for Vec<V>
 where
     V: OutputDump,
 {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -200,7 +200,7 @@ where
 }
 
 impl<T: Atom> OutputDump for T {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -216,7 +216,7 @@ impl<T: Atom> OutputDump for T {
 }
 
 impl<T1: Atom> OutputDump for (T1,) {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,
@@ -233,7 +233,7 @@ impl<T1: Atom> OutputDump for (T1,) {
 }
 
 impl<T1: Atom, T2: Atom> OutputDump for (T1, T2) {
-    fn push_all(
+    fn push_all<'a>(
         &'a self,
         intern: &'a InternerTables,
         prefix: &mut Vec<&'a str>,

@@ -74,7 +74,7 @@ where
         .collect()
 }
 
-impl<T> FromTabDelimited<'input> for T
+impl<'input, T> FromTabDelimited<'input> for T
 where
     &'input str: InternTo<T>,
 {
@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<A, B> FromTabDelimited<'input> for (A, B)
+impl<'input, A, B> FromTabDelimited<'input> for (A, B)
 where
     A: FromTabDelimited<'input>,
     B: FromTabDelimited<'input>,
@@ -102,7 +102,7 @@ where
     }
 }
 
-impl<A, B, C> FromTabDelimited<'input> for (A, B, C)
+impl<'input, A, B, C> FromTabDelimited<'input> for (A, B, C)
 where
     A: FromTabDelimited<'input>,
     B: FromTabDelimited<'input>,
@@ -119,7 +119,7 @@ where
     }
 }
 
-impl<A, B, C, D> FromTabDelimited<'input> for (A, B, C, D)
+impl<'input, A, B, C, D> FromTabDelimited<'input> for (A, B, C, D)
 where
     A: FromTabDelimited<'input>,
     B: FromTabDelimited<'input>,

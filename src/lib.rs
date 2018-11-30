@@ -1,4 +1,3 @@
-#![feature(in_band_lifetimes)]
 #![feature(try_blocks)]
 #![allow(dead_code)]
 
