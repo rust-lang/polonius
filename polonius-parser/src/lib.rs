@@ -1,5 +1,3 @@
-#![feature(crate_visibility_modifier)]
-
 pub mod ir;
 
 #[rustfmt::skip]

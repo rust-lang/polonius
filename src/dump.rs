@@ -10,7 +10,7 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-crate fn dump_output(
+pub(crate) fn dump_output(
     output: &Output<Region, Loan, Point>,
     output_dir: &Option<PathBuf>,
     intern: &InternerTables,
@@ -258,7 +258,7 @@ fn preserve<'a>(s: &mut Vec<&'a str>, op: impl FnOnce(&mut Vec<&'a str>)) {
     s.truncate(len);
 }
 
-crate trait Atom: Copy + From<usize> + Into<usize> {
+pub(crate) trait Atom: Copy + From<usize> + Into<usize> {
     fn table(intern: &InternerTables) -> &Interner<Self>;
 }
 
@@ -401,7 +401,7 @@ fn build_outputs_by_point_for_visualization(
     ]
 }
 
-crate fn graphviz(
+pub(crate) fn graphviz(
     output: &Output<Region, Loan, Point>,
     all_facts: &AllFacts,
     output_file: &PathBuf,

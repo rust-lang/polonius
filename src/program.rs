@@ -35,7 +35,7 @@ impl From<Facts> for AllFacts {
 }
 
 /// Parses an input program into a set of its facts, into the same format `rustc` outputs.
-crate fn parse_from_program(
+pub(crate) fn parse_from_program(
     program: &str,
     tables: &mut InternerTables,
 ) -> Result<AllFacts, String> {

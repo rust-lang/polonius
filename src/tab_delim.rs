@@ -12,7 +12,7 @@ trait FromTabDelimited<'input>: Sized {
     ) -> Option<Self>;
 }
 
-crate fn load_tab_delimited_facts(
+pub(crate) fn load_tab_delimited_facts(
     tables: &mut InternerTables,
     facts_dir: &Path,
 ) -> io::Result<AllFacts> {
