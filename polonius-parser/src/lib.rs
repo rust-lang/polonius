@@ -2,6 +2,7 @@
 
 pub mod ir;
 
+#[rustfmt::skip]
 mod parser;
 mod tests;
 

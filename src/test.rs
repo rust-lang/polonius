@@ -111,14 +111,14 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
             false
         };
 
-        let naive = Output::compute(&all_facts, Algorithm::Naive, true);       
+        let naive = Output::compute(&all_facts, Algorithm::Naive, true);
         assert!(!subset_symmetries_exist(&naive));
 
         // FIXME: the issue-47680 dataset is suboptimal here as DatafrogOpt does not
         // produce subset symmetries for it. It does for clap, and it was used to manually verify
         // that the assert in verbose  mode didn't trigger. Therefore, switch to this dataset
         // whenever it's fast enough to be enabled in tests, or somehow create a test facts program
-        // or reduce it from clap. 
+        // or reduce it from clap.
         let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
         assert!(!subset_symmetries_exist(&opt));
     }

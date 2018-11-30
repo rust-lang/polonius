@@ -28,7 +28,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
         .collect();
 
-    all_facts.region_live_at.reserve(all_facts.universal_region.len() * all_points.len());
+    all_facts
+        .region_live_at
+        .reserve(all_facts.universal_region.len() * all_points.len());
     for &r in &all_facts.universal_region {
         for &p in &all_points {
             all_facts.region_live_at.push((r, p));
@@ -52,8 +54,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
-        let region_live_at_rel =
-            Relation::from(all_facts.region_live_at.iter().cloned());
+        let region_live_at_rel = Relation::from(all_facts.region_live_at.iter().cloned());
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
@@ -86,7 +87,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let dying_can_reach_origins =
             iteration.variable::<((Region, Point), Point)>("dying_can_reach_origins");
-        let dying_can_reach_r2q = iteration.variable::<((Region, Point), (Region, Point))>("dying_can_reach");
+        let dying_can_reach_r2q =
+            iteration.variable::<((Region, Point), (Region, Point))>("dying_can_reach");
         let dying_can_reach_1 = iteration.variable_indistinct("dying_can_reach_1");
 
         let dying_can_reach_live =
@@ -105,8 +107,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // load initial facts.
         cfg_edge.insert(all_facts.cfg_edge.into());
         borrow_region_rp.insert(Relation::from(
-            all_facts.borrow_region.iter()
-                .map(|&(r, b, p)| ((r, p), b))));
+            all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
+        ));
         invalidates.insert(Relation::from(
             all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())),
         ));
@@ -209,8 +211,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   live_to_dying_regions(_, R2, P, Q).
             // dying_can_reach_origins(R, P, Q) :-
             //   dying_region_requires(R, P, Q, _B).
-            dying_can_reach_origins.from_map(&live_to_dying_regions_r2pq, |&((r2, p, q), _r1)| ((r2, p), q));
-            dying_can_reach_origins.from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
+            dying_can_reach_origins.from_map(&live_to_dying_regions_r2pq, |&((r2, p, q), _r1)| {
+                ((r2, p), q)
+            });
+            dying_can_reach_origins
+                .from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
 
             // .decl dying_can_reach(R1, R2, P, Q)
             //
@@ -224,9 +229,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // dying_can_reach(R1, R2, P, Q) :-
             //   dying_can_reach_origins(R1, P, Q),
             //   subset(R1, R2, P).
-            dying_can_reach_r2q.from_join(&dying_can_reach_origins, &subset_r1p, |&(r1, p), &q, &r2| {
-                ((r2, q), (r1, p))
-            });
+            dying_can_reach_r2q.from_join(
+                &dying_can_reach_origins,
+                &subset_r1p,
+                |&(r1, p), &q, &r2| ((r2, q), (r1, p)),
+            );
 
             // dying_can_reach(R1, R3, P, Q) :-
             //   dying_can_reach(R1, R2, P, Q),
@@ -333,10 +340,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
             // dead_borrow_region_can_reach_dead((R, P), B) :-
             //   dead_borrow_region_can_reach_root((R, P), B).
-            dead_borrow_region_can_reach_dead.from_map(
-                &dead_borrow_region_can_reach_root,
-                |&tuple| tuple,
-            );
+            dead_borrow_region_can_reach_dead
+                .from_map(&dead_borrow_region_can_reach_root, |&tuple| tuple);
 
             // dead_borrow_region_can_reach_dead((R2, P), B) :-
             //   dead_borrow_region_can_reach_dead(R1, B, P),

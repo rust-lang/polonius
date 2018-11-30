@@ -49,25 +49,29 @@ where
 {
     let file = File::open(path)?;
 
-    io::BufReader::new(file).lines().enumerate().map(|(index, line)| {
-        let line = line?;
-        let mut columns = line.split('\t');
-        let row = match FromTabDelimited::parse(tables, &mut columns) {
-            None => {
-                eprintln!("error parsing line {} of `{}`", index + 1, path.display());
+    io::BufReader::new(file)
+        .lines()
+        .enumerate()
+        .map(|(index, line)| {
+            let line = line?;
+            let mut columns = line.split('\t');
+            let row = match FromTabDelimited::parse(tables, &mut columns) {
+                None => {
+                    eprintln!("error parsing line {} of `{}`", index + 1, path.display());
+                    process::exit(1);
+                }
+
+                Some(v) => v,
+            };
+
+            if columns.next().is_some() {
+                eprintln!("extra data on line {} of `{}`", index + 1, path.display());
                 process::exit(1);
             }
 
-            Some(v) => v,
-        };
-
-        if columns.next().is_some() {
-            eprintln!("extra data on line {} of `{}`", index + 1, path.display());
-            process::exit(1);
-        }
-
-        Ok(row)
-    }).collect()
+            Ok(row)
+        })
+        .collect()
 }
 
 impl<T> FromTabDelimited<'input> for T

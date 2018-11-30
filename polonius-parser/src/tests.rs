@@ -132,11 +132,14 @@ fn effects_start() {
     let statements = &block.statements[0];
     assert_eq!(
         statements.effects_start,
-        [Effect::Fact(Fact::Invalidates {
-            loan: "L0".to_string()
-        }), Effect::Fact(Fact::RegionLiveAt {
-            region: "'a".to_string()
-        })]
+        [
+            Effect::Fact(Fact::Invalidates {
+                loan: "L0".to_string()
+            }),
+            Effect::Fact(Fact::RegionLiveAt {
+                region: "'a".to_string()
+            })
+        ]
     );
     assert_eq!(
         statements.effects,

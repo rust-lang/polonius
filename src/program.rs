@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use polonius_parser::{
-    ir::{Effect, Fact}, parse_input,
+    ir::{Effect, Fact},
+    parse_input,
 };
 
 use crate::facts::{AllFacts, Loan, Point, Region};
@@ -44,7 +45,11 @@ crate fn parse_from_program(
 
     // facts: universal_region(Region)
     facts.universal_region.extend(
-        input.universal_regions.iter().map(|region| tables.regions.intern(region)));
+        input
+            .universal_regions
+            .iter()
+            .map(|region| tables.regions.intern(region)),
+    );
 
     for block in &input.blocks {
         let block_name = &block.name;
@@ -110,10 +115,12 @@ crate fn parse_from_program(
                         //
                         // facts: region_live_at(Region, Point)
                         // region_live_at: a `use` emits a `region_live_at` the Start point
-                        facts.region_live_at.extend(regions.into_iter().map(|region| {
-                            let region = tables.regions.intern(region);
-                            (region, start)
-                        }));
+                        facts
+                            .region_live_at
+                            .extend(regions.into_iter().map(|region| {
+                                let region = tables.regions.intern(region);
+                                (region, start)
+                            }));
                     }
 
                     Effect::Fact(ref fact) => {
@@ -314,34 +321,24 @@ mod tests {
         let mut make_edge = |a, b| (tables.points.intern(a), tables.points.intern(b));
 
         // Start to Mid edge, per statement
-        assert!(
-            facts
-                .cfg_edge
-                .contains(&make_edge("\"Start(B0[0])\"", "\"Mid(B0[0])\""))
-        );
-        assert!(
-            facts
-                .cfg_edge
-                .contains(&make_edge("\"Start(B0[1])\"", "\"Mid(B0[1])\""))
-        );
-        assert!(
-            facts
-                .cfg_edge
-                .contains(&make_edge("\"Start(B1[0])\"", "\"Mid(B1[0])\""))
-        );
+        assert!(facts
+            .cfg_edge
+            .contains(&make_edge("\"Start(B0[0])\"", "\"Mid(B0[0])\"")));
+        assert!(facts
+            .cfg_edge
+            .contains(&make_edge("\"Start(B0[1])\"", "\"Mid(B0[1])\"")));
+        assert!(facts
+            .cfg_edge
+            .contains(&make_edge("\"Start(B1[0])\"", "\"Mid(B1[0])\"")));
 
         // Mid to Start edge, per statement pair for each block
-        assert!(
-            facts
-                .cfg_edge
-                .contains(&make_edge("\"Mid(B0[0])\"", "\"Start(B0[1])\""))
-        );
+        assert!(facts
+            .cfg_edge
+            .contains(&make_edge("\"Mid(B0[0])\"", "\"Start(B0[1])\"")));
 
         // 1 goto edge from B0 to B1
-        assert!(
-            facts
-                .cfg_edge
-                .contains(&make_edge("\"Mid(B0[1])\"", "\"Start(B1[0])\""))
-        );
+        assert!(facts
+            .cfg_edge
+            .contains(&make_edge("\"Mid(B0[1])\"", "\"Start(B1[0])\"")));
     }
 }

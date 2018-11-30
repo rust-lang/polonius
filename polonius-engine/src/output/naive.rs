@@ -29,7 +29,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
         .collect();
 
-    all_facts.region_live_at.reserve(all_facts.universal_region.len() * all_points.len());
+    all_facts
+        .region_live_at
+        .reserve(all_facts.universal_region.len() * all_points.len());
     for &r in &all_facts.universal_region {
         for &p in &all_points {
             all_facts.region_live_at.push((r, p));
@@ -141,7 +143,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             requires.from_join(&requires_2, &region_live_at, |&(r, q), &b, &()| (r, b, q));
 
             // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
-            borrow_live_at.from_join(&requires_rp, &region_live_at, |&(_r, p), &b, &()| ((b, p), ()));
+            borrow_live_at.from_join(&requires_rp, &region_live_at, |&(_r, p), &b, &()| {
+                ((b, p), ())
+            });
 
             // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
             errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));

@@ -22,11 +22,22 @@ pub struct Opt {
     show_tuples: bool,
     #[structopt(long = "skip-timing", help = "Do not display timing results")]
     skip_timing: bool,
-    #[structopt(short = "v", long = "verbose", help = "Show intermediate output tuples and not just errors")]
+    #[structopt(
+        short = "v",
+        long = "verbose",
+        help = "Show intermediate output tuples and not just errors"
+    )]
     verbose: bool,
-    #[structopt(long = "graphviz_file", help = "Generate a graphviz file to visualize the computation")]
+    #[structopt(
+        long = "graphviz_file",
+        help = "Generate a graphviz file to visualize the computation"
+    )]
     graphviz_file: Option<String>,
-    #[structopt(short = "o", long = "output", help = "Directory where to output resulting tuples")]
+    #[structopt(
+        short = "o",
+        long = "output",
+        help = "Directory where to output resulting tuples"
+    )]
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
@@ -39,7 +50,14 @@ pub fn main(opt: Opt) -> Result<(), Error> {
         for facts_dir in opt.fact_dirs {
             let tables = &mut intern::InternerTables::new();
 
-            let result: Result<(Duration, AllFacts<Region, Loan, Point>, Output<Region, Loan, Point>), Error> = try {
+            let result: Result<
+                (
+                    Duration,
+                    AllFacts<Region, Loan, Point>,
+                    Output<Region, Loan, Point>,
+                ),
+                Error,
+            > = try {
                 let verbose = opt.verbose;
                 let all_facts =
                     tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
