@@ -28,6 +28,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
         .collect();
 
+    all_facts.region_live_at.reserve(all_facts.universal_region.len() * all_points.len());
     for &r in &all_facts.universal_region {
         for &p in &all_points {
             all_facts.region_live_at.push((r, p));
@@ -52,7 +53,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
         let region_live_at_rel =
-            Relation::from(all_facts.region_live_at.iter().map(|&(r, p)| (r, p)));
+            Relation::from(all_facts.region_live_at.iter().cloned());
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join

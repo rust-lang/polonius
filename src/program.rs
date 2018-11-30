@@ -43,10 +43,8 @@ crate fn parse_from_program(
     let mut facts: Facts = Default::default();
 
     // facts: universal_region(Region)
-    for region in &input.universal_regions {
-        let region = tables.regions.intern(region);
-        facts.universal_region.insert(region);
-    }
+    facts.universal_region.extend(
+        input.universal_regions.iter().map(|region| tables.regions.intern(region)));
 
     for block in &input.blocks {
         let block_name = &block.name;
@@ -85,7 +83,7 @@ crate fn parse_from_program(
 
                 // goto edges
                 let terminator_idx = block.statements.len() - 1;
-                for goto in &block.goto {
+                facts.cfg_edge.extend(block.goto.iter().map(|goto| {
                     // edge: last Mid point to Start of remote block
                     let from = format!(
                         "\"Mid({block}[{statement}])\"",
@@ -97,8 +95,8 @@ crate fn parse_from_program(
                     let from = tables.points.intern(&from);
                     let to = tables.points.intern(&to);
 
-                    facts.cfg_edge.insert((from, to));
-                }
+                    (from, to)
+                }));
             }
 
             // the most common statement effects: mid point effects
@@ -112,10 +110,10 @@ crate fn parse_from_program(
                         //
                         // facts: region_live_at(Region, Point)
                         // region_live_at: a `use` emits a `region_live_at` the Start point
-                        for region in regions {
+                        facts.region_live_at.extend(regions.into_iter().map(|region| {
                             let region = tables.regions.intern(region);
-                            facts.region_live_at.insert((region, start));
-                        }
+                            (region, start)
+                        }));
                     }
 
                     Effect::Fact(ref fact) => {
