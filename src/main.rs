@@ -1,7 +1,7 @@
+extern crate env_logger;
 extern crate failure;
 extern crate polonius;
 extern crate structopt;
-extern crate env_logger;
 
 use structopt::StructOpt;
 

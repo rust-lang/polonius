@@ -12,7 +12,7 @@ trait FromTabDelimited<'input>: Sized {
     ) -> Option<Self>;
 }
 
-crate fn load_tab_delimited_facts(
+pub(crate) fn load_tab_delimited_facts(
     tables: &mut InternerTables,
     facts_dir: &Path,
 ) -> io::Result<AllFacts> {
@@ -49,28 +49,32 @@ where
 {
     let file = File::open(path)?;
 
-    io::BufReader::new(file).lines().enumerate().map(|(index, line)| {
-        let line = line?;
-        let mut columns = line.split('\t');
-        let row = match FromTabDelimited::parse(tables, &mut columns) {
-            None => {
-                eprintln!("error parsing line {} of `{}`", index + 1, path.display());
+    io::BufReader::new(file)
+        .lines()
+        .enumerate()
+        .map(|(index, line)| {
+            let line = line?;
+            let mut columns = line.split('\t');
+            let row = match FromTabDelimited::parse(tables, &mut columns) {
+                None => {
+                    eprintln!("error parsing line {} of `{}`", index + 1, path.display());
+                    process::exit(1);
+                }
+
+                Some(v) => v,
+            };
+
+            if columns.next().is_some() {
+                eprintln!("extra data on line {} of `{}`", index + 1, path.display());
                 process::exit(1);
             }
 
-            Some(v) => v,
-        };
-
-        if columns.next().is_some() {
-            eprintln!("extra data on line {} of `{}`", index + 1, path.display());
-            process::exit(1);
-        }
-
-        Ok(row)
-    }).collect()
+            Ok(row)
+        })
+        .collect()
 }
 
-impl<T> FromTabDelimited<'input> for T
+impl<'input, T> FromTabDelimited<'input> for T
 where
     &'input str: InternTo<T>,
 {
@@ -83,7 +87,7 @@ where
     }
 }
 
-impl<A, B> FromTabDelimited<'input> for (A, B)
+impl<'input, A, B> FromTabDelimited<'input> for (A, B)
 where
     A: FromTabDelimited<'input>,
     B: FromTabDelimited<'input>,
@@ -98,7 +102,7 @@ where
     }
 }
 
-impl<A, B, C> FromTabDelimited<'input> for (A, B, C)
+impl<'input, A, B, C> FromTabDelimited<'input> for (A, B, C)
 where
     A: FromTabDelimited<'input>,
     B: FromTabDelimited<'input>,
@@ -115,7 +119,7 @@ where
     }
 }
 
-impl<A, B, C, D> FromTabDelimited<'input> for (A, B, C, D)
+impl<'input, A, B, C, D> FromTabDelimited<'input> for (A, B, C, D)
 where
     A: FromTabDelimited<'input>,
     B: FromTabDelimited<'input>,

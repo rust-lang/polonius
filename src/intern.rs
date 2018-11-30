@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 /// When we load facts out of the table, they are essentially random
 /// strings. We create an intern table to map those to small integers.
-crate struct Interner<TargetType: From<usize> + Copy> {
+pub(crate) struct Interner<TargetType: From<usize> + Copy> {
     strings: HashMap<String, TargetType>,
     rev_strings: Vec<String>,
 }
@@ -19,12 +19,12 @@ where
         }
     }
 
-    crate fn untern(&self, data: TargetType) -> &str {
+    pub(crate) fn untern(&self, data: TargetType) -> &str {
         let data: usize = data.into();
         &self.rev_strings[data]
     }
 
-    crate fn intern(&mut self, data: &str) -> TargetType {
+    pub(crate) fn intern(&mut self, data: &str) -> TargetType {
         if let Some(&interned) = self.strings.get(data) {
             return interned;
         }
@@ -35,14 +35,14 @@ where
     }
 }
 
-crate struct InternerTables {
-    crate regions: Interner<Region>,
-    crate loans: Interner<Loan>,
-    crate points: Interner<Point>,
+pub(crate) struct InternerTables {
+    pub(crate) regions: Interner<Region>,
+    pub(crate) loans: Interner<Loan>,
+    pub(crate) points: Interner<Point>,
 }
 
 impl InternerTables {
-    crate fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             regions: Interner::new(),
             loans: Interner::new(),
@@ -51,7 +51,7 @@ impl InternerTables {
     }
 }
 
-crate trait InternTo<To> {
+pub(crate) trait InternTo<To> {
     fn intern(tables: &mut InternerTables, input: Self) -> To;
 }
 

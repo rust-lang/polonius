@@ -22,59 +22,86 @@ pub struct Opt {
     show_tuples: bool,
     #[structopt(long = "skip-timing", help = "Do not display timing results")]
     skip_timing: bool,
-    #[structopt(short = "v", long = "verbose", help = "Show intermediate output tuples and not just errors")]
+    #[structopt(
+        short = "v",
+        long = "verbose",
+        help = "Show intermediate output tuples and not just errors"
+    )]
     verbose: bool,
-    #[structopt(long = "graphviz_file", help = "Generate a graphviz file to visualize the computation")]
+    #[structopt(
+        long = "graphviz_file",
+        help = "Generate a graphviz file to visualize the computation"
+    )]
     graphviz_file: Option<String>,
-    #[structopt(short = "o", long = "output", help = "Directory where to output resulting tuples")]
+    #[structopt(
+        short = "o",
+        long = "output",
+        help = "Directory where to output resulting tuples"
+    )]
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
 }
 
+macro_rules! attempt {
+    ($($tokens:tt)*) => {
+        (|| Ok({ $($tokens)* }))()
+    };
+}
+
 pub fn main(opt: Opt) -> Result<(), Error> {
-    try {
-        let output_directory = opt.output_directory.map(|x| Path::new(&x).to_owned());
-        let graphviz_file = opt.graphviz_file.map(|x| Path::new(&x).to_owned());
-        for facts_dir in opt.fact_dirs {
-            let tables = &mut intern::InternerTables::new();
+    let output_directory = opt
+        .output_directory
+        .as_ref()
+        .map(|x| Path::new(x).to_owned());
+    let graphviz_file = opt.graphviz_file.as_ref().map(|x| Path::new(x).to_owned());
+    for facts_dir in &opt.fact_dirs {
+        let tables = &mut intern::InternerTables::new();
 
-            let result: Result<(Duration, AllFacts<Region, Loan, Point>, Output<Region, Loan, Point>), Error> = try {
-                let verbose = opt.verbose;
-                let all_facts =
-                    tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-                let algorithm = opt.algorithm;
-                let graphviz_output = graphviz_file.is_some();
-                let (duration, output) =
-                    timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
-                (duration, all_facts, output)
-            };
+        let result: Result<
+            (
+                Duration,
+                AllFacts<Region, Loan, Point>,
+                Output<Region, Loan, Point>,
+            ),
+            Error,
+        > = attempt! {
+            let verbose = opt.verbose;
+            let all_facts =
+                tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+            let algorithm = opt.algorithm;
+            let graphviz_output = graphviz_file.is_some();
+            let (duration, output) =
+                timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
+            (duration, all_facts, output)
+        };
 
-            match result {
-                Ok((duration, all_facts, output)) => {
-                    println!("--------------------------------------------------");
-                    println!("Directory: {}", facts_dir);
-                    if !opt.skip_timing {
-                        let seconds = duration.as_secs() as f64;
-                        let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
-                        println!("Time: {:0.3}s", seconds + millis);
-                    }
-                    if opt.show_tuples {
-                        dump::dump_output(&output, &output_directory, tables)
-                            .expect("Failed to write output");
-                    }
-                    if let Some(ref graphviz_file) = graphviz_file {
-                        dump::graphviz(&output, &all_facts, graphviz_file, tables)
-                            .expect("Failed to write GraphViz");
-                    }
+        match result {
+            Ok((duration, all_facts, output)) => {
+                println!("--------------------------------------------------");
+                println!("Directory: {}", facts_dir);
+                if !opt.skip_timing {
+                    let seconds = duration.as_secs() as f64;
+                    let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
+                    println!("Time: {:0.3}s", seconds + millis);
                 }
-
-                Err(error) => {
-                    eprintln!("`{}`: {}", facts_dir, error);
+                if opt.show_tuples {
+                    dump::dump_output(&output, &output_directory, tables)
+                        .expect("Failed to write output");
                 }
+                if let Some(ref graphviz_file) = graphviz_file {
+                    dump::graphviz(&output, &all_facts, graphviz_file, tables)
+                        .expect("Failed to write GraphViz");
+                }
+            }
+
+            Err(error) => {
+                eprintln!("`{}`: {}", facts_dir, error);
             }
         }
     }
+
+    Ok(())
 }
 
 fn timed<T>(op: impl FnOnce() -> T) -> (Duration, T) {

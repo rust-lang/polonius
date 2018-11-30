@@ -36,7 +36,7 @@ pub enum Fact {
 }
 
 impl Statement {
-    crate fn new(effects: Vec<Effect>) -> Self {
+    pub(crate) fn new(effects: Vec<Effect>) -> Self {
         // Anything live on entry to the "mid point" is also live on
         // entry to the start point.
         let effects_start = effects
@@ -54,7 +54,7 @@ impl Statement {
         }
     }
 
-    crate fn with_start_effects(effects_start: Vec<Effect>, effects: Vec<Effect>) -> Self {
+    pub(crate) fn with_start_effects(effects_start: Vec<Effect>, effects: Vec<Effect>) -> Self {
         Self {
             effects_start,
             effects,
