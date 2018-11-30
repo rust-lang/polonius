@@ -20,17 +20,15 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
 }
 
 fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Error> {
-    try {
-        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("inputs")
-            .join(dir_name)
-            .join("nll-facts")
-            .join(fn_name);
-        println!("facts_dir = {:?}", facts_dir);
-        let tables = &mut intern::InternerTables::new();
-        let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        test_facts(&all_facts, &[algorithm])
-    }
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join(dir_name)
+        .join("nll-facts")
+        .join(fn_name);
+    println!("facts_dir = {:?}", facts_dir);
+    let tables = &mut intern::InternerTables::new();
+    let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+    Ok(test_facts(&all_facts, &[algorithm]))
 }
 
 macro_rules! tests {
@@ -54,74 +52,71 @@ tests! {
 
 #[test]
 fn test_insensitive_errors() -> Result<(), Error> {
-    try {
-        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("inputs")
-            .join("issue-47680")
-            .join("nll-facts")
-            .join("main");
-        println!("facts_dir = {:?}", facts_dir);
-        let tables = &mut intern::InternerTables::new();
-        let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let insensitive = Output::compute(&all_facts, Algorithm::LocationInsensitive, false);
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("issue-47680")
+        .join("nll-facts")
+        .join("main");
+    println!("facts_dir = {:?}", facts_dir);
+    let tables = &mut intern::InternerTables::new();
+    let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+    let insensitive = Output::compute(&all_facts, Algorithm::LocationInsensitive, false);
 
-        let mut expected = FxHashMap::default();
-        expected.insert(Point::from(1), vec![Loan::from(1)]);
-        expected.insert(Point::from(2), vec![Loan::from(2)]);
+    let mut expected = FxHashMap::default();
+    expected.insert(Point::from(1), vec![Loan::from(1)]);
+    expected.insert(Point::from(2), vec![Loan::from(2)]);
 
-        assert_equal(&insensitive.errors, &expected);
-    }
+    assert_equal(&insensitive.errors, &expected);
+    Ok(())
 }
 
 #[test]
 fn test_sensitive_passes_issue_47680() -> Result<(), Error> {
-    try {
-        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("inputs")
-            .join("issue-47680")
-            .join("nll-facts")
-            .join("main");
-        let tables = &mut intern::InternerTables::new();
-        let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-        let sensitive = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("issue-47680")
+        .join("nll-facts")
+        .join("main");
+    let tables = &mut intern::InternerTables::new();
+    let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+    let sensitive = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
 
-        assert!(sensitive.errors.is_empty());
-    }
+    assert!(sensitive.errors.is_empty());
+    Ok(())
 }
 
 #[test]
 fn no_subset_symmetries_exist() -> Result<(), Error> {
-    try {
-        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("inputs")
-            .join("issue-47680")
-            .join("nll-facts")
-            .join("main");
-        let tables = &mut intern::InternerTables::new();
-        let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("issue-47680")
+        .join("nll-facts")
+        .join("main");
+    let tables = &mut intern::InternerTables::new();
+    let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
 
-        let subset_symmetries_exist = |output: &Output<Region, Loan, Point>| {
-            for (_, subsets) in &output.subset {
-                for (r1, rs) in subsets {
-                    if rs.contains(&r1) {
-                        return true;
-                    }
+    let subset_symmetries_exist = |output: &Output<Region, Loan, Point>| {
+        for (_, subsets) in &output.subset {
+            for (r1, rs) in subsets {
+                if rs.contains(&r1) {
+                    return true;
                 }
             }
-            false
-        };
+        }
+        false
+    };
 
-        let naive = Output::compute(&all_facts, Algorithm::Naive, true);
-        assert!(!subset_symmetries_exist(&naive));
+    let naive = Output::compute(&all_facts, Algorithm::Naive, true);
+    assert!(!subset_symmetries_exist(&naive));
 
-        // FIXME: the issue-47680 dataset is suboptimal here as DatafrogOpt does not
-        // produce subset symmetries for it. It does for clap, and it was used to manually verify
-        // that the assert in verbose  mode didn't trigger. Therefore, switch to this dataset
-        // whenever it's fast enough to be enabled in tests, or somehow create a test facts program
-        // or reduce it from clap.
-        let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
-        assert!(!subset_symmetries_exist(&opt));
-    }
+    // FIXME: the issue-47680 dataset is suboptimal here as DatafrogOpt does not
+    // produce subset symmetries for it. It does for clap, and it was used to manually verify
+    // that the assert in verbose  mode didn't trigger. Therefore, switch to this dataset
+    // whenever it's fast enough to be enabled in tests, or somehow create a test facts program
+    // or reduce it from clap.
+    let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
+    assert!(!subset_symmetries_exist(&opt));
+    Ok(())
 }
 
 // The following 3 tests, `send_is_not_static_std_sync`, `escape_upvar_nested`, and `issue_31567`

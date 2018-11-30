@@ -1,4 +1,3 @@
-#![feature(try_blocks)]
 #![allow(dead_code)]
 
 extern crate clap;
