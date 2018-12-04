@@ -1,5 +1,9 @@
 # polonius
 
+## v0.3.0
+
+- adopt latest polonius-engine
+
 ## v0.2.0
 
 - integrate the latest engine
@@ -7,6 +11,10 @@
 - preliminary work towards a friendly front-end format
 
 # polonius-engine
+
+## v0.6.0
+
+- fixed bug in `DatafrogOpt` algorithm
 
 ## v0.5.0
 
