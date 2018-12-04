@@ -1,5 +1,9 @@
 # polonius
 
+## v0.3.0
+
+- adopt latest polonius-engine
+
 ## v0.2.0
 
 - integrate the latest engine
@@ -7,6 +11,12 @@
 - preliminary work towards a friendly front-end format
 
 # polonius-engine
+
+## v0.6.0
+
+- bug: fixed bug in `DatafrogOpt` algorithm (#84)
+- now builds on Rust 2018 beta (#84)
+- optimization: remove symmetries in `subset` relation (#78)
 
 ## v0.5.0
 
