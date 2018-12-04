@@ -14,7 +14,9 @@
 
 ## v0.6.0
 
-- fixed bug in `DatafrogOpt` algorithm
+- bug: fixed bug in `DatafrogOpt` algorithm (#84)
+- now builds on Rust 2018 beta (#84)
+- optimization: remove symmetries in `subset` relation (#78)
 
 ## v0.5.0
 
