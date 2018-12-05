@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use crate::output::Output;
 
-use datafrog::{Iteration, Relation};
+use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
 pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
@@ -47,6 +47,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // static inputs
         let cfg_edge = iteration.variable::<(Point, Point)>("cfg_edge");
+        let cfg_edge_rel = Relation::from(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
+
         let killed = all_facts.killed.into();
 
         // `invalidates` facts, stored ready for joins
@@ -77,8 +79,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let live_to_dying_regions_r2pq =
             iteration.variable::<((Region, Point, Point), Region)>("live_to_dying_regions_r2pq");
-        let live_to_dying_regions_1 = iteration.variable_indistinct("live_to_dying_regions_1");
-        let live_to_dying_regions_2 = iteration.variable_indistinct("live_to_dying_regions_2");
 
         let dying_region_requires =
             iteration.variable::<((Region, Point, Point), Loan)>("dying_region_requires");
@@ -105,7 +105,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let errors = iteration.variable("errors");
 
         // load initial facts.
-        cfg_edge.insert(all_facts.cfg_edge.into());
+        cfg_edge.insert(cfg_edge_rel.clone());
         borrow_region_rp.insert(Relation::from(
             all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
         ));
@@ -166,17 +166,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   cfg_edge(P, Q),
             //   region_live_at(R1, Q),
             //   !region_live_at(R2, Q).
-            live_to_dying_regions_1
-                .from_join(&subset_p, &cfg_edge, |&p, &(r1, r2), &q| ((r1, q), (r2, p)));
-            live_to_dying_regions_2.from_join(
-                &live_to_dying_regions_1,
-                &region_live_at_var,
-                |&(r1, q), &(r2, p), &()| ((r2, q), (r1, p)),
-            );
-            live_to_dying_regions_r2pq.from_antijoin(
-                &live_to_dying_regions_2,
-                &region_live_at_rel,
-                |&(r2, q), &(r1, p)| ((r2, p, q), r1),
+            live_to_dying_regions_r2pq.from_leapjoin(
+                &subset_p,
+                &mut [
+                    &mut cfg_edge_rel.extend_with(|&(p, _)| p),
+                    &mut region_live_at_rel.extend_with(|&(_, (r1, _))| r1),
+                    &mut region_live_at_rel.extend_anti(|&(_, (_, r2))| r2),
+                ],
+                |&(p, (r1, r2)), &q| ((r2, p, q), r1),
             );
 
             // .decl dying_region_requires((R, P, Q), B)
