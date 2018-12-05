@@ -49,7 +49,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let cfg_edge = iteration.variable::<(Point, Point)>("cfg_edge");
         let cfg_edge_rel = Relation::from(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
 
-        let killed = all_facts.killed.into();
+        let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
 
         // `invalidates` facts, stored ready for joins
         let invalidates = iteration.variable::<((Loan, Point), ())>("invalidates");
@@ -82,8 +82,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         let dying_region_requires =
             iteration.variable::<((Region, Point, Point), Loan)>("dying_region_requires");
-        let dying_region_requires_1 = iteration.variable_indistinct("dying_region_requires_1");
-        let dying_region_requires_2 = iteration.variable_indistinct("dying_region_requires_2");
 
         let dying_can_reach_origins =
             iteration.variable::<((Region, Point), Point)>("dying_can_reach_origins");
@@ -186,16 +184,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   !killed(B, P),
             //   cfg_edge(P, Q),
             //   !region_live_at(R, Q).
-            dying_region_requires_1.from_antijoin(&requires_bp, &killed, |&(b, p), &r| (p, (b, r)));
-            dying_region_requires_2.from_join(
-                &dying_region_requires_1,
-                &cfg_edge,
-                |&p, &(b, r), &q| ((r, q), (b, p)),
-            );
-            dying_region_requires.from_antijoin(
-                &dying_region_requires_2,
-                &region_live_at_rel,
-                |&(r, q), &(b, p)| ((r, p, q), b),
+            dying_region_requires.from_leapjoin(
+                &requires_bp,
+                &mut [
+                    &mut killed_rel.filter_anti(|&((b, p), _)| (b, p)),
+                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    &mut region_live_at_rel.extend_anti(|&((_, _), r)| r),
+                ],
+                |&((b, p), r), &q| ((r, p, q), b),
             );
 
             // .decl dying_can_reach_origins(R, P, Q)
@@ -320,7 +316,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   !killed(B, P),
             //   cfg_edge(P, Q),
             //   region_live_at(R, Q).
-            requires_1.from_antijoin(&requires_bp, &killed, |&(b, p), &r| (p, (r, b)));
+            requires_1.from_antijoin(&requires_bp, &killed_rel, |&(b, p), &r| (p, (r, b)));
             requires_2.from_join(&requires_1, &cfg_edge, |&_p, &(r, b), &q| ((r, q), b));
             requires.from_join(&requires_2, &region_live_at_var, |&(r, q), &b, &()| {
                 (r, b, q)
