@@ -62,9 +62,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let borrow_region_rp = iteration.variable::<((Region, Point), Loan)>("borrow_region_rp");
 
         // variables, indices for the computation rules, and temporaries for the multi-way joins
-        let subset = iteration.variable::<(Region, Region, Point)>("subset");
+        let subset_p = iteration.variable::<(Point, (Region, Region))>("subset_p");
         let subset_r1p = iteration.variable_indistinct("subset_r1p");
-        let subset_p = iteration.variable_indistinct("subset_p");
 
         let requires = iteration.variable::<(Region, Loan, Point)>("requires");
         let requires_bp = iteration.variable_indistinct("requires_bp");
@@ -107,7 +106,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         region_live_at_var.insert(Relation::from(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
-        subset.insert(all_facts.outlives.into());
+        subset_p.insert(Relation::from(
+            all_facts.outlives.iter().map(|&(r1, r2, p)| (p, (r1, r2))),
+        ));
         requires.insert(all_facts.borrow_region.into());
 
         // .. and then start iterating rules!
@@ -120,15 +121,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // impact performance. Until then, the big reduction in tuples improves performance
             // a lot, even if we're potentially adding a small number of tuples
             // per round just to remove them in the next round.
-            subset
+            subset_p
                 .recent
                 .borrow_mut()
                 .elements
-                .retain(|&(r1, r2, _)| r1 != r2);
+                .retain(|&(_, (r1, r2))| r1 != r2);
 
             // remap fields to re-index by the different keys
-            subset_r1p.from_map(&subset, |&(r1, r2, p)| ((r1, p), r2));
-            subset_p.from_map(&subset, |&(r1, r2, p)| (p, (r1, r2)));
+            subset_r1p.from_map(&subset_p, |&(p, (r1, r2))| ((r1, p), r2));
 
             requires_bp.from_map(&requires, |&(r, b, p)| ((b, p), r));
             requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
@@ -267,23 +267,23 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //
             // Carry `R1 <= R2` from P into Q if both `R1` and
             // `R2` are live in Q.
-            subset.from_leapjoin(
+            subset_p.from_leapjoin(
                 &subset_p,
                 &mut [
                     &mut cfg_edge_rel.extend_with(|&(p, (_, _))| p),
                     &mut region_live_at_rel.extend_with(|&(_, (r1, _))| r1),
                     &mut region_live_at_rel.extend_with(|&(_, (_, r2))| r2),
                 ],
-                |&(_p, (r1, r2)), &q| (r1, r2, q),
+                |&(_p, (r1, r2)), &q| (q, (r1, r2)),
             );
 
             // subset(R1, R3, Q) :-
             //   live_to_dying_regions(R1, R2, P, Q),
             //   dying_can_reach_live(R2, R3, P, Q).
-            subset.from_join(
+            subset_p.from_join(
                 &live_to_dying_regions_r2pq,
                 &dying_can_reach_live,
-                |&(_r2, _p, q), &r1, &r3| (r1, r3, q),
+                |&(_r2, _p, q), &r1, &r3| (q, (r1, r3)),
             );
 
             // .decl requires(R, B, P) -- at the point, things with region R
@@ -387,12 +387,12 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .push(*region);
             }
 
-            let subset = subset.complete();
+            let subset_p = subset_p.complete();
             assert!(
-                subset.iter().filter(|&(r1, r2, _)| r1 == r2).count() == 0,
+                subset_p.iter().filter(|&(_, (r1, r2))| r1 == r2).count() == 0,
                 "unwanted subset symmetries"
             );
-            for (r1, r2, location) in &subset.elements {
+            for (location, (r1, r2)) in &subset_p.elements {
                 result
                     .subset
                     .entry(*location)
