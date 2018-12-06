@@ -62,8 +62,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let borrow_region_rp = iteration.variable::<((Region, Point), Loan)>("borrow_region_rp");
 
         // variables, indices for the computation rules, and temporaries for the multi-way joins
-        let subset_p = iteration.variable::<(Point, (Region, Region))>("subset_p");
-        let subset_r1p = iteration.variable_indistinct("subset_r1p");
+        let subset_r1p = iteration.variable::<((Region, Point), Region)>("subset_r1p");
 
         let requires_bp = iteration.variable::<((Loan, Point), Region)>("requires_bp");
         let requires_rp = iteration.variable_indistinct("requires_rp");
@@ -105,8 +104,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         region_live_at_var.insert(Relation::from(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
-        subset_p.insert(Relation::from(
-            all_facts.outlives.iter().map(|&(r1, r2, p)| (p, (r1, r2))),
+        subset_r1p.insert(Relation::from(
+            all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)),
         ));
         requires_bp.insert(Relation::from(
             all_facts.borrow_region.iter().map(|&(r, b, p)| ((b, p), r)),
@@ -122,14 +121,13 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // impact performance. Until then, the big reduction in tuples improves performance
             // a lot, even if we're potentially adding a small number of tuples
             // per round just to remove them in the next round.
-            subset_p
+            subset_r1p
                 .recent
                 .borrow_mut()
                 .elements
-                .retain(|&(_, (r1, r2))| r1 != r2);
+                .retain(|&((r1, _), r2)| r1 != r2);
 
             // remap fields to re-index by the different keys
-            subset_r1p.from_map(&subset_p, |&(p, (r1, r2))| ((r1, p), r2));
             requires_rp.from_map(&requires_bp, |&((b, p), r)| ((r, p), b));
 
             // it's now time ... to datafrog:
@@ -158,13 +156,13 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   region_live_at(R1, Q),
             //   !region_live_at(R2, Q).
             live_to_dying_regions_r2pq.from_leapjoin(
-                &subset_p,
+                &subset_r1p,
                 &mut [
-                    &mut cfg_edge_rel.extend_with(|&(p, _)| p),
-                    &mut region_live_at_rel.extend_with(|&(_, (r1, _))| r1),
-                    &mut region_live_at_rel.extend_anti(|&(_, (_, r2))| r2),
+                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    &mut region_live_at_rel.extend_with(|&((r1, _), _)| r1),
+                    &mut region_live_at_rel.extend_anti(|&((_, _), r2)| r2),
                 ],
-                |&(p, (r1, r2)), &q| ((r2, p, q), r1),
+                |&((r1, p), r2), &q| ((r2, p, q), r1),
             );
 
             // .decl dying_region_requires((R, P, Q), B)
@@ -266,23 +264,23 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //
             // Carry `R1 <= R2` from P into Q if both `R1` and
             // `R2` are live in Q.
-            subset_p.from_leapjoin(
-                &subset_p,
+            subset_r1p.from_leapjoin(
+                &subset_r1p,
                 &mut [
-                    &mut cfg_edge_rel.extend_with(|&(p, (_, _))| p),
-                    &mut region_live_at_rel.extend_with(|&(_, (r1, _))| r1),
-                    &mut region_live_at_rel.extend_with(|&(_, (_, r2))| r2),
+                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    &mut region_live_at_rel.extend_with(|&((r1, _), _)| r1),
+                    &mut region_live_at_rel.extend_with(|&((_, _), r2)| r2),
                 ],
-                |&(_p, (r1, r2)), &q| (q, (r1, r2)),
+                |&((r1, _p), r2), &q| ((r1, q), r2),
             );
 
             // subset(R1, R3, Q) :-
             //   live_to_dying_regions(R1, R2, P, Q),
             //   dying_can_reach_live(R2, R3, P, Q).
-            subset_p.from_join(
+            subset_r1p.from_join(
                 &live_to_dying_regions_r2pq,
                 &dying_can_reach_live,
-                |&(_r2, _p, q), &r1, &r3| (q, (r1, r3)),
+                |&(_r2, _p, q), &r1, &r3| ((r1, q), r3),
             );
 
             // .decl requires(R, B, P) -- at the point, things with region R
@@ -386,12 +384,12 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .push(*region);
             }
 
-            let subset_p = subset_p.complete();
+            let subset_r1p = subset_r1p.complete();
             assert!(
-                subset_p.iter().filter(|&(_, (r1, r2))| r1 == r2).count() == 0,
+                subset_r1p.iter().filter(|&((r1, _), r2)| r1 == r2).count() == 0,
                 "unwanted subset symmetries"
             );
-            for (location, (r1, r2)) in &subset_p.elements {
+            for ((r1, location), r2) in &subset_r1p.elements {
                 result
                     .subset
                     .entry(*location)
