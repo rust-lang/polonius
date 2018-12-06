@@ -12,6 +12,10 @@
 
 # polonius-engine
 
+## v0.6.1
+
+- adopt the new datafrog 1.0 dependency and optimize with leapfrog joins (#88)
+
 ## v0.6.0
 
 - bug: fixed bug in `DatafrogOpt` algorithm (#84)
