@@ -65,8 +65,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let subset_p = iteration.variable::<(Point, (Region, Region))>("subset_p");
         let subset_r1p = iteration.variable_indistinct("subset_r1p");
 
-        let requires = iteration.variable::<(Region, Loan, Point)>("requires");
-        let requires_bp = iteration.variable_indistinct("requires_bp");
+        let requires_bp = iteration.variable::<((Loan, Point), Region)>("requires_bp");
         let requires_rp = iteration.variable_indistinct("requires_rp");
 
         let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
@@ -109,7 +108,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         subset_p.insert(Relation::from(
             all_facts.outlives.iter().map(|&(r1, r2, p)| (p, (r1, r2))),
         ));
-        requires.insert(all_facts.borrow_region.into());
+        requires_bp.insert(Relation::from(
+            all_facts.borrow_region.iter().map(|&(r, b, p)| ((b, p), r)),
+        ));
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -129,9 +130,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
             // remap fields to re-index by the different keys
             subset_r1p.from_map(&subset_p, |&(p, (r1, r2))| ((r1, p), r2));
-
-            requires_bp.from_map(&requires, |&(r, b, p)| ((b, p), r));
-            requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
+            requires_rp.from_map(&requires_bp, |&((b, p), r)| ((r, p), b));
 
             // it's now time ... to datafrog:
 
@@ -301,10 +300,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // that case, for each region `R2` live in `Q`
             // where `R1 <= R2` in P, we add `R2 requires B`
             // to `Q`.
-            requires.from_join(
+            requires_bp.from_join(
                 &dying_region_requires,
                 &dying_can_reach_live,
-                |&(_r1, _p, q), &b, &r2| (r2, b, q),
+                |&(_r1, _p, q), &b, &r2| ((b, q), r2),
             );
 
             // requires(R, B, Q) :-
@@ -312,14 +311,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   !killed(B, P),
             //   cfg_edge(P, Q),
             //   region_live_at(R, Q).
-            requires.from_leapjoin(
+            requires_bp.from_leapjoin(
                 &requires_bp,
                 &mut [
                     &mut killed_rel.filter_anti(|&((b, p), _)| (b, p)),
                     &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
                     &mut region_live_at_rel.extend_with(|&((_, _), r)| r),
                 ],
-                |&((b, _), r), &q| (r, b, q),
+                |&((b, _), r), &q| ((b, q), r),
             );
 
             // dead_borrow_region_can_reach_root((R, P), B) :-
@@ -402,8 +401,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .insert(*r2);
             }
 
-            let requires = requires.complete();
-            for (region, borrow, location) in &requires.elements {
+            let requires_bp = requires_bp.complete();
+            for ((borrow, location), region) in &requires_bp.elements {
                 result
                     .restricts
                     .entry(*location)
