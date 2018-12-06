@@ -16,6 +16,7 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
         println!("Algorithm {:?}", optimized_algorithm);
         let opt = Output::compute(all_facts, optimized_algorithm, true);
         assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
+        assert_equal(&naive.errors, &opt.errors);
     }
 }
 
@@ -205,5 +206,78 @@ fn borrowed_local_error() {
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+    test_facts(&facts, Algorithm::OPTIMIZED);
+}
+
+#[test]
+fn smoke_test_errors() {
+    let failures = [
+        "return_ref_to_local",
+        "use_while_mut",
+        "use_while_mut_fr",
+        "well_formed_function_inputs",
+    ];
+
+    for test_fn in &failures {
+        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("inputs")
+            .join("smoke-test")
+            .join("nll-facts")
+            .join(test_fn);
+        println!("facts_dir = {:?}", facts_dir);
+        let tables = &mut intern::InternerTables::new();
+        let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+        let location_insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+        assert!(
+            !location_insensitive.errors.is_empty(),
+            format!("LocationInsensitive didn't find errors for '{}'", test_fn)
+        );
+
+        let naive = Output::compute(&facts, Algorithm::Naive, true);
+        assert!(
+            !naive.errors.is_empty(),
+            format!("Naive didn't find errors for '{}'", test_fn)
+        );
+
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+        assert!(
+            !opt.errors.is_empty(),
+            format!("DatafrogOpt didn't find errors for '{}'", test_fn)
+        );
+    }
+}
+
+#[test]
+fn smoke_test_success_1() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("smoke-test")
+        .join("nll-facts")
+        .join("position_dependent_outlives");
+    println!("facts_dir = {:?}", facts_dir);
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    let location_insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+    assert!(!location_insensitive.errors.is_empty());
+
+    test_facts(&facts, Algorithm::OPTIMIZED);
+}
+
+#[test]
+fn smoke_test_success_2() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("smoke-test")
+        .join("nll-facts")
+        .join("foo");
+    println!("facts_dir = {:?}", facts_dir);
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    let location_insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+    assert!(location_insensitive.errors.is_empty());
+
     test_facts(&facts, Algorithm::OPTIMIZED);
 }
