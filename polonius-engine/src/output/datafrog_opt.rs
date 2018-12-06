@@ -64,8 +64,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // variables, indices for the computation rules, and temporaries for the multi-way joins
         let subset_r1p = iteration.variable::<((Region, Point), Region)>("subset_r1p");
 
-        let requires_bp = iteration.variable::<((Loan, Point), Region)>("requires_bp");
-        let requires_rp = iteration.variable_indistinct("requires_rp");
+        let requires_rp = iteration.variable::<((Region, Point), Loan)>("requires_rp");
 
         let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
 
@@ -107,8 +106,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         subset_r1p.insert(Relation::from(
             all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)),
         ));
-        requires_bp.insert(Relation::from(
-            all_facts.borrow_region.iter().map(|&(r, b, p)| ((b, p), r)),
+        requires_rp.insert(Relation::from(
+            all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
         ));
 
         // .. and then start iterating rules!
@@ -126,9 +125,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 .borrow_mut()
                 .elements
                 .retain(|&((r1, _), r2)| r1 != r2);
-
-            // remap fields to re-index by the different keys
-            requires_rp.from_map(&requires_bp, |&((b, p), r)| ((r, p), b));
 
             // it's now time ... to datafrog:
 
@@ -176,13 +172,13 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   cfg_edge(P, Q),
             //   !region_live_at(R, Q).
             dying_region_requires.from_leapjoin(
-                &requires_bp,
+                &requires_rp,
                 &mut [
-                    &mut killed_rel.filter_anti(|&((b, p), _)| (b, p)),
+                    &mut killed_rel.filter_anti(|&((_, p), b)| (b, p)),
                     &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    &mut region_live_at_rel.extend_anti(|&((_, _), r)| r),
+                    &mut region_live_at_rel.extend_anti(|&((r, _), _)| r),
                 ],
-                |&((b, p), r), &q| ((r, p, q), b),
+                |&((r, p), b), &q| ((r, p, q), b),
             );
 
             // .decl dying_can_reach_origins(R, P, Q)
@@ -298,10 +294,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // that case, for each region `R2` live in `Q`
             // where `R1 <= R2` in P, we add `R2 requires B`
             // to `Q`.
-            requires_bp.from_join(
+            requires_rp.from_join(
                 &dying_region_requires,
                 &dying_can_reach_live,
-                |&(_r1, _p, q), &b, &r2| ((b, q), r2),
+                |&(_r1, _p, q), &b, &r2| ((r2, q), b),
             );
 
             // requires(R, B, Q) :-
@@ -309,14 +305,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   !killed(B, P),
             //   cfg_edge(P, Q),
             //   region_live_at(R, Q).
-            requires_bp.from_leapjoin(
-                &requires_bp,
+            requires_rp.from_leapjoin(
+                &requires_rp,
                 &mut [
-                    &mut killed_rel.filter_anti(|&((b, p), _)| (b, p)),
+                    &mut killed_rel.filter_anti(|&((_, p), b)| (b, p)),
                     &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    &mut region_live_at_rel.extend_with(|&((_, _), r)| r),
+                    &mut region_live_at_rel.extend_with(|&((r, _), _)| r),
                 ],
-                |&((b, _), r), &q| ((b, q), r),
+                |&((r, _), b), &q| ((r, q), b),
             );
 
             // dead_borrow_region_can_reach_root((R, P), B) :-
@@ -399,8 +395,8 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .insert(*r2);
             }
 
-            let requires_bp = requires_bp.complete();
-            for ((borrow, location), region) in &requires_bp.elements {
+            let requires_rp = requires_rp.complete();
+            for ((region, location), borrow) in &requires_rp.elements {
                 result
                     .restricts
                     .entry(*location)
