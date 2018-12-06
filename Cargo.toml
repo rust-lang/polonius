@@ -10,7 +10,7 @@ keywords = ["compiler", "borrowck", "datalog"]
 edition = "2018"
 
 [dev-dependencies]
-assert_cli = "0.5.4"
+assert_cli = "0.6"
 diff = "0.1.0"
 
 [dependencies]
@@ -21,7 +21,6 @@ failure = "0.1.1"
 rustc-hash = "1.0.0"
 structopt = "0.2.8"
 clap = "2.31.2"
-histo = "0.1.0"
 polonius-engine = {version = "0.6.0", path = "polonius-engine" }
 polonius-parser = {version = "0.2.0", path = "polonius-parser" }
 
