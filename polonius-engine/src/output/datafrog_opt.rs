@@ -46,7 +46,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let mut iteration = Iteration::new();
 
         // static inputs
-        let cfg_edge = iteration.variable::<(Point, Point)>("cfg_edge");
         let cfg_edge_rel = Relation::from(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
 
         let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
@@ -99,7 +98,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let errors = iteration.variable("errors");
 
         // load initial facts.
-        cfg_edge.insert(cfg_edge_rel.clone());
         borrow_region_rp.insert(Relation::from(
             all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
         ));
