@@ -79,6 +79,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // load initial facts.
         subset.insert(all_facts.outlives.into());
         requires.insert(all_facts.borrow_region.into());
+        invalidates.insert(Relation::from(
+            all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())),
+        ));
         region_live_at.insert(Relation::from(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
