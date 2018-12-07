@@ -61,39 +61,89 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // `borrow_region` input but organized for join
         let borrow_region_rp = iteration.variable::<((Region, Point), Loan)>("borrow_region_rp");
 
-        // variables, indices for the computation rules, and temporaries for the multi-way joins
+        // .decl subset(R1, R2, P)
+        //
+        // Indicates that `R1: R2` at the point `P`.
         let subset_r1p = iteration.variable::<((Region, Point), Region)>("subset_r1p");
 
+        // .decl requires(R, B, P)
+        //
+        // At the point, things with region R may depend on data from
+        // borrow B
         let requires_rp = iteration.variable::<((Region, Point), Loan)>("requires_rp");
 
+        // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
+        // need to be enforced at the point P
         let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
 
+        // .decl live_to_dying_regions(R1, R2, P, Q)
+        //
+        // The regions `R1` and `R2` are "live to dead"
+        // on the edge `P -> Q` if:
+        //
+        // - In P, `R1` <= `R2`
+        // - In Q, `R1` is live but `R2` is dead.
+        //
+        // In that case, `Q` would like to add all the
+        // live things reachable from `R2` to `R1`.
+        //
         let live_to_dying_regions_r2pq =
             iteration.variable::<((Region, Point, Point), Region)>("live_to_dying_regions_r2pq");
 
+        // .decl dying_region_requires((R, P, Q), B)
+        //
+        // The region `R` requires the borrow `B`, but the
+        // region `R` goes dead along the edge `P -> Q`
         let dying_region_requires =
             iteration.variable::<((Region, Point, Point), Loan)>("dying_region_requires");
 
+        // .decl dying_can_reach_origins(R, P, Q)
+        //
+        // Contains dead regions where we are interested
+        // in computing the transitive closure of things they
+        // can reach.
         let dying_can_reach_origins =
             iteration.variable::<((Region, Point), Point)>("dying_can_reach_origins");
+
+        // .decl dying_can_reach(R1, R2, P, Q)
+        //
+        // Indicates that the region `R1`, which is dead
+        // in `Q`, can reach the region `R2` in P.
+        //
+        // This is effectively the transitive subset
+        // relation, but we try to limit it to regions
+        // that are dying on the edge P -> Q.
         let dying_can_reach_r2q =
             iteration.variable::<((Region, Point), (Region, Point))>("dying_can_reach");
         let dying_can_reach_1 = iteration.variable_indistinct("dying_can_reach_1");
 
+        // .decl dying_can_reach_live(R1, R2, P, Q)
+        //
+        // Indicates that, along the edge `P -> Q`, the dead (in Q)
+        // region R1 can reach the live (in Q) region R2 via a subset
+        // relation. This is a subset of the full `dying_can_reach`
+        // relation where we filter down to those cases where R2 is
+        // live in Q.
         let dying_can_reach_live =
             iteration.variable::<((Region, Point, Point), Region)>("dying_can_reach_live");
 
+        // .decl dead_borrow_region_can_reach_root((R, P), B)
+        //
+        // Indicates a "borrow region" R at P which is not live on
+        // entry to P.
         let dead_borrow_region_can_reach_root =
             iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_root");
+
+        // .decl dead_borrow_region_can_reach_dead((R2, P), B)
         let dead_borrow_region_can_reach_dead =
             iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_dead");
         let dead_borrow_region_can_reach_dead_1 =
             iteration.variable_indistinct("dead_borrow_region_can_reach_dead_1");
 
-        // output
+        // .decl errors(B, P)
         let errors = iteration.variable("errors");
 
-        // load initial facts.
+        // Make "variable" versions of the relations, needed for joins.
         borrow_region_rp.insert(Relation::from(
             all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
         ));
@@ -103,9 +153,13 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         region_live_at_var.insert(Relation::from(
             all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
         ));
+
+        // subset(R1, R2, P) :- outlives(R1, R2, P).
         subset_r1p.insert(Relation::from(
             all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)),
         ));
+
+        // requires(R, B, P) :- borrow_region(R, B, P).
         requires_rp.insert(Relation::from(
             all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
         ));
@@ -126,26 +180,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 .elements
                 .retain(|&((r1, _), r2)| r1 != r2);
 
-            // it's now time ... to datafrog:
-
-            // .decl subset(R1, R2, P)
-            //
-            // At the point P, R1 <= R2.
-            //
-            // subset(R1, R2, P) :- outlives(R1, R2, P).
-            // -> already loaded; outlives is a static input.
-
-            // .decl live_to_dying_regions(R1, R2, P, Q)
-            //
-            // The regions `R1` and `R2` are "live to dead"
-            // on the edge `P -> Q` if:
-            //
-            // - In P, `R1` <= `R2`
-            // - In Q, `R1` is live but `R2` is dead.
-            //
-            // In that case, `Q` would like to add all the
-            // live things reachable from `R2` to `R1`.
-            //
             // live_to_dying_regions(R1, R2, P, Q) :-
             //   subset(R1, R2, P),
             //   cfg_edge(P, Q),
@@ -161,11 +195,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 |&((r1, p), r2), &q| ((r2, p, q), r1),
             );
 
-            // .decl dying_region_requires((R, P, Q), B)
-            //
-            // The region `R` requires the borrow `B`, but the
-            // region `R` goes dead along the edge `P -> Q`
-            //
             // dying_region_requires((R, P, Q), B) :-
             //   requires(R, B, P),
             //   !killed(B, P),
@@ -181,31 +210,17 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 |&((r, p), b), &q| ((r, p, q), b),
             );
 
-            // .decl dying_can_reach_origins(R, P, Q)
-            //
-            // Contains dead regions where we are interested
-            // in computing the transitive closure of things they
-            // can reach.
-            //
             // dying_can_reach_origins(R2, P, Q) :-
             //   live_to_dying_regions(_, R2, P, Q).
-            // dying_can_reach_origins(R, P, Q) :-
-            //   dying_region_requires(R, P, Q, _B).
             dying_can_reach_origins.from_map(&live_to_dying_regions_r2pq, |&((r2, p, q), _r1)| {
                 ((r2, p), q)
             });
+
+            // dying_can_reach_origins(R, P, Q) :-
+            //   dying_region_requires(R, P, Q, _B).
             dying_can_reach_origins
                 .from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
 
-            // .decl dying_can_reach(R1, R2, P, Q)
-            //
-            // Indicates that the region `R1`, which is dead
-            // in `Q`, can reach the region `R2` in P.
-            //
-            // This is effectively the transitive subset
-            // relation, but we try to limit it to regions
-            // that are dying on the edge P -> Q.
-            //
             // dying_can_reach(R1, R2, P, Q) :-
             //   dying_can_reach_origins(R1, P, Q),
             //   subset(R1, R2, P).
@@ -234,15 +249,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 |&(_r2, p), &(r1, q), &r3| ((r3, q), (r1, p)),
             );
 
-            // .decl dying_can_reach_live(R1, R2, P, Q)
-            //
-            // Indicates that, along the edge `P -> Q`, the
-            // dead (in Q) region R1 can reach the live (in Q)
-            // region R2 via a subset relation. This is a
-            // subset of the full `dying_can_reach` relation
-            // where we filter down to those cases where R2 is
-            // live in Q.
-            //
             // dying_can_reach_live(R1, R2, P, Q) :-
             //    dying_can_reach(R1, R2, P, Q),
             //    region_live_at(R2, Q).
@@ -278,12 +284,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 &dying_can_reach_live,
                 |&(_r2, _p, q), &r1, &r3| ((r1, q), r3),
             );
-
-            // .decl requires(R, B, P) -- at the point, things with region R
-            // may depend on data from borrow B
-            //
-            // requires(R, B, P) :- borrow_region(R, B, P).
-            // -> already loaded; borrow_region is a static input.
 
             // requires(R2, B, Q) :-
             //   dying_region_requires(R1, B, P, Q),
@@ -344,9 +344,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 |&(r2, p), &b| ((r2, p), b),
             );
 
-            // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
-            // need to be enforced at the point P
-            //
             // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
             borrow_live_at.from_join(&requires_rp, &region_live_at_var, |&(_r, p), &b, &()| {
                 ((b, p), ())
@@ -367,7 +364,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 |&(_r2, p), &b, &()| ((b, p), ()),
             );
 
-            // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
+            // errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
             errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
         }
 

@@ -48,6 +48,9 @@ macro_rules! tests {
 
 tests! {
     issue_47680("issue-47680", "main"),
+    vec_push_ref_foo1("vec-push-ref", "foo1"),
+    vec_push_ref_foo2("vec-push-ref", "foo2"),
+    vec_push_ref_foo3("vec-push-ref", "foo3"),
 }
 
 #[test]
