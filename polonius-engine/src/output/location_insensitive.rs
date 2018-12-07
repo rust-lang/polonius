@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use crate::output::Output;
 
-use datafrog::{Iteration, Relation};
+use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
 pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
@@ -44,12 +44,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
 
+        // static inputs
+        let region_live_at: Relation<(Region, Point)> = all_facts.region_live_at.into();
+        let invalidates = Relation::from(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
+
         // .. some variables, ..
         let subset = iteration.variable::<(Region, Region)>("subset");
         let requires = iteration.variable::<(Region, Loan)>("requires");
-        let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
-        let region_live_at = iteration.variable::<(Region, Point)>("region_live_at");
-        let invalidates = iteration.variable::<((Loan, Point), ())>("invalidates");
+
         let potential_errors = iteration.variable::<(Loan, Point)>("potential_errors");
 
         // load initial facts.
@@ -64,22 +66,28 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             all_facts.borrow_region.iter().map(|&(r, b, _p)| (r, b)),
         ));
 
-        region_live_at.insert(all_facts.region_live_at.into());
-
-        invalidates.insert(Relation::from(
-            all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())),
-        ));
-
         // .. and then start iterating rules!
         while iteration.changed() {
             // requires(R2, B) :- requires(R1, B), subset(R1, R2).
+            //
+            // Note: Since `subset` is effectively a static input, this join can be ported to
+            // a leapjoin. Doing so, however, was 7% slower on `clap`.
             requires.from_join(&requires, &subset, |&_r1, &b, &r2| (r2, b));
 
             // borrow_live_at(B, P) :- requires(R, B), region_live_at(R, P)
-            borrow_live_at.from_join(&requires, &region_live_at, |&_r, &b, &p| ((b, p), ()));
-
             // potential_errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
-            potential_errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
+            //
+            // Note: we don't need to materialize `borrow_live_at` here
+            // so we can inline it in the `potential_errors` relation.
+            //
+            potential_errors.from_leapjoin(
+                &requires,
+                &mut [
+                    &mut region_live_at.extend_with(|&(r, _b)| r),
+                    &mut invalidates.extend_with(|&(_r, b)| b),
+                ],
+                |&(_r, b), &p| (b, p),
+            );
         }
 
         if dump_enabled {
@@ -101,31 +109,12 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .insert(*borrow);
             }
 
-            let borrow_live_at = borrow_live_at.complete();
-            for ((borrow, location), _) in &borrow_live_at.elements {
-                result
-                    .borrow_live_at
-                    .entry(*location)
-                    .or_insert(vec![])
-                    .push(*borrow);
-            }
-
-            let region_live_at = region_live_at.complete();
             for (region, location) in &region_live_at.elements {
                 result
                     .region_live_at
                     .entry(*location)
                     .or_insert(vec![])
                     .push(*region);
-            }
-
-            let invalidates = invalidates.complete();
-            for ((borrow, location), _) in &invalidates.elements {
-                result
-                    .invalidates
-                    .entry(*location)
-                    .or_insert(vec![])
-                    .push(*borrow);
             }
         }
 
