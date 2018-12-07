@@ -3,7 +3,6 @@
 extern crate clap;
 extern crate datafrog;
 extern crate failure;
-extern crate histo;
 extern crate polonius_engine;
 extern crate polonius_parser;
 extern crate rustc_hash;

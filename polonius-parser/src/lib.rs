@@ -1,7 +1,9 @@
+#[macro_use]
+extern crate lalrpop_util;
+
 pub mod ir;
 
-#[rustfmt::skip]
-mod parser;
+lalrpop_mod!(#[rustfmt::skip] parser); // synthetized by LALRPOP
 mod tests;
 
 pub fn parse_input(text: &str) -> Result<ir::Input, String> {
