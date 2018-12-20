@@ -26,6 +26,9 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom> {
 
     ///  `invalidates(P, L)` when the loan L is invalidated at point P
     pub invalidates: Vec<(P, L)>,
+
+    /// `known_subset(R1, R2)` when the "placeholder region" R1 is a subset of R2
+    pub known_subset: Vec<(R, R)>,
 }
 
 impl<R: Atom, L: Atom, P: Atom> Default for AllFacts<R, L, P> {
@@ -38,6 +41,7 @@ impl<R: Atom, L: Atom, P: Atom> Default for AllFacts<R, L, P> {
             outlives: Vec::default(),
             region_live_at: Vec::default(),
             invalidates: Vec::default(),
+            known_subset: Vec::default(),
         }
     }
 }

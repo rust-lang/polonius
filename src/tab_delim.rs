@@ -39,6 +39,7 @@ pub(crate) fn load_tab_delimited_facts(
             outlives,
             region_live_at,
             invalidates,
+            known_subset,
         }
     }
 }
