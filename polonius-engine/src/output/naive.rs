@@ -42,6 +42,53 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
     let computation_start = Instant::now();
 
+    // Step 0 - Compute the full transitive closure of placeholder regions subsets.
+    // This will be used in the "main" computation to check errors in relations between
+    // named lifetimes.
+    //
+    // FIXME: this is done in a separate datafrog computation, because right now datafrog only
+    // supports the antijoins we need to generate errors on static `Relation`s instead of dynamic
+    // `Variable`s.
+    // Whenever datafrog supports regular and leapjoin antijoins, this Step 0 can be entirely
+    // folded into the main computation of the analysis.
+    let known_subset = {
+        let mut iteration = Iteration::new();
+
+        // .decl known_base_subset(R1: region, R2: region)
+        //
+        // Indicates that the placeholder region `R1` is a subset of the placeholder region `R2`.
+        //
+        // Input relation: stored ready for joins, keyed by `R2`.
+        let known_base_subset_r2 = iteration.variable::<(Region, Region)>("known_base_subset_r2");
+
+        // .decl known_subset(R1: region, R2: region)
+        //
+        // Output relation: the complete set of placeholder regions subsets, containing
+        // - the input "user facing" subsets
+        // - the subsets derived by transitivity
+        let known_subset = iteration.variable::<(Region, Region)>("known_subset");
+
+        known_base_subset_r2.insert(Relation::from(
+            all_facts.known_subset.iter().map(|&(r1, r2)| (r2, r1)),
+        ));
+
+        // known_subset(R1, R2) :-
+        //   known_base_subset(R1, R2).
+        known_subset.insert(all_facts.known_subset.into());
+
+        while iteration.changed() {
+            // known_subset(R1, R3) :-
+            //   known_base_subset(R1, R2),
+            //   known_subset(R2, R3).
+            known_subset.from_join(&known_base_subset_r2, &known_subset, |&_r2, &r1, &r3| {
+                (r1, r3)
+            });
+        }
+
+        known_subset.complete()
+    };
+
+    // main computation
     let errors = {
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -70,20 +117,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
         let region_live_at_rel = Relation::from_iter(all_facts.region_live_at.iter().cloned());
 
-        // .decl known_base_subset(R1: region, R2: region)
-        //
-        // Indicates that the placeholder region `R1` is a subset of the placeholder region `R2`.
-        //
-        // Stored keyed by `R2` ready for joins.
-        let known_base_subset_r2 = iteration.variable::<(Region, Region)>("known_base_subset_r2");
-
-        // .decl known_subset(R1: region, R2: region)
-        // 
-        // Indicates that the placeholder region `R1` is a subset of the placeholder region `R2`: 
-        // here, both "user facing" known subsets, and known subsets derived by transitivity.
-        // 
-        let known_subset = iteration.variable::<(Region, Region)>("known_subset");
-
         // output
         let errors = iteration.variable("errors");
 
@@ -92,14 +125,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         requires.insert(all_facts.borrow_region.into());
         invalidates.extend(all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())));
         region_live_at_var.extend(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())));
-
-        known_base_subset_r2.insert(Relation::from(
-            all_facts.known_subset.iter().map(|&(r1, r2)| (r2, r1))
-        ));
-
-        // known_subset(R1, R2) :-
-        //   known_base_subset(R1, R2).
-        known_subset.insert(all_facts.known_subset.into());
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -176,13 +201,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 ((b, p), ())
             });
 
-            // known_subset(R1, R3) :- 
-            //   known_base_subset(R1, R2), 
-            //   known_subset(R2, R3).
-            known_subset.from_join(&known_base_subset_r2, &known_subset, |&_r2, &r1, &r3| {
-                (r1, r3)
-            });
-
             // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
             errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
         }
@@ -203,7 +221,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                     .insert(*r2);
             }
 
-            let known_subset = known_subset.complete();
             for (r1, r2) in known_subset.iter() {
                 result
                     .known_subset
