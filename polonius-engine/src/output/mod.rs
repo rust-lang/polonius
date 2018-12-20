@@ -64,6 +64,7 @@ pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub invalidates: FxHashMap<Point, Vec<Loan>>,
     pub subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
+    pub known_subset: FxHashMap<Region, BTreeSet<Region>>,
 }
 
 /// Compares errors reported by Naive implementation with the errors
@@ -146,6 +147,7 @@ where
             errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
+            known_subset: FxHashMap::default(),
             dump_enabled,
         }
     }
