@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use polonius_parser::{
-    ir::{Effect, Fact},
+    ir::{Effect, Fact, KnownSubset},
     parse_input,
 };
 
@@ -18,6 +18,7 @@ struct Facts {
     outlives: BTreeSet<(Region, Region, Point)>,
     region_live_at: BTreeSet<(Region, Point)>,
     invalidates: BTreeSet<(Point, Loan)>,
+    known_subset: BTreeSet<(Region, Region)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -30,6 +31,7 @@ impl From<Facts> for AllFacts {
             outlives: facts.outlives.into_iter().collect(),
             region_live_at: facts.region_live_at.into_iter().collect(),
             invalidates: facts.invalidates.into_iter().collect(),
+            known_subset: facts.known_subset.into_iter().collect(),
         }
     }
 }
@@ -49,6 +51,16 @@ pub(crate) fn parse_from_program(
             .universal_regions
             .iter()
             .map(|region| tables.regions.intern(region)),
+    );
+
+    // facts: known_subset(Region, Region)
+    facts.known_subset.extend(
+        input
+            .known_subsets
+            .iter()
+            .map(|KnownSubset { ref a, ref b }| {
+                (tables.regions.intern(a), tables.regions.intern(b))
+            }),
     );
 
     for block in &input.blocks {
@@ -199,6 +211,7 @@ mod tests {
         let program = r"
             // program description
             universal_regions { 'a, 'b, 'c }
+            known_subsets { 'a: 'b, 'b: 'c }
 
             // block description
             block B0 {
@@ -232,6 +245,19 @@ mod tests {
             .map(|r| tables.regions.untern(*r).to_string())
             .collect();
         assert_eq!(universal_regions, ["'a", "'b", "'c"]);
+
+        // facts: known_subset
+        let known_subsets: Vec<_> = facts
+            .known_subset
+            .iter()
+            .map(|(r1, r2)| {
+                (
+                    tables.regions.untern(*r1),
+                    tables.regions.untern(*r2),
+                )
+            })
+            .collect();
+        assert_eq!(known_subsets, [("'a", "'b"), ("'b", "'c")]);
 
         // facts: invalidates
         assert_eq!(facts.invalidates.len(), 2);
