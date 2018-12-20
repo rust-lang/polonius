@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub struct Input {
     pub universal_regions: Vec<String>,
+    pub known_subsets: Vec<KnownSubset>,
     pub blocks: Vec<Block>,
 }
 
@@ -33,6 +34,22 @@ pub enum Fact {
     Invalidates { loan: String },
     Kill { loan: String },
     RegionLiveAt { region: String },
+}
+
+#[derive(Debug, PartialEq)]
+pub struct KnownSubset {
+    pub a: String,
+    pub b: String,
+}
+
+impl Input {
+    pub(crate) fn new(universal_regions: Vec<String>, blocks: Vec<Block>) -> Self {
+        Self {
+            universal_regions,
+            known_subsets: vec![],
+            blocks,
+        }
+    }
 }
 
 impl Statement {

@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::ir::{Effect, Fact};
+use crate::ir::{Effect, Fact, KnownSubset};
 use crate::parse_input;
 
 #[test]
@@ -13,6 +13,32 @@ fn universal_regions() {
 
     let input = input.unwrap();
     assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
+}
+
+#[test]
+fn known_subsets() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+        known_subsets { 'a: 'b, 'b: 'c }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
+    assert_eq!(
+        input.known_subsets,
+        vec![
+            KnownSubset {
+                a: "'a".to_string(),
+                b: "'b".to_string()
+            },
+            KnownSubset {
+                a: "'b".to_string(),
+                b: "'c".to_string()
+            }
+        ]
+    );
 }
 
 #[test]
@@ -182,6 +208,7 @@ fn complete_example() {
     let program = r"
         // program description
         universal_regions { 'a, 'b, 'c }
+        known_subsets { 'a: 'b, 'b: 'c }
 
         // block description
         block B0 {

@@ -3,7 +3,9 @@ use ir::*;
 grammar;
 
 pub Input: Input = {
-    Comment* <universal_regions:UniversalRegions> Comment* <blocks:BlockDefn*> => Input { <> }
+    Comment* <UniversalRegions> Comment* <BlockDefn*> => Input::new(<>),
+    Comment* <universal_regions:UniversalRegions> Comment* <known_subsets:KnownSubsets> Comment* <blocks:BlockDefn*> 
+        => Input { <> },
 };
 
 Comment: () = {
@@ -11,6 +13,12 @@ Comment: () = {
 };
 
 UniversalRegions = "universal_regions" "{" <Comma<Region>> "}";
+KnownSubsets = "known_subsets" "{" <Comma<KnownSubset>> "}";
+
+KnownSubset : KnownSubset = {
+    <a:Region> ":" <b:Region> => KnownSubset { <> },
+};
+
 BlockDefn : Block = {
     "block" <name:Block> "{" <statements:Statement*> Comment* <goto:Goto> "}" => Block { <> },
 };
