@@ -22,6 +22,6 @@ rustc-hash = "1.0.0"
 structopt = "0.2.8"
 clap = "2.31.2"
 polonius-engine = {version = "0.6.2", path = "polonius-engine" }
-polonius-parser = {version = "0.2.0", path = "polonius-parser" }
+polonius-parser = {version = "0.3.0", path = "polonius-parser" }
 
 [workspace]
