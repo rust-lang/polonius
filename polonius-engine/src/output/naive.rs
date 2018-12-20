@@ -63,7 +63,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // .decl known_subset(R1: region, R2: region)
         //
-        // Output relation: the complete set of placeholder regions subsets, containing
+        // Output relation: the complete set of placeholder regions subsets `R1: R2`, containing
         // - the input "user facing" subsets
         // - the subsets derived by transitivity
         let known_subset = iteration.variable::<(Region, Region)>("known_subset");
@@ -97,6 +97,19 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let cfg_edge_rel: Relation<(Point, Point)> = all_facts.cfg_edge.into();
         let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
 
+        // .decl placeholder_region(R: region)
+        //
+        // Input relation: universally quantified regions.
+        let placeholder_region = iteration.variable::<((Region), ())>("placeholder_region");
+        placeholder_region.insert(Relation::from(
+            all_facts.universal_region.iter().map(|&r| ((r), ())),
+        ));
+
+        // .decl known_subset(R1: region, R2: region)
+        //
+        // Input relation: complete set of placeholder regions subsets `R1: R2`.
+        let known_subset: Relation<(Region, Region)> = known_subset.into();
+
         // .. some variables, ..
         let subset = iteration.variable::<(Region, Region, Point)>("subset");
         let requires = iteration.variable::<(Region, Loan, Point)>("requires");
@@ -108,6 +121,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // different indices for `subset`.
         let subset_r1p = iteration.variable_indistinct("subset_r1p");
         let subset_r2p = iteration.variable_indistinct("subset_r2p");
+        let subset_r1 = iteration.variable_indistinct("subset_r1");
 
         // different index for `requires`.
         let requires_rp = iteration.variable_indistinct("requires_rp");
@@ -119,6 +133,17 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // output
         let errors = iteration.variable("errors");
+
+        // .decl subset_error(R1: region, R2: region, P:point)
+        //
+        // Output relation: illegal subset relations, subset requirements which are missing
+        // from the inputs.
+        //
+        // FIXME: uses intermediary variables for the multi-way join. A longer comment explaining
+        // why can be found below, where the relation is computed.
+        let subset_error = iteration.variable::<(Region, Region, Point)>("subset_error");
+        let subset_error_1 = iteration.variable_indistinct("subset_error_1");
+        let subset_error_2 = iteration.variable_indistinct("subset_error_2");
 
         // load initial facts.
         subset.insert(all_facts.outlives.into());
@@ -145,6 +170,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // remap fields to re-index by keys.
             subset_r1p.from_map(&subset, |&(r1, r2, p)| ((r1, p), r2));
             subset_r2p.from_map(&subset, |&(r1, r2, p)| ((r2, p), r1));
+            subset_r1.from_map(&subset, |&(r1, r2, p)| (r1, (r2, p)));
 
             requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
 
@@ -203,6 +229,25 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
             // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
             errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
+
+            // subset_error(R1, R2, P) :-
+            //   subset(R1, R2, P),
+            //   placeholder_region(R1),
+            //   placeholder_region(R2),
+            //   !known_subset(R1, R2).
+            //
+            // FIXME: As mentioned above, this join requires intermediary variables and indices.
+            // Since it's _only filtering data_ depending on multiple relations, it would not be
+            // considered a well-formed leapjoin and would panic.
+            // When we relax these well-formedness constraints in datafrog, we'll be able to use a
+            // leapjoin here to remove the intermediary scaffolding.
+            subset_error_1.from_join(&subset_r1, &placeholder_region, |&r1, &(r2, p), _| {
+                (r2, (r1, p))
+            });
+            subset_error_2.from_join(&subset_error_1, &placeholder_region, |&r2, &(r1, p), _| {
+                ((r1, r2), p)
+            });
+            subset_error.from_antijoin(&subset_error_2, &known_subset, |&(r1, r2), &p| (r1, r2, p));
         }
 
         if dump_enabled {
