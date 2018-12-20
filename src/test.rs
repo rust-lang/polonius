@@ -314,3 +314,45 @@ fn smoke_test_success_2() {
 
     test_facts(&facts, Algorithm::OPTIMIZED);
 }
+
+#[test]
+fn compute_known_subsets() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+        known_subsets { 'a: 'b, 'b: 'c }
+    ";
+
+    let mut tables = intern::InternerTables::new();
+    let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+
+    let out = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(!out.known_subset.is_empty());
+
+    // TMP: this is the style of "unterned" debug printout we'd want to read,
+    // but the following is not the way to do it, there needs to be a clean way to do so
+    for (r1, rs) in &out.known_subset {
+        for r2 in rs {
+            let r1 = tables.regions.untern(*r1);
+            let r2 = tables.regions.untern(*r2);
+            println!("known subset {}: {}", r1, r2);
+        }
+    }
+
+    // TMP: this is the style of assertions we'd want to write: using "unterned" atoms
+    // but the following is not the way to do it, there needs to be a clean way to do so
+
+    // the expected subsets are the input subsets, plus 'a being a subset of 'c by transitivity
+    let mut expected = FxHashMap::default();
+    expected.insert(
+        tables.regions.intern("'a"),
+        ["'b", "'c"]
+            .iter()
+            .map(|r| tables.regions.intern(r))
+            .collect(),
+    );
+    expected.insert(
+        tables.regions.intern("'b"),
+        ["'c"].iter().map(|r| tables.regions.intern(r)).collect(),
+    );
+    assert_equal(&out.known_subset, &expected);
+}
