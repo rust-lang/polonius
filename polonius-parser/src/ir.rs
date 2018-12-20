@@ -53,11 +53,4 @@ impl Statement {
             effects,
         }
     }
-
-    pub(crate) fn with_start_effects(effects_start: Vec<Effect>, effects: Vec<Effect>) -> Self {
-        Self {
-            effects_start,
-            effects,
-        }
-    }
 }

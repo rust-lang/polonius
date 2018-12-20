@@ -22,7 +22,7 @@ Goto: Vec<String> = {
 
 Statement : Statement = {
     Comment* <Effects> ";" => Statement::new(<>),
-    Comment* <start_effects:Effects> "/" <effects:Effects> ";" => Statement::with_start_effects(<>),
+    Comment* <effects_start:Effects> "/" <effects:Effects> ";" => Statement { <> },
 };
 
 Effects = Comma<Effect>;
