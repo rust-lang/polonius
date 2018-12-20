@@ -89,7 +89,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     };
 
     // main computation
-    let errors = {
+    let (errors, subset_errors) = {
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
 
@@ -303,13 +303,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             }
         }
 
-        errors.complete()
+        (errors.complete(), subset_error.complete())
     };
 
     if dump_enabled {
         info!(
-            "errors is complete: {} tuples, {:?}",
+            "analysis is complete: {} `errors` tuples, {} `subset_errors` tuples, {:?}",
             errors.len(),
+            subset_errors.len(),
             computation_start.elapsed()
         );
     }
@@ -320,6 +321,13 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             .entry(*location)
             .or_insert(Vec::new())
             .push(*borrow);
+    }
+
+    // TMP: ignore the location of these errors for now
+    for (r1, r2, _) in subset_errors.iter() {
+        result
+            .subset_errors
+            .insert((*r1, *r2));
     }
 
     result

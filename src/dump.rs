@@ -21,6 +21,12 @@ pub(crate) fn dump_output(
         &output.errors,
     )?;
 
+    dump_rows(
+        &mut writer_for(output_dir, "subset_errors")?,
+        intern,
+        &output.subset_errors,
+    )?;
+
     if output.dump_enabled {
         dump_rows(
             &mut writer_for(output_dir, "restricts")?,
