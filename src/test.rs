@@ -12,6 +12,15 @@ use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     let naive = Output::compute(all_facts, Algorithm::Naive, true);
+
+    // If the insensitive analysis concludes no errors, then naive
+    // should also.
+    let insensitive = Output::compute(all_facts, Algorithm::LocationInsensitive, false);
+    if insensitive.errors.is_empty() {
+        assert_equal(&naive.errors, &insensitive.errors);
+    }
+
+    // The optimized checks should behave exactly the same as the naive check.
     for &optimized_algorithm in algorithms {
         println!("Algorithm {:?}", optimized_algorithm);
         let opt = Output::compute(all_facts, optimized_algorithm, true);
