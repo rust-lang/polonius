@@ -46,7 +46,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let mut iteration = Iteration::new();
 
         // static inputs
-        let cfg_edge_rel = Relation::from(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
+        let cfg_edge_rel = Relation::from_iter(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
 
         let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
 
@@ -55,7 +55,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
-        let region_live_at_rel = Relation::from(all_facts.region_live_at.iter().cloned());
+        let region_live_at_rel = Relation::from_iter(all_facts.region_live_at.iter().cloned());
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
@@ -144,25 +144,15 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let errors = iteration.variable("errors");
 
         // Make "variable" versions of the relations, needed for joins.
-        borrow_region_rp.insert(Relation::from(
-            all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
-        ));
-        invalidates.insert(Relation::from(
-            all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())),
-        ));
-        region_live_at_var.insert(Relation::from(
-            all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())),
-        ));
+        borrow_region_rp.extend(all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)));
+        invalidates.extend(all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())));
+        region_live_at_var.extend(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())));
 
         // subset(R1, R2, P) :- outlives(R1, R2, P).
-        subset_r1p.insert(Relation::from(
-            all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)),
-        ));
+        subset_r1p.extend(all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)));
 
         // requires(R, B, P) :- borrow_region(R, B, P).
-        requires_rp.insert(Relation::from(
-            all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)),
-        ));
+        requires_rp.extend(all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)));
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -187,11 +177,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   !region_live_at(R2, Q).
             live_to_dying_regions_r2pq.from_leapjoin(
                 &subset_r1p,
-                &mut [
-                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    &mut region_live_at_rel.extend_with(|&((r1, _), _)| r1),
-                    &mut region_live_at_rel.extend_anti(|&((_, _), r2)| r2),
-                ],
+                (
+                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    region_live_at_rel.extend_with(|&((r1, _), _)| r1),
+                    region_live_at_rel.extend_anti(|&((_, _), r2)| r2),
+                ),
                 |&((r1, p), r2), &q| ((r2, p, q), r1),
             );
 
@@ -202,11 +192,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   !region_live_at(R, Q).
             dying_region_requires.from_leapjoin(
                 &requires_rp,
-                &mut [
-                    &mut killed_rel.filter_anti(|&((_, p), b)| (b, p)),
-                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    &mut region_live_at_rel.extend_anti(|&((r, _), _)| r),
-                ],
+                (
+                    killed_rel.filter_anti(|&((_, p), b)| (b, p)),
+                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    region_live_at_rel.extend_anti(|&((r, _), _)| r),
+                ),
                 |&((r, p), b), &q| ((r, p, q), b),
             );
 
@@ -268,11 +258,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             // `R2` are live in Q.
             subset_r1p.from_leapjoin(
                 &subset_r1p,
-                &mut [
-                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    &mut region_live_at_rel.extend_with(|&((r1, _), _)| r1),
-                    &mut region_live_at_rel.extend_with(|&((_, _), r2)| r2),
-                ],
+                (
+                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    region_live_at_rel.extend_with(|&((r1, _), _)| r1),
+                    region_live_at_rel.extend_with(|&((_, _), r2)| r2),
+                ),
                 |&((r1, _p), r2), &q| ((r1, q), r2),
             );
 
@@ -307,11 +297,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //   region_live_at(R, Q).
             requires_rp.from_leapjoin(
                 &requires_rp,
-                &mut [
-                    &mut killed_rel.filter_anti(|&((_, p), b)| (b, p)),
-                    &mut cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    &mut region_live_at_rel.extend_with(|&((r, _), _)| r),
-                ],
+                (
+                    killed_rel.filter_anti(|&((_, p), b)| (b, p)),
+                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
+                    region_live_at_rel.extend_with(|&((r, _), _)| r),
+                ),
                 |&((r, _), b), &q| ((r, q), b),
             );
 

@@ -46,7 +46,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // static inputs
         let region_live_at: Relation<(Region, Point)> = all_facts.region_live_at.into();
-        let invalidates = Relation::from(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
+        let invalidates = Relation::from_iter(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
 
         // .. some variables, ..
         let subset = iteration.variable::<(Region, Region)>("subset");
@@ -57,14 +57,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // load initial facts.
 
         // subset(R1, R2) :- outlives(R1, R2, _P)
-        subset.insert(Relation::from(
-            all_facts.outlives.iter().map(|&(r1, r2, _p)| (r1, r2)),
-        ));
+        subset.extend(all_facts.outlives.iter().map(|&(r1, r2, _p)| (r1, r2)));
 
         // requires(R, B) :- borrow_region(R, B, _P).
-        requires.insert(Relation::from(
-            all_facts.borrow_region.iter().map(|&(r, b, _p)| (r, b)),
-        ));
+        requires.extend(all_facts.borrow_region.iter().map(|&(r, b, _p)| (r, b)));
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -82,10 +78,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             //
             potential_errors.from_leapjoin(
                 &requires,
-                &mut [
-                    &mut region_live_at.extend_with(|&(r, _b)| r),
-                    &mut invalidates.extend_with(|&(_r, b)| b),
-                ],
+                (
+                    region_live_at.extend_with(|&(r, _b)| r),
+                    invalidates.extend_with(|&(_r, b)| b),
+                ),
                 |&(_r, b), &p| (b, p),
             );
         }
