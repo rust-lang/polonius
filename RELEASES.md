@@ -12,6 +12,11 @@
 
 # polonius-engine
 
+## v0.6.2
+
+- adopt the new datafrog 2.0 dependency (#95)
+- some deduplicated dependencies and other improvements (#93, #91, #90)
+
 ## v0.6.1
 
 - adopt the new datafrog 1.0 dependency and optimize with leapfrog joins (#88)
