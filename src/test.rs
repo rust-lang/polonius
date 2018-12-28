@@ -13,8 +13,8 @@ use std::path::Path;
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     let naive = Output::compute(all_facts, Algorithm::Naive, true);
 
-    // If the insensitive analysis concludes no errors, then naive
-    // should also.
+    // Check that the "naive errors" are a subset of the "insensitive
+    // ones".
     let insensitive = Output::compute(all_facts, Algorithm::LocationInsensitive, false);
     for (naive_point, naive_loans) in &naive.errors {
         match insensitive.errors.get(&naive_point) {
