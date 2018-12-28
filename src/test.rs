@@ -12,6 +12,36 @@ use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     let naive = Output::compute(all_facts, Algorithm::Naive, true);
+
+    // Check that the "naive errors" are a subset of the "insensitive
+    // ones".
+    let insensitive = Output::compute(all_facts, Algorithm::LocationInsensitive, false);
+    for (naive_point, naive_loans) in &naive.errors {
+        match insensitive.errors.get(&naive_point) {
+            Some(insensitive_loans) => {
+                for naive_loan in naive_loans {
+                    if !insensitive_loans.contains(naive_loan) {
+                        panic!(
+                            "naive analysis had error for `{:?}` at `{:?}` \
+                             but insensitive analysis did not \
+                             (loans = {:#?})",
+                            naive_point, naive_loan, insensitive_loans,
+                        );
+                    }
+                }
+            }
+
+            None => {
+                panic!(
+                    "naive analysis had errors at `{:?}` but insensitive analysis did not \
+                     (loans = {:#?})",
+                    naive_point, naive_loans,
+                );
+            }
+        }
+    }
+
+    // The optimized checks should behave exactly the same as the naive check.
     for &optimized_algorithm in algorithms {
         println!("Algorithm {:?}", optimized_algorithm);
         let opt = Output::compute(all_facts, optimized_algorithm, true);
