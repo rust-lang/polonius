@@ -25,7 +25,7 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
                             "naive analysis had error for `{:?}` at `{:?}` \
                              but insensitive analysis did not \
                              (loans = {:#?})",
-                            naive_point, naive_loan, insensitive_loans,
+                            naive_loan, naive_point, insensitive_loans,
                         );
                     }
                 }
