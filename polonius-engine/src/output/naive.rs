@@ -69,9 +69,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // - the subsets derived by transitivity
         let known_subset = iteration.variable::<(Region, Region)>("known_subset");
 
-        known_base_subset_r2.insert(Relation::from(
-            all_facts.known_subset.iter().map(|&(r1, r2)| (r2, r1)),
-        ));
+        known_base_subset_r2.extend(all_facts.known_subset.iter().map(|&(r1, r2)| (r2, r1)));
 
         // known_subset(R1, R2) :-
         //   known_base_subset(R1, R2).
@@ -102,9 +100,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         //
         // Input relation: universally quantified regions.
         let placeholder_region = iteration.variable::<((Region), ())>("placeholder_region");
-        placeholder_region.insert(Relation::from(
-            all_facts.universal_region.iter().map(|&r| ((r), ())),
-        ));
+        placeholder_region.extend(all_facts.universal_region.iter().map(|&r| ((r), ())));
 
         // .decl known_subset(R1: region, R2: region)
         //
