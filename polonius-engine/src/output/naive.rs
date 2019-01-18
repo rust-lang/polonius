@@ -324,10 +324,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
             .push(*borrow);
     }
 
-    // TMP: ignore the location of these errors for now
-    for (r1, r2, _) in subset_errors.iter() {
+    for (r1, r2, location) in subset_errors.iter() {
         result
             .subset_errors
+            .entry(*location)
+            .or_insert(BTreeSet::new())
             .insert((*r1, *r2));
     }
 

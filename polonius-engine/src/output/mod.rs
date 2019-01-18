@@ -53,7 +53,7 @@ impl ::std::str::FromStr for Algorithm {
 #[derive(Clone, Debug)]
 pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub errors: FxHashMap<Point, Vec<Loan>>,
-    pub subset_errors: BTreeSet<(Region, Region)>,
+    pub subset_errors: FxHashMap<Point, BTreeSet<(Region, Region)>>,
 
     pub dump_enabled: bool,
 
@@ -150,7 +150,7 @@ where
             subset_anywhere: FxHashMap::default(),
             known_subset: FxHashMap::default(),
             dump_enabled,
-            subset_errors: BTreeSet::default(),
+            subset_errors: FxHashMap::default(),
         }
     }
 
