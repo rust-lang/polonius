@@ -5,7 +5,7 @@ fn missing_subset<'a, 'b>(x: &'a u32, y: &'b u32) -> &'a u32 {
     y //~ ERROR
 }
 
-fn implied_bound_subset<'a, 'b>(x: &'b &'a mut u32) -> &'b u32 {
+fn implied_bounds_subset<'a, 'b>(x: &'a &'b mut u32) -> &'a u32 {
     x
 }
 
