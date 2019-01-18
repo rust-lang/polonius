@@ -27,7 +27,7 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom> {
     ///  `invalidates(P, L)` when the loan L is invalidated at point P
     pub invalidates: Vec<(P, L)>,
 
-    /// `known_subset(R1, R2)` when the "placeholder region" R1 is a subset of R2
+    /// `known_subset(R1, R2)` when the "placeholder region" R1 is a known subset of R2
     pub known_subset: Vec<(R, R)>,
 }
 

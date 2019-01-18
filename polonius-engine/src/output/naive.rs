@@ -46,17 +46,18 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     // This will be used in the "main" computation to check errors in relations between
     // named lifetimes.
     //
-    // FIXME: this is done in a separate datafrog computation, because right now datafrog only
+    // NOTE: this is done in a separate datafrog computation, because right now datafrog only
     // supports the antijoins we need to generate errors on static `Relation`s instead of dynamic
     // `Variable`s.
-    // Whenever datafrog supports regular and leapjoin antijoins, this Step 0 can be entirely
-    // folded into the main computation of the analysis.
+    // Whenever datafrog supports regular and leapjoin antijoins, this Step 0 may be entirely
+    // folded into the main computation of the analysis, if needed.
     let known_subset = {
         let mut iteration = Iteration::new();
 
         // .decl known_base_subset(R1: region, R2: region)
         //
-        // Indicates that the placeholder region `R1` is a subset of the placeholder region `R2`.
+        // Indicates that the placeholder region `R1` is a known "base subset" of the
+        // placeholder region `R2`: either specified manually by the user or via implied bounds.
         //
         // Input relation: stored ready for joins, keyed by `R2`.
         let known_base_subset_r2 = iteration.variable::<(Region, Region)>("known_base_subset_r2");
