@@ -250,12 +250,7 @@ mod tests {
         let known_subsets: Vec<_> = facts
             .known_subset
             .iter()
-            .map(|(r1, r2)| {
-                (
-                    tables.regions.untern(*r1),
-                    tables.regions.untern(*r2),
-                )
-            })
+            .map(|(r1, r2)| (tables.regions.untern(*r1), tables.regions.untern(*r2)))
             .collect();
         assert_eq!(known_subsets, [("'a", "'b"), ("'b", "'c")]);
 
