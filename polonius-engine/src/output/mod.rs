@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod datafrog_opt;
 mod location_insensitive;
 mod naive;
+mod hybrid;
 use facts::{AllFacts, Atom};
 
 #[derive(Debug, Clone, Copy)]
@@ -24,14 +25,15 @@ pub enum Algorithm {
     LocationInsensitive,
     /// Compare Naive and DatafrogOpt.
     Compare,
+    Hybrid,
 }
 
 impl Algorithm {
     /// Optimized variants that ought to be equivalent to "naive"
     pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt];
 
-    pub fn variants() -> [&'static str; 4] {
-        ["Naive", "DatafrogOpt", "LocationInsensitive", "Compare"]
+    pub fn variants() -> [&'static str; 5] {
+        ["Naive", "DatafrogOpt", "LocationInsensitive", "Compare", "Hybrid"]
     }
 }
 
@@ -43,8 +45,9 @@ impl ::std::str::FromStr for Algorithm {
             "datafrogopt" => Ok(Algorithm::DatafrogOpt),
             "locationinsensitive" => Ok(Algorithm::LocationInsensitive),
             "compare" => Ok(Algorithm::Compare),
+            "hybrid" => Ok(Algorithm::Hybrid),
             _ => Err(String::from(
-                "valid values: Naive, DatafrogOpt, LocationInsensitive, Compare",
+                "valid values: Naive, DatafrogOpt, LocationInsensitive, Compare, Hybrid",
             )),
         }
     }
@@ -133,6 +136,7 @@ where
                 }
                 opt_output
             }
+            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone())
         }
     }
 
