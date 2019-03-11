@@ -13,9 +13,9 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod datafrog_opt;
+mod hybrid;
 mod location_insensitive;
 mod naive;
-mod hybrid;
 use facts::{AllFacts, Atom};
 
 #[derive(Debug, Clone, Copy)]
@@ -33,7 +33,13 @@ impl Algorithm {
     pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt];
 
     pub fn variants() -> [&'static str; 5] {
-        ["Naive", "DatafrogOpt", "LocationInsensitive", "Compare", "Hybrid"]
+        [
+            "Naive",
+            "DatafrogOpt",
+            "LocationInsensitive",
+            "Compare",
+            "Hybrid",
+        ]
     }
 }
 
@@ -136,7 +142,7 @@ where
                 }
                 opt_output
             }
-            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone())
+            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone()),
         }
     }
 

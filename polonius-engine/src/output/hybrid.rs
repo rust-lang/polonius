@@ -20,10 +20,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     dump_enabled: bool,
     all_facts: AllFacts<Region, Loan, Point>,
 ) -> Output<Region, Loan, Point> {
-    let lins_output = location_insensitive::compute(dump_enabled,
-                                                    all_facts.clone());
+    let lins_output = location_insensitive::compute(dump_enabled, all_facts.clone());
     return match lins_output.errors.is_empty() {
         true => lins_output,
-        false => datafrog_opt::compute(dump_enabled, all_facts)
+        false => datafrog_opt::compute(dump_enabled, all_facts),
     };
 }
