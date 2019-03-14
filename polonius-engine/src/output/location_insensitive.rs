@@ -27,12 +27,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
         .collect();
 
-    all_facts
-        .region_live_at
-        .reserve(all_facts.universal_region.len() * all_points.len());
+    let mut my_region_live_at = all_facts.region_live_at.clone();
+    my_region_live_at.reserve(all_facts.universal_region.len() * all_points.len());
     for &r in &all_facts.universal_region {
         for &p in &all_points {
-            all_facts.region_live_at.push((r, p));
+            my_region_live_at.push((r, p));
         }
     }
 
