@@ -126,7 +126,7 @@ where
             Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
             Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
             Algorithm::LocationInsensitive => {
-                location_insensitive::compute(dump_enabled, all_facts.clone())
+                location_insensitive::compute(dump_enabled, &all_facts)
             }
             Algorithm::Compare => {
                 let naive_output = naive::compute(dump_enabled, all_facts.clone());
