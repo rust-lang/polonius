@@ -18,7 +18,7 @@ use facts::{AllFacts, Atom};
 
 pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
     dump_enabled: bool,
-    mut all_facts: AllFacts<Region, Loan, Point>,
+    all_facts: &AllFacts<Region, Loan, Point>,
 ) -> Output<Region, Loan, Point> {
     let all_points: BTreeSet<Point> = all_facts
         .cfg_edge
@@ -27,12 +27,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
         .collect();
 
-    all_facts
-        .region_live_at
-        .reserve(all_facts.universal_region.len() * all_points.len());
+    let mut region_live_at = all_facts.region_live_at.clone();
+    region_live_at.reserve(all_facts.universal_region.len() * all_points.len());
     for &r in &all_facts.universal_region {
         for &p in &all_points {
-            all_facts.region_live_at.push((r, p));
+            region_live_at.push((r, p));
         }
     }
 
@@ -45,7 +44,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         let mut iteration = Iteration::new();
 
         // static inputs
-        let region_live_at: Relation<(Region, Point)> = all_facts.region_live_at.into();
+        let region_live_at: Relation<(Region, Point)> = region_live_at.into();
         let invalidates = Relation::from_iter(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
 
         // .. some variables, ..

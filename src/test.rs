@@ -48,6 +48,10 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
         assert_equal(&naive.borrow_live_at, &opt.borrow_live_at);
         assert_equal(&naive.errors, &opt.errors);
     }
+
+    // The hybrid algorithm gets the same errors as the naive version
+    let opt = Output::compute(all_facts, Algorithm::Hybrid, true);
+    assert_equal(&naive.errors, &opt.errors);
 }
 
 fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Error> {
