@@ -12,6 +12,13 @@
 
 # polonius-engine
 
+## v0.7.0
+
+- add a naive hybrid algorithm that first executes the location-insensitive
+  analysis and falls back to the full analysis as needed (#100)
+- extend tests to cover the location-insensitive analysis
+- invert loan and point arguments in loc insensitive check
+
 ## v0.6.2
 
 - adopt the new datafrog 2.0 dependency (#95)
