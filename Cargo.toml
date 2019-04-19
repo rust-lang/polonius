@@ -14,7 +14,6 @@ assert_cli = "0.6"
 diff = "0.1.0"
 
 [dependencies]
-log = "0.4"
 env_logger = "0.5"
 failure = "0.1.1"
 rustc-hash = "1.0.0"
