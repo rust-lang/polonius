@@ -12,6 +12,7 @@ edition = "2018"
 [dev-dependencies]
 assert_cli = "0.6"
 diff = "0.1.0"
+polonius-parser = {version = "0.2.0", path = "polonius-parser" }
 
 [dependencies]
 env_logger = "0.5"
@@ -20,6 +21,5 @@ rustc-hash = "1.0.0"
 structopt = "0.2.8"
 clap = "2.31.2"
 polonius-engine = {version = "0.7.0", path = "polonius-engine" }
-polonius-parser = {version = "0.2.0", path = "polonius-parser" }
 
 [workspace]

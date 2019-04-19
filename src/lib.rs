@@ -1,7 +1,6 @@
 extern crate clap;
 extern crate failure;
 extern crate polonius_engine;
-extern crate polonius_parser;
 extern crate rustc_hash;
 extern crate structopt;
 
