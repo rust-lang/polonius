@@ -501,11 +501,6 @@ fn maybe_render_point(
                      &output_tuples));
 }
 
-fn write_string(f: &mut File, s: &str) -> io::Result<()> {
-    f.write_all(&s.bytes().collect::<Vec<_>>())?;
-    Ok(())
-}
-
 fn escape_for_graphviz(s: &str) -> String {
     s.replace(r"\", r"\\")
         .replace("\"", "\\\"")

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 extern crate clap;
 extern crate failure;
 extern crate polonius_engine;
