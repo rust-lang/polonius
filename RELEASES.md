@@ -1,5 +1,10 @@
 # polonius
 
+## v0.5.0
+
+Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
+(reduced) liveness-related graph for debugging.
+
 ## v0.4.0
 
 - adopt latest polonius-engine
