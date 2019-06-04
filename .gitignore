@@ -3,3 +3,4 @@
 /*/Cargo.lock
 /*/target/
 polonius-parser/src/parser.rs
+.DS_Store
