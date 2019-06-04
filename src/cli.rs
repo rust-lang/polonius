@@ -8,6 +8,9 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
+type PoloniusFacts = AllFacts<Region, Loan, Point, Variable>;
+type PoloniusOutput = Output<Region, Loan, Point, Variable>;
+
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
 pub struct Opt {
@@ -41,6 +44,11 @@ pub struct Opt {
     output_directory: Option<String>,
     #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
+    #[structopt(
+        long = "dump-liveness-graph",
+        help = "Generate a graphviz file to visualize the liveness information"
+    )]
+    liveness_graph_file: Option<String>,
 }
 
 macro_rules! attempt {
@@ -55,22 +63,19 @@ pub fn main(opt: Opt) -> Result<(), Error> {
         .as_ref()
         .map(|x| Path::new(x).to_owned());
     let graphviz_file = opt.graphviz_file.as_ref().map(|x| Path::new(x).to_owned());
+    let liveness_graph_file = opt
+        .liveness_graph_file
+        .as_ref()
+        .map(|x| Path::new(x).to_owned());
     for facts_dir in &opt.fact_dirs {
         let tables = &mut intern::InternerTables::new();
 
-        let result: Result<
-            (
-                Duration,
-                AllFacts<Region, Loan, Point, Variable>,
-                Output<Region, Loan, Point, Variable>,
-            ),
-            Error,
-        > = attempt! {
+        let result: Result<(Duration, PoloniusFacts, PoloniusOutput), Error> = attempt! {
             let verbose = opt.verbose;
             let all_facts =
                 tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
             let algorithm = opt.algorithm;
-            let graphviz_output = graphviz_file.is_some();
+            let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
             let (duration, output) =
                 timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
             (duration, all_facts, output)
@@ -92,6 +97,10 @@ pub fn main(opt: Opt) -> Result<(), Error> {
                 if let Some(ref graphviz_file) = graphviz_file {
                     dump::graphviz(&output, &all_facts, graphviz_file, tables)
                         .expect("Failed to write GraphViz");
+                }
+                if let Some(ref liveness_graph_file) = liveness_graph_file {
+                    dump::liveness_graph(&output, &all_facts, liveness_graph_file, tables)
+                        .expect("Failed to write liveness graph");
                 }
             }
 

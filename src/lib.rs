@@ -13,4 +13,6 @@ mod test;
 mod test_util;
 
 pub mod cli;
+
 extern crate log;
+extern crate petgraph;
