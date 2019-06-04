@@ -24,6 +24,11 @@ where
         &self.rev_strings[data]
     }
 
+    #[cfg(test)]
+    pub(crate) fn untern_vec(&self, data: &[TargetType]) -> Vec<&str> {
+        data.into_iter().map(|d| self.untern(*d)).collect()
+    }
+
     pub(crate) fn intern(&mut self, data: &str) -> TargetType {
         if let Some(&interned) = self.strings.get(data) {
             return interned;
@@ -39,6 +44,7 @@ pub(crate) struct InternerTables {
     pub(crate) regions: Interner<Region>,
     pub(crate) loans: Interner<Loan>,
     pub(crate) points: Interner<Point>,
+    pub(crate) variables: Interner<Variable>,
 }
 
 impl InternerTables {
@@ -47,6 +53,7 @@ impl InternerTables {
             regions: Interner::new(),
             loans: Interner::new(),
             points: Interner::new(),
+            variables: Interner::new(),
         }
     }
 }
@@ -68,6 +75,7 @@ macro_rules! intern_impl {
 intern_impl!(Region, regions);
 intern_impl!(Loan, loans);
 intern_impl!(Point, points);
+intern_impl!(Variable, variables);
 
 impl<A, FromA, B, FromB> InternTo<(A, B)> for (FromA, FromB)
 where

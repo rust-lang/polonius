@@ -14,6 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod datafrog_opt;
 mod hybrid;
+mod liveness;
 mod location_insensitive;
 mod naive;
 use facts::{AllFacts, Atom};
@@ -60,7 +61,7 @@ impl ::std::str::FromStr for Algorithm {
 }
 
 #[derive(Clone, Debug)]
-pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
+pub struct Output<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom> {
     pub errors: FxHashMap<Point, Vec<Loan>>,
 
     pub dump_enabled: bool,
@@ -73,6 +74,8 @@ pub struct Output<Region: Atom, Loan: Atom, Point: Atom> {
     pub invalidates: FxHashMap<Point, Vec<Loan>>,
     pub subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
     pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
+    pub var_live_at: FxHashMap<Point, Vec<Variable>>,
+    pub var_drop_live_at: FxHashMap<Point, Vec<Variable>>,
 }
 
 /// Compares errors reported by Naive implementation with the errors
@@ -111,14 +114,15 @@ fn compare_errors<Loan: Atom, Point: Atom>(
     differ
 }
 
-impl<Region, Loan, Point> Output<Region, Loan, Point>
+impl<Region, Loan, Point, Variable> Output<Region, Loan, Point, Variable>
 where
     Region: Atom,
     Loan: Atom,
     Point: Atom,
+    Variable: Atom,
 {
     pub fn compute(
-        all_facts: &AllFacts<Region, Loan, Point>,
+        all_facts: &AllFacts<Region, Loan, Point, Variable>,
         algorithm: Algorithm,
         dump_enabled: bool,
     ) -> Self {
@@ -156,6 +160,8 @@ where
             errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
+            var_live_at: FxHashMap::default(),
+            var_drop_live_at: FxHashMap::default(),
             dump_enabled,
         }
     }

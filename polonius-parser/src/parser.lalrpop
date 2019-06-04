@@ -3,13 +3,20 @@ use ir::*;
 grammar;
 
 pub Input: Input = {
-    Comment* <universal_regions:UniversalRegions> Comment* <blocks:BlockDefn*> => Input { <> }
+    Comment* <universal_regions:UniversalRegions>  <var_uses_region:VarUsesRegion?>  <var_drops_region:VarDropsRegion?> Comment* <blocks:BlockDefn*> => Input::new(<>)
 };
 
 Comment: () = {
     r"//.*"
 };
 
+VarRegionMappings = Comma<VarRegionMapping>;
+VarRegionMapping: (String, String) = {
+                 "(" <Variable> "," <Region> ")" => (<>),
+};
+
+VarUsesRegion = "var_uses_region" "{" <VarRegionMappings> "}";
+VarDropsRegion = "var_drops_region" "{" <VarRegionMappings> "}";
 UniversalRegions = "universal_regions" "{" <Comma<Region>> "}";
 BlockDefn : Block = {
     "block" <name:Block> "{" <statements:Statement*> Comment* <goto:Goto> "}" => Block { <> },
@@ -36,7 +43,10 @@ Fact : Fact = {
   "borrow_region_at" "(" <region:Region> "," <loan:Loan> ")" => Fact::BorrowRegionAt { <> },
   "invalidates" "(" <loan:Loan> ")" => Fact::Invalidates { <> },
   "kill" "(" <loan:Loan> ")" => Fact::Kill { <> },
+  "var_used" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
+  "var_defined" "(" <variable:Variable> ")" => Fact::DefineVariable { <> },
   "region_live_at" "(" <region:Region> ")" => Fact::RegionLiveAt { <> },
+  "var_drop_used" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
 };
 
 Use : Effect = "use" "(" <regions:Comma<Region>> ")" => Effect::Use { <> };
@@ -63,3 +73,8 @@ Block: String = {
 Loan: String = {
     r"L\w+" => <>.to_string()
 };
+
+Variable: String = {
+    r"V\w+" => <>.to_string()
+};
+

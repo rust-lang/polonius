@@ -2,6 +2,24 @@
 pub struct Input {
     pub universal_regions: Vec<String>,
     pub blocks: Vec<Block>,
+    pub var_uses_region: Vec<(String, String)>,
+    pub var_drops_region: Vec<(String, String)>,
+}
+
+impl Input {
+    pub fn new(
+        universal_regions: Vec<String>,
+        var_uses_region: Option<Vec<(String, String)>>,
+        var_drops_region: Option<Vec<(String, String)>>,
+        blocks: Vec<Block>,
+    ) -> Input {
+        Input {
+            universal_regions,
+            var_uses_region: var_uses_region.unwrap_or(Vec::default()),
+            var_drops_region: var_drops_region.unwrap_or(Vec::default()),
+            blocks,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -33,6 +51,8 @@ pub enum Fact {
     Invalidates { loan: String },
     Kill { loan: String },
     RegionLiveAt { region: String },
+    DefineVariable { variable: String },
+    UseVariable { variable: String },
 }
 
 impl Statement {

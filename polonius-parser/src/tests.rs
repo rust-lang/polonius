@@ -203,3 +203,98 @@ fn complete_example() {
     ";
     assert!(parse_input(program).is_ok());
 }
+
+#[test]
+fn variable_used() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+
+        block B0 {
+            var_used(V0);
+        }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    let block = &input.blocks[0];
+    assert_eq!(block.statements.len(), 1);
+
+    let statement = &block.statements[0];
+    assert_eq!(
+        statement.effects,
+        [Effect::Fact(Fact::UseVariable {
+            variable: "V0".to_string()
+        })]
+    );
+}
+
+#[test]
+fn variable_defined() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+
+        block B0 {
+            var_defined(V1);
+        }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    let block = &input.blocks[0];
+    assert_eq!(block.statements.len(), 1);
+
+    let statement = &block.statements[0];
+    assert_eq!(
+        statement.effects,
+        [Effect::Fact(Fact::DefineVariable {
+            variable: "V1".to_string()
+        })]
+    );
+}
+
+#[test]
+fn var_uses_region() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+        var_uses_region { (V1, 'a), (V2, 'b) }
+        var_drops_region {  }
+
+        block B0 {
+            var_defined(V1);
+        }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    assert_eq!(
+        input.var_uses_region,
+        [
+            ("V1".to_string(), "'a".to_string()),
+            ("V2".to_string(), "'b".to_string())
+        ]
+    );
+}
+
+#[test]
+fn var_drops_region() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+        var_uses_region {  }
+        var_drops_region { (V1, 'a) }
+
+        block B0 {
+            var_defined(V1);
+        }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    assert_eq!(
+        input.var_drops_region,
+        [("V1".to_string(), "'a".to_string())]
+    );
+}
