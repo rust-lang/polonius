@@ -11,35 +11,30 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
+use crate::output::liveness;
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
+pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
     dump_enabled: bool,
-    mut all_facts: AllFacts<Region, Loan, Point>,
-) -> Output<Region, Loan, Point> {
-    // Declare that each universal region is live at every point.
-    let all_points: BTreeSet<Point> = all_facts
-        .cfg_edge
-        .iter()
-        .map(|&(p, _)| p)
-        .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
-        .collect();
-
-    all_facts
-        .region_live_at
-        .reserve(all_facts.universal_region.len() * all_points.len());
-    for &r in &all_facts.universal_region {
-        for &p in &all_points {
-            all_facts.region_live_at.push((r, p));
-        }
-    }
+    all_facts: AllFacts<Region, Loan, Point, Variable>,
+) -> Output<Region, Loan, Point, Variable> {
+    let mut result = Output::new(dump_enabled);
+    let region_live_at = liveness::init_region_live_at(
+        all_facts.var_used,
+        all_facts.var_drop_used,
+        all_facts.var_defined,
+        all_facts.var_uses_region,
+        all_facts.var_drops_region,
+        &all_facts.cfg_edge,
+        all_facts.region_live_at,
+        all_facts.universal_region,
+        &mut result,
+    );
 
     let timer = Instant::now();
-
-    let mut result = Output::new(dump_enabled);
 
     let errors = {
         // Create a new iteration context, ...
@@ -55,7 +50,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
-        let region_live_at_rel = Relation::from_iter(all_facts.region_live_at.iter().cloned());
+        let region_live_at_rel: Relation<(Region, Point)> = region_live_at.into();;
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
@@ -146,7 +141,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // Make "variable" versions of the relations, needed for joins.
         borrow_region_rp.extend(all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)));
         invalidates.extend(all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())));
-        region_live_at_var.extend(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())));
+        region_live_at_var.extend(region_live_at_rel.iter().map(|&(r, p)| ((r, p), ())));
 
         // subset(R1, R2, P) :- outlives(R1, R2, P).
         subset_r1p.extend(all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)));

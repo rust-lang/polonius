@@ -13,32 +13,29 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
+use crate::output::liveness;
 use crate::output::Output;
 use facts::{AllFacts, Atom};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
+pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
     dump_enabled: bool,
-    mut all_facts: AllFacts<Region, Loan, Point>,
-) -> Output<Region, Loan, Point> {
-    let all_points: BTreeSet<Point> = all_facts
-        .cfg_edge
-        .iter()
-        .map(|&(p, _)| p)
-        .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
-        .collect();
-
-    all_facts
-        .region_live_at
-        .reserve(all_facts.universal_region.len() * all_points.len());
-    for &r in &all_facts.universal_region {
-        for &p in &all_points {
-            all_facts.region_live_at.push((r, p));
-        }
-    }
-
+    all_facts: AllFacts<Region, Loan, Point, Variable>,
+) -> Output<Region, Loan, Point, Variable> {
     let mut result = Output::new(dump_enabled);
+
+    let region_live_at = liveness::init_region_live_at(
+        all_facts.var_used,
+        all_facts.var_drop_used,
+        all_facts.var_defined,
+        all_facts.var_uses_region,
+        all_facts.var_drops_region,
+        &all_facts.cfg_edge,
+        all_facts.region_live_at,
+        all_facts.universal_region,
+        &mut result,
+    );
 
     let computation_start = Instant::now();
 
@@ -49,6 +46,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // static inputs
         let cfg_edge_rel: Relation<(Point, Point)> = all_facts.cfg_edge.into();
         let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
+        let region_live_at_rel: Relation<(Region, Point)> = region_live_at.into();
 
         // .. some variables, ..
         let subset = iteration.variable::<(Region, Region, Point)>("subset");
@@ -68,16 +66,17 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
-        let region_live_at_rel = Relation::from_iter(all_facts.region_live_at.iter().cloned());
 
         // output
         let errors = iteration.variable("errors");
+
+        //let compute_region_live_at = all_facts.region_live_at.is_empty();
 
         // load initial facts.
         subset.insert(all_facts.outlives.into());
         requires.insert(all_facts.borrow_region.into());
         invalidates.extend(all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())));
-        region_live_at_var.extend(all_facts.region_live_at.iter().map(|&(r, p)| ((r, p), ())));
+        region_live_at_var.extend(region_live_at_rel.iter().map(|&(r, p)| ((r, p), ())));
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -168,9 +167,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 result
                     .subset
                     .entry(*location)
-                    .or_insert(BTreeMap::new())
+                    .or_insert_with(BTreeMap::new)
                     .entry(*r1)
-                    .or_insert(BTreeSet::new())
+                    .or_insert_with(BTreeSet::new)
                     .insert(*r2);
             }
 
@@ -179,9 +178,9 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 result
                     .restricts
                     .entry(*location)
-                    .or_insert(BTreeMap::new())
+                    .or_insert_with(BTreeMap::new)
                     .entry(*region)
-                    .or_insert(BTreeSet::new())
+                    .or_insert_with(BTreeSet::new)
                     .insert(*borrow);
             }
 
@@ -189,7 +188,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 result
                     .region_live_at
                     .entry(*location)
-                    .or_insert(vec![])
+                    .or_insert_with(Vec::new)
                     .push(*region);
             }
 
@@ -198,7 +197,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
                 result
                     .borrow_live_at
                     .entry(location)
-                    .or_insert(Vec::new())
+                    .or_insert_with(Vec::new)
                     .push(loan);
             }
         }
@@ -218,7 +217,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
         result
             .errors
             .entry(*location)
-            .or_insert(Vec::new())
+            .or_insert_with(Vec::new)
             .push(*borrow);
     }
 

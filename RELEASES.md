@@ -1,5 +1,10 @@
 # polonius
 
+## v0.4.0
+
+- adopt latest polonius-engine
+- extensions to the parser to incorporate syntax for the new facts
+
 ## v0.3.0
 
 - adopt latest polonius-engine
@@ -11,6 +16,15 @@
 - preliminary work towards a friendly front-end format
 
 # polonius-engine
+
+## v0.8.0
+
+- Polonius now performs liveness analysis to calculate `region_live_at`, if it
+  isn't present (#104)
+- extend the type of `AllFacts` and `Output` with `Variable`
+- new facts: `var_defined`, `var_used`, `var_drop_used`, `var_uses_region`, and
+  `var_drops_region`
+- `Output` now has a `var_live_at`, and a `var_drop_live_at` field
 
 ## v0.7.0
 

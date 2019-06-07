@@ -1,5 +1,5 @@
 use crate::dump;
-use crate::facts::{Loan, Point, Region};
+use crate::facts::{Loan, Point, Region, Variable};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
@@ -61,8 +61,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
         let result: Result<
             (
                 Duration,
-                AllFacts<Region, Loan, Point>,
-                Output<Region, Loan, Point>,
+                AllFacts<Region, Loan, Point, Variable>,
+                Output<Region, Loan, Point, Variable>,
             ),
             Error,
         > = attempt! {

@@ -11,7 +11,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 pub(crate) fn dump_output(
-    output: &Output<Region, Loan, Point>,
+    output: &Output<Region, Loan, Point, Variable>,
     output_dir: &Option<PathBuf>,
     intern: &InternerTables,
 ) -> io::Result<()> {
@@ -280,6 +280,12 @@ impl Atom for Loan {
     }
 }
 
+impl Atom for Variable {
+    fn table(intern: &InternerTables) -> &Interner<Self> {
+        &intern.variables
+    }
+}
+
 fn facts_by_point<F: Clone, Out: OutputDump>(
     facts: impl Iterator<Item = F>,
     point: impl Fn(F) -> (Point, Out),
@@ -306,7 +312,7 @@ fn facts_by_point<F: Clone, Out: OutputDump>(
                             "{}({})",
                             name,
                             vals.into_iter()
-                                .map(|x| x.to_string())
+                                .map(std::string::ToString::to_string)
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         )
@@ -362,11 +368,32 @@ fn build_inputs_by_point_for_visualization(
             0,
             intern,
         ),
+        facts_by_point(
+            all_facts.var_used.iter().cloned(),
+            |(v, p)| (p, (v,)),
+            "var_used".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            all_facts.var_defined.iter().cloned(),
+            |(v, p)| (p, (v,)),
+            "var_defined".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            all_facts.var_drop_used.iter().cloned(),
+            |(v, p)| (p, (v,)),
+            "var_drop_used".to_string(),
+            1,
+            intern,
+        ),
     ]
 }
 
 fn build_outputs_by_point_for_visualization(
-    output: &Output<Region, Loan, Point>,
+    output: &Output<Region, Loan, Point, Variable>,
     intern: &InternerTables,
 ) -> Vec<HashMap<Point, String>> {
     vec![
@@ -398,11 +425,32 @@ fn build_outputs_by_point_for_visualization(
             0,
             intern,
         ),
+        facts_by_point(
+            output.var_live_at.iter(),
+            |(p, v)| (*p, v.clone()),
+            "var_live_at".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            output.var_drop_live_at.iter(),
+            |(p, v)| (*p, v.clone()),
+            "var_drop_live_at".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            output.region_live_at.iter(),
+            |(pt, region)| (*pt, region.clone()),
+            "region_live_at".to_string(),
+            0,
+            intern,
+        ),
     ]
 }
 
 pub(crate) fn graphviz(
-    output: &Output<Region, Loan, Point>,
+    output: &Output<Region, Loan, Point, Variable>,
     all_facts: &AllFacts,
     output_file: &PathBuf,
     intern: &InternerTables,
@@ -484,13 +532,13 @@ fn maybe_render_point(
 
     let input_tuples = inputs_by_point
         .iter()
-        .filter_map(|inp| inp.get(&pt).map(|s| s.to_string()))
+        .filter_map(|inp| inp.get(&pt).map(std::string::ToString::to_string))
         .collect::<Vec<_>>()
         .join(" | ");
 
     let output_tuples = outputs_by_point
         .iter()
-        .filter_map(|outp| outp.get(&pt).map(|s| s.to_string()))
+        .filter_map(|outp| outp.get(&pt).map(std::string::ToString::to_string))
         .collect::<Vec<_>>()
         .join(" | ");
 

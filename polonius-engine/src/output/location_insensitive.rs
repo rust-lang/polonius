@@ -11,31 +11,28 @@
 use std::collections::BTreeSet;
 use std::time::Instant;
 
+use crate::output::liveness;
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom>(
+pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
     dump_enabled: bool,
-    all_facts: &AllFacts<Region, Loan, Point>,
-) -> Output<Region, Loan, Point> {
-    let all_points: BTreeSet<Point> = all_facts
-        .cfg_edge
-        .iter()
-        .map(|&(p, _)| p)
-        .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
-        .collect();
-
-    let mut region_live_at = all_facts.region_live_at.clone();
-    region_live_at.reserve(all_facts.universal_region.len() * all_points.len());
-    for &r in &all_facts.universal_region {
-        for &p in &all_points {
-            region_live_at.push((r, p));
-        }
-    }
-
+    all_facts: &AllFacts<Region, Loan, Point, Variable>,
+) -> Output<Region, Loan, Point, Variable> {
     let mut result = Output::new(dump_enabled);
+    let region_live_at = liveness::init_region_live_at(
+        all_facts.var_used.clone(),
+        all_facts.var_drop_used.clone(),
+        all_facts.var_defined.clone(),
+        all_facts.var_uses_region.clone(),
+        all_facts.var_drops_region.clone(),
+        &all_facts.cfg_edge,
+        all_facts.region_live_at.clone(),
+        all_facts.universal_region.clone(),
+        &mut result,
+    );
 
     let potential_errors_start = Instant::now();
 
