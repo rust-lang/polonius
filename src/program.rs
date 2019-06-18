@@ -25,6 +25,7 @@ struct Facts {
     var_drop_used: BTreeSet<(Variable, Point)>,
     var_uses_region: BTreeSet<(Variable, Region)>,
     var_drops_region: BTreeSet<(Variable, Region)>,
+    var_initialized_on_exit: BTreeSet<(Variable, Point)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -42,6 +43,7 @@ impl From<Facts> for AllFacts {
             var_drop_used: facts.var_drop_used.into_iter().collect(),
             var_uses_region: facts.var_uses_region.into_iter().collect(),
             var_drops_region: facts.var_drops_region.into_iter().collect(),
+            var_initialized_on_exit: facts.var_initialized_on_exit.into_iter().collect(),
         }
     }
 }

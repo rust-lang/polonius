@@ -28,6 +28,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
         all_facts.var_defined,
         all_facts.var_uses_region,
         all_facts.var_drops_region,
+        all_facts.var_initialized_on_exit,
         &all_facts.cfg_edge,
         all_facts.region_live_at,
         all_facts.universal_region,

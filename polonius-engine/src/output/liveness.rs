@@ -25,6 +25,7 @@ pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variab
     var_uses_region: Vec<(Variable, Region)>,
     var_drops_region: Vec<(Variable, Region)>,
     cfg_edge: &[(Point, Point)],
+    var_initialized_on_exit: Vec<(Variable, Point)>,
     output: &mut Output<Region, Loan, Point, Variable>,
 ) -> Vec<(Region, Point)> {
     debug!("compute_liveness()");
@@ -37,6 +38,7 @@ pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variab
         cfg_edge.iter().map(|(p, q)| (*q, *p)).collect();
     let var_uses_region_rel: Relation<(Variable, Region)> = var_uses_region.into();
     let var_drops_region_rel: Relation<(Variable, Region)> = var_drops_region.into();
+    let var_initialized_on_exit_rel: Relation<(Variable, Point)> = var_initialized_on_exit.into();
 
     // Variables
 
@@ -86,13 +88,15 @@ pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variab
         // var_drop_live(V, P) :-
         //     var_drop_live(V, Q),
         //     cfg_edge(P, Q),
-        //     !var_defined(V, P).
+        //     !var_defined(V, P)
+        //     var_initialized_on_exit(V, P).
         // extend p with v:s from q such that v is not in q, there is an edge from p to q
         var_drop_live_var.from_leapjoin(
             &var_drop_live_var,
             (
                 var_defined_rel.extend_anti(|&(v, _q)| v),
                 cfg_edge_reverse_rel.extend_with(|&(_v, q)| q),
+                var_initialized_on_exit_rel.extend_with(|&(v, _q)| v),
             ),
             |&(v, _q), &p| (v, p),
         );
@@ -159,6 +163,7 @@ pub(super) fn init_region_live_at<Region: Atom, Loan: Atom, Point: Atom, Variabl
     var_defined: Vec<(Variable, Point)>,
     var_uses_region: Vec<(Variable, Region)>,
     var_drops_region: Vec<(Variable, Region)>,
+    var_initialized_on_exit: Vec<(Variable, Point)>,
     cfg_edge: &[(Point, Point)],
     region_live_at: Vec<(Region, Point)>,
     universal_region: Vec<Region>,
@@ -174,6 +179,7 @@ pub(super) fn init_region_live_at<Region: Atom, Loan: Atom, Point: Atom, Variabl
             var_uses_region,
             var_drops_region,
             cfg_edge,
+            var_initialized_on_exit,
             output,
         )
     } else {

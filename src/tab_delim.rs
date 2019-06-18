@@ -44,6 +44,7 @@ pub(crate) fn load_tab_delimited_facts(
             var_drop_used,
             var_uses_region,
             var_drops_region,
+            var_initialized_on_exit,
         }
     }
 }

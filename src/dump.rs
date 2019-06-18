@@ -392,6 +392,13 @@ fn build_inputs_by_point_for_visualization(
             1,
             intern,
         ),
+        facts_by_point(
+            all_facts.var_initialized_on_exit.iter().cloned(),
+            |(v, p)| (p, (v,)),
+            "var_initialized_on_exit".to_string(),
+            1,
+            intern,
+        ),
     ]
 }
 

@@ -42,6 +42,10 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom> {
     /// `var_drops_region(V, R) when the type of V includes the region R and uses
     /// it when dropping`
     pub var_drops_region: Vec<(V, R)>,
+
+    /// `var_initialized_on_exit(V, P) when the variable `V` is initialized on
+    /// exit from point `P` in the program flow.
+    pub var_initialized_on_exit: Vec<(V, P)>,
 }
 
 impl<R: Atom, L: Atom, P: Atom, V: Atom> Default for AllFacts<R, L, P, V> {
@@ -59,6 +63,7 @@ impl<R: Atom, L: Atom, P: Atom, V: Atom> Default for AllFacts<R, L, P, V> {
             var_drop_used: Vec::default(),
             var_uses_region: Vec::default(),
             var_drops_region: Vec::default(),
+            var_initialized_on_exit: Vec::default(),
         }
     }
 }

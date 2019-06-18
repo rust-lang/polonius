@@ -591,5 +591,5 @@ region_live_at_tests! {
     // FIXME: These rely on initialisation tracking and should be re-enabled when that is working, maybe
     // maybe_initialized_drop_implicit_fragment_drop_main("maybe-initialized-drop-implicit-fragment-drop", "main"),
     // maybe_initialized_drop_with_fragment_main("maybe-initialized-drop-with-fragment", "main"),
-    // maybe_initialized_drop_with_uninitialized_fragments_main("maybe-initialized-drop-with-uninitialized-fragments", "main"),
+    maybe_initialized_drop_with_uninitialized_fragments_main("maybe-initialized-drop-with-uninitialized-fragments", "main"),
 }
