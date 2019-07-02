@@ -3,6 +3,7 @@ use crate::facts::{Loan, Point, Region, Variable};
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
+use log::error;
 use polonius_engine::{Algorithm, AllFacts, Output};
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -114,7 +115,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
             }
 
             Err(error) => {
-                eprintln!("`{}`: {}", facts_dir, error);
+                error!("`{}`: {}", facts_dir, error);
             }
         }
     }

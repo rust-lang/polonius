@@ -1,7 +1,8 @@
 use crate::facts::AllFacts;
 use crate::intern::{InternTo, InternerTables};
+use log::{error, warn};
 use std::fs::File;
-use std::io::{self, prelude::*};
+use std::io::{self, prelude::*, ErrorKind};
 use std::path::Path;
 use std::process;
 
@@ -23,7 +24,20 @@ pub(crate) fn load_tab_delimited_facts(
                     $t: {
                         let filename = format!("{}.facts", stringify!($t));
                         let facts_file = $facts_dir.join(&filename);
-                        load_tab_delimited_file($tables, &facts_file)?
+
+                        match load_tab_delimited_file($tables, &facts_file) {
+                            Ok(facts) => facts,
+                            Err(e) => {
+                                match (e.kind(), filename.as_ref()) {
+                                    (ErrorKind::NotFound, "region_live_at.facts") => {
+
+                                        warn!("couldn't find fact file {:?}", facts_file);
+                                        Vec::default()},
+                                    _ => return Err(e)
+}
+
+                                },
+                        }
                     },
                 )*
             })
@@ -63,7 +77,7 @@ where
             let mut columns = line.split('\t');
             let row = match FromTabDelimited::parse(tables, &mut columns) {
                 None => {
-                    eprintln!("error parsing line {} of `{}`", index + 1, path.display());
+                    error!("error parsing line {} of `{}`", index + 1, path.display());
                     process::exit(1);
                 }
 
@@ -71,7 +85,7 @@ where
             };
 
             if columns.next().is_some() {
-                eprintln!("extra data on line {} of `{}`", index + 1, path.display());
+                error!("extra data on line {} of `{}`", index + 1, path.display());
                 process::exit(1);
             }
 
