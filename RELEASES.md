@@ -1,5 +1,12 @@
 # polonius
 
+## v0.6.0
+
+- add a CLI option `--ignore-region-live-at` which ignores those facts and
+  recompute them using Polonius even if provided.
+- missing `region_live_at.facts` is no longer an error.
+- consistently use the logging crate for error and warning logging.
+
 ## v0.5.0
 
 Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
@@ -21,6 +28,11 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 - preliminary work towards a friendly front-end format
 
 # polonius-engine
+
+## v0.9.0
+
+- add the input `var_initialized_on_exit` which indicates if a variable may be
+  initialized at a given point and is used to compute drop-liveness.
 
 ## v0.8.0
 
