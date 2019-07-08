@@ -102,8 +102,8 @@ fn test_insensitive_errors() -> Result<(), Error> {
     let insensitive = Output::compute(&all_facts, Algorithm::LocationInsensitive, false);
 
     let mut expected = FxHashMap::default();
-    expected.insert(Point::from(1), vec![Loan::from(1)]);
-    expected.insert(Point::from(2), vec![Loan::from(2)]);
+    expected.insert(Point::from(22), vec![Loan::from(1)]);
+    expected.insert(Point::from(46), vec![Loan::from(2)]);
 
     assert_equal(&insensitive.errors, &expected);
     Ok(())
@@ -588,8 +588,7 @@ region_live_at_tests! {
     issue_52059_report_when_borrow_and_drop_conflict_4("issue-52059-report-when-borrow-and-drop-conflict", "finish_4"),
     issue_52059_report_when_borrow_and_drop_conflict_3("issue-52059-report-when-borrow-and-drop-conflict", "finish_3"),
     maybe_initialized_drop_main("maybe-initialized-drop", "main"),
-    // FIXME: These rely on initialisation tracking and should be re-enabled when that is working, maybe
-    // maybe_initialized_drop_implicit_fragment_drop_main("maybe-initialized-drop-implicit-fragment-drop", "main"),
-    // maybe_initialized_drop_with_fragment_main("maybe-initialized-drop-with-fragment", "main"),
-    // maybe_initialized_drop_with_uninitialized_fragments_main("maybe-initialized-drop-with-uninitialized-fragments", "main"),
+    maybe_initialized_drop_implicit_fragment_drop_main("maybe-initialized-drop-implicit-fragment-drop", "main"),
+    maybe_initialized_drop_with_fragment_main("maybe-initialized-drop-with-fragment", "main"),
+    maybe_initialized_drop_with_uninitialized_fragments_main("maybe-initialized-drop-with-uninitialized-fragments", "main"),
 }
