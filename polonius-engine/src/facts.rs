@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
-pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom> {
+pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
     /// `borrow_region(R, B, P)` -- the region R may refer to data
     /// from borrow B starting at the point P (this is usually the
     /// point *after* a borrow rvalue)
@@ -43,12 +43,21 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom> {
     /// it when dropping`
     pub var_drops_region: Vec<(V, R)>,
 
-    /// `var_initialized_on_exit(V, P) when the variable `V` is initialized on
-    /// exit from point `P` in the program flow.
-    pub var_initialized_on_exit: Vec<(V, P)>,
+    /// `child(M1, M2) when the move path `M1` is the child of `M2`.
+    pub child: Vec<(M, M)>,
+
+    /// `path_belongs_to_var(M, V) when the move path `M` starts in variable `V`.
+    pub path_belongs_to_var: Vec<(M, V)>,
+
+    /// `initialized_at(M, P) when the move path `M` was initialized at point
+    /// `P`.
+    pub initialized_at: Vec<(M, P)>,
+
+    /// `moved_out_at(M, P) when the move path `M` was moved at point `P`.
+    pub moved_out_at: Vec<(M, P)>,
 }
 
-impl<R: Atom, L: Atom, P: Atom, V: Atom> Default for AllFacts<R, L, P, V> {
+impl<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<R, L, P, V, M> {
     fn default() -> Self {
         AllFacts {
             borrow_region: Vec::default(),
@@ -63,7 +72,10 @@ impl<R: Atom, L: Atom, P: Atom, V: Atom> Default for AllFacts<R, L, P, V> {
             var_drop_used: Vec::default(),
             var_uses_region: Vec::default(),
             var_drops_region: Vec::default(),
-            var_initialized_on_exit: Vec::default(),
+            child: Vec::default(),
+            path_belongs_to_var: Vec::default(),
+            initialized_at: Vec::default(),
+            moved_out_at: Vec::default(),
         }
     }
 }

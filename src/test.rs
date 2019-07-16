@@ -1,12 +1,13 @@
 #![cfg(test)]
 
-use crate::facts::{AllFacts, Loan, Point, Region, Variable};
+use crate::dump::Output;
+use crate::facts::{AllFacts, Loan, Point, Region};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
 use crate::test_util::assert_equal;
 use failure::Error;
-use polonius_engine::{Algorithm, Output};
+use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -134,7 +135,7 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
     let tables = &mut intern::InternerTables::new();
     let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
 
-    let subset_symmetries_exist = |output: &Output<Region, Loan, Point, Variable>| {
+    let subset_symmetries_exist = |output: &Output| {
         for (_, subsets) in &output.subset {
             for (r1, rs) in subsets {
                 if rs.contains(&r1) {
@@ -573,6 +574,7 @@ macro_rules! region_live_at_tests {
                 fn computed_region_live_at_same_as_input() {
                     compare_region_live_at($dir, $fn)
                 }
+
             }
         )*
     }

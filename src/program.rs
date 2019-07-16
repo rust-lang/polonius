@@ -7,7 +7,7 @@ use polonius_parser::{
     parse_input,
 };
 
-use crate::facts::{AllFacts, Loan, Point, Region, Variable};
+use crate::facts::{AllFacts, Loan, MovePath, Point, Region, Variable};
 use crate::intern::InternerTables;
 
 /// A structure to hold and deduplicate facts
@@ -25,7 +25,10 @@ struct Facts {
     var_drop_used: BTreeSet<(Variable, Point)>,
     var_uses_region: BTreeSet<(Variable, Region)>,
     var_drops_region: BTreeSet<(Variable, Region)>,
-    var_initialized_on_exit: BTreeSet<(Variable, Point)>,
+    child: BTreeSet<(MovePath, MovePath)>,
+    path_belongs_to_var: BTreeSet<(MovePath, Variable)>,
+    initialized_at: BTreeSet<(MovePath, Point)>,
+    moved_out_at: BTreeSet<(MovePath, Point)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -43,7 +46,10 @@ impl From<Facts> for AllFacts {
             var_drop_used: facts.var_drop_used.into_iter().collect(),
             var_uses_region: facts.var_uses_region.into_iter().collect(),
             var_drops_region: facts.var_drops_region.into_iter().collect(),
-            var_initialized_on_exit: facts.var_initialized_on_exit.into_iter().collect(),
+            child: facts.child.into_iter().collect(),
+            path_belongs_to_var: facts.path_belongs_to_var.into_iter().collect(),
+            initialized_at: facts.initialized_at.into_iter().collect(),
+            moved_out_at: facts.moved_out_at.into_iter().collect(),
         }
     }
 }

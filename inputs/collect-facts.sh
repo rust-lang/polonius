@@ -10,8 +10,9 @@ INPUT_FOLDERS=(drop-liveness drop-may-dangle drop-no-may-dangle enum-drop-access
 
 for test_folder in "${INPUT_FOLDERS[@]}";
 do
-    pushd "$test_folder"
-    rustc +$RUSTC_RELEASE $RUSTC_ARGS -o /dev/null -- *.rs
-    popd
+    pushd "$test_folder" || exit
+    find . -name "*.facts" | xargs -- rm
+    rustc +$RUSTC_RELEASE $RUSTC_ARGS -- *.rs
+    popd || exit
 done
 

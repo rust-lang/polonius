@@ -1,16 +1,14 @@
 use crate::dump;
-use crate::facts::{Loan, Point, Region, Variable};
+use crate::dump::Output;
+use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
 use failure::Error;
 use log::error;
-use polonius_engine::{Algorithm, AllFacts, Output};
+use polonius_engine::Algorithm;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
-
-type PoloniusFacts = AllFacts<Region, Loan, Point, Variable>;
-type PoloniusOutput = Output<Region, Loan, Point, Variable>;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "borrow-check")]
@@ -77,7 +75,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
     for facts_dir in &opt.fact_dirs {
         let tables = &mut intern::InternerTables::new();
 
-        let result: Result<(Duration, PoloniusFacts, PoloniusOutput), Error> = attempt! {
+        let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
             let verbose = opt.verbose;
             let mut all_facts =
                 tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;

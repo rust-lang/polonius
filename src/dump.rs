@@ -5,7 +5,7 @@ use log::info;
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::{Dfs, EdgeRef, IntoEdgeReferences, IntoNodeReferences, NodeIndexable};
 use petgraph::{Incoming, Outgoing};
-use polonius_engine::{Atom as PoloniusEngineAtom, Output};
+use polonius_engine::{Atom as PoloniusEngineAtom, Output as PoloniusEngineOutput};
 use rustc_hash::FxHashMap;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::File;
@@ -13,8 +13,10 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
+pub(crate) type Output = PoloniusEngineOutput<Region, Loan, Point, Variable, MovePath>;
+
 pub(crate) fn dump_output(
-    output: &Output<Region, Loan, Point, Variable>,
+    output: &Output,
     output_dir: &Option<PathBuf>,
     intern: &InternerTables,
 ) -> io::Result<()> {
@@ -54,6 +56,26 @@ pub(crate) fn dump_output(
             &mut writer_for(output_dir, "subset_anywhere")?,
             intern,
             &output.subset_anywhere,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "var_live_at")?,
+            intern,
+            &output.var_live_at,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "var_drop_live_at")?,
+            intern,
+            &output.var_drop_live_at,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "path_maybe_initialized_at")?,
+            intern,
+            &output.path_maybe_initialized_at,
+        )?;
+        dump_rows(
+            &mut writer_for(output_dir, "var_maybe_initialized_on_exit")?,
+            intern,
+            &output.var_maybe_initialized_on_exit,
         )?;
     }
     return Ok(());
@@ -289,6 +311,12 @@ impl Atom for Variable {
     }
 }
 
+impl Atom for MovePath {
+    fn table(intern: &InternerTables) -> &Interner<Self> {
+        &intern.move_paths
+    }
+}
+
 fn facts_by_point<F: Clone, Out: OutputDump>(
     facts: impl Iterator<Item = F>,
     point: impl Fn(F) -> (Point, Out),
@@ -393,9 +421,16 @@ fn build_inputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            all_facts.var_initialized_on_exit.iter().cloned(),
+            all_facts.initialized_at.iter().cloned(),
             |(v, p)| (p, (v,)),
-            "var_initialized_on_exit".to_string(),
+            "initialized_at".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            all_facts.moved_out_at.iter().cloned(),
+            |(v, p)| (p, (v,)),
+            "moved_out_at".to_string(),
             1,
             intern,
         ),
@@ -403,7 +438,7 @@ fn build_inputs_by_point_for_visualization(
 }
 
 fn build_outputs_by_point_for_visualization(
-    output: &Output<Region, Loan, Point, Variable>,
+    output: &Output,
     intern: &InternerTables,
 ) -> Vec<HashMap<Point, String>> {
     vec![
@@ -453,14 +488,28 @@ fn build_outputs_by_point_for_visualization(
             output.region_live_at.iter(),
             |(pt, region)| (*pt, region.clone()),
             "region_live_at".to_string(),
-            0,
+            1,
+            intern,
+        ),
+        facts_by_point(
+            output.var_maybe_initialized_on_exit.iter(),
+            |(p, v)| (*p, v.clone()),
+            "var_maybe_initialized_on_exit".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            output.path_maybe_initialized_at.iter(),
+            |(point, path)| (*point, path.clone()),
+            "path_maybe_initialized_at".to_string(),
+            1,
             intern,
         ),
     ]
 }
 
 pub(crate) fn graphviz(
-    output: &Output<Region, Loan, Point, Variable>,
+    output: &Output,
     all_facts: &AllFacts,
     output_file: &PathBuf,
     intern: &InternerTables,
@@ -603,11 +652,7 @@ impl Liveness {
         self.point_facts.extend(other.point_facts);
     }
 
-    fn from_polonius_data(
-        output: &Output<Region, Loan, Point, Variable>,
-        all_facts: &AllFacts,
-        point: Point,
-    ) -> Self {
+    fn from_polonius_data(output: &Output, all_facts: &AllFacts, point: Point) -> Self {
         let mut point_facts = Vec::default();
 
         point_facts.extend(
@@ -689,7 +734,7 @@ fn render_cfg_label(node: &Liveness, intern: &InternerTables) -> String {
 }
 
 pub(crate) fn liveness_graph(
-    output: &Output<Region, Loan, Point, Variable>,
+    output: &Output,
     all_facts: &AllFacts,
     output_file: &PathBuf,
     intern: &InternerTables,

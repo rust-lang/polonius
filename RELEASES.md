@@ -29,6 +29,14 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 
 # polonius-engine
 
+
+## v0.???.0
+
+- add the initialisation-tracking inputs `parent`, `var_starts_path`,
+  `initialized_at`, and`moved_out_at`, as well as the new `Atom` `MovePath` to
+  the type of `AllFacts` to capture move paths.
+- remove the `var_maybe_initialized_on_exit` input, as it is now calculated by Polonius.
+
 ## v0.9.0
 
 - add the input `var_initialized_on_exit` which indicates if a variable may be

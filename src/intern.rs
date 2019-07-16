@@ -45,6 +45,7 @@ pub(crate) struct InternerTables {
     pub(crate) loans: Interner<Loan>,
     pub(crate) points: Interner<Point>,
     pub(crate) variables: Interner<Variable>,
+    pub(crate) move_paths: Interner<MovePath>,
 }
 
 impl InternerTables {
@@ -54,6 +55,7 @@ impl InternerTables {
             loans: Interner::new(),
             points: Interner::new(),
             variables: Interner::new(),
+            move_paths: Interner::new(),
         }
     }
 }
@@ -76,6 +78,7 @@ intern_impl!(Region, regions);
 intern_impl!(Loan, loans);
 intern_impl!(Point, points);
 intern_impl!(Variable, variables);
+intern_impl!(MovePath, move_paths);
 
 impl<A, FromA, B, FromB> InternTo<(A, B)> for (FromA, FromB)
 where
