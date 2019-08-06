@@ -1,8 +1,8 @@
 use crate::facts::AllFacts;
 use crate::intern::{InternTo, InternerTables};
-use log::{error, warn};
+use log::{error};
 use std::fs::File;
-use std::io::{self, prelude::*, ErrorKind};
+use std::io::{self, prelude::*};
 use std::path::Path;
 use std::process;
 
@@ -24,20 +24,7 @@ pub(crate) fn load_tab_delimited_facts(
                     $t: {
                         let filename = format!("{}.facts", stringify!($t));
                         let facts_file = $facts_dir.join(&filename);
-
-                        match load_tab_delimited_file($tables, &facts_file) {
-                            Ok(facts) => facts,
-                            Err(e) => {
-                                match (e.kind(), filename.as_ref()) {
-                                    (ErrorKind::NotFound, "region_live_at.facts") => {
-
-                                        warn!("couldn't find fact file {:?}", facts_file);
-                                        Vec::default()},
-                                    _ => return Err(e)
-}
-
-                                },
-                        }
+                        load_tab_delimited_file($tables, &facts_file)?
                     },
                 )*
             })
@@ -51,7 +38,6 @@ pub(crate) fn load_tab_delimited_facts(
             cfg_edge,
             killed,
             outlives,
-            region_live_at,
             invalidates,
             var_defined,
             var_used,

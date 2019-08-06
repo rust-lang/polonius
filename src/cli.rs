@@ -48,12 +48,6 @@ pub struct Opt {
         help = "Generate a graphviz file to visualize the liveness information"
     )]
     liveness_graph_file: Option<String>,
-
-    #[structopt(
-        long = "ignore-region-live-at",
-        help = "ignore any provided region-live-at and let Polonius perform the calculation"
-    )]
-    ignore_region_live_at: bool,
 }
 
 macro_rules! attempt {
@@ -77,11 +71,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
         let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
             let verbose = opt.verbose;
-            let mut all_facts =
+            let all_facts =
                 tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
-            if opt.ignore_region_live_at {
-                all_facts.region_live_at = Vec::default();
-            }
             let algorithm = opt.algorithm;
             let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
             let (duration, output) =

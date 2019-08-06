@@ -39,7 +39,6 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         all_facts.var_drops_region.clone(),
         var_maybe_initialized_on_exit.clone(),
         &all_facts.cfg_edge,
-        all_facts.region_live_at.clone(),
         all_facts.universal_region.clone(),
         &mut result,
     );

@@ -199,27 +199,20 @@ pub(super) fn init_region_live_at<
     var_drops_region: Vec<(Variable, Region)>,
     var_maybe_initialized_on_exit: Vec<(Variable, Point)>,
     cfg_edge: &[(Point, Point)],
-    region_live_at: Vec<(Region, Point)>,
     universal_region: Vec<Region>,
     output: &mut Output<Region, Loan, Point, Variable, MovePath>,
 ) -> Vec<(Region, Point)> {
     debug!("init_region_live_at()");
-    let mut region_live_at = if region_live_at.is_empty() {
-        debug!("no region_live_at facts provided");
-        compute_live_regions(
-            var_used,
-            var_drop_used,
-            var_defined,
-            var_uses_region,
-            var_drops_region,
-            cfg_edge,
-            var_maybe_initialized_on_exit,
-            output,
-        )
-    } else {
-        debug!("using provided region_live_at facts");
-        region_live_at
-    };
+    let mut region_live_at = compute_live_regions(
+        var_used,
+        var_drop_used,
+        var_defined,
+        var_uses_region,
+        var_drops_region,
+        cfg_edge,
+        var_maybe_initialized_on_exit,
+        output,
+    );
 
     make_universal_region_live(&mut region_live_at, cfg_edge, universal_region);
 

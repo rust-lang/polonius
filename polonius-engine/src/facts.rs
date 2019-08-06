@@ -21,9 +21,6 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
     /// `outlives(R1, R2, P)` when we require `R1@P: R2@P`
     pub outlives: Vec<(R, R, P)>,
 
-    /// `region_live_at(R, P)` when the region R appears in a live variable at P
-    pub region_live_at: Vec<(R, P)>,
-
     ///  `invalidates(P, L)` when the loan L is invalidated at point P
     pub invalidates: Vec<(P, L)>,
 
@@ -65,7 +62,6 @@ impl<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<R, L, P, 
             cfg_edge: Vec::default(),
             killed: Vec::default(),
             outlives: Vec::default(),
-            region_live_at: Vec::default(),
             invalidates: Vec::default(),
             var_used: Vec::default(),
             var_defined: Vec::default(),

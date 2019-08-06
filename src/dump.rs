@@ -386,13 +386,6 @@ fn build_inputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            all_facts.region_live_at.iter().cloned(),
-            |(r, p)| (p, (r,)),
-            "region_live_at".to_string(),
-            1,
-            intern,
-        ),
-        facts_by_point(
             all_facts.invalidates.iter().cloned(),
             |(p, l)| (p, (l,)),
             "invalidates".to_string(),
