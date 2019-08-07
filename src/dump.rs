@@ -427,6 +427,13 @@ fn build_inputs_by_point_for_visualization(
             1,
             intern,
         ),
+        facts_by_point(
+            all_facts.path_accessed_at.iter().cloned(),
+            |(v, p)| (p, (v,)),
+            "path_accessed_at".to_string(),
+            1,
+            intern,
+        ),
     ]
 }
 

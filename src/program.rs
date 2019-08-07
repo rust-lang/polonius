@@ -28,6 +28,7 @@ struct Facts {
     path_belongs_to_var: BTreeSet<(MovePath, Variable)>,
     initialized_at: BTreeSet<(MovePath, Point)>,
     moved_out_at: BTreeSet<(MovePath, Point)>,
+    path_accessed_at: BTreeSet<(MovePath, Point)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -48,6 +49,7 @@ impl From<Facts> for AllFacts {
             path_belongs_to_var: facts.path_belongs_to_var.into_iter().collect(),
             initialized_at: facts.initialized_at.into_iter().collect(),
             moved_out_at: facts.moved_out_at.into_iter().collect(),
+            path_accessed_at: facts.path_accessed_at.into_iter().collect(),
         }
     }
 }
@@ -148,7 +150,7 @@ pub(crate) fn parse_from_program(
                     Effect::Fact(ref fact) => {
                         // Manually specified facts
                         emit_fact(&mut facts, fact, mid, tables)
-                    },
+                    }
                     _ => {}
                 };
             }
@@ -214,9 +216,9 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             // var_used: a variable is used here
             let variable = tables.variables.intern(variable);
             facts.var_used.insert((variable, point));
-        },
+        }
 
-        _ => {},
+        _ => {}
     };
 }
 

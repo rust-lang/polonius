@@ -43,7 +43,8 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
     /// `child(M1, M2) when the move path `M1` is the child of `M2`.
     pub child: Vec<(M, M)>,
 
-    /// `path_belongs_to_var(M, V) when the move path `M` starts in variable `V`.
+    /// `path_belongs_to_var(M, V) for every move path `M` that starts in
+    /// variable `V`.
     pub path_belongs_to_var: Vec<(M, V)>,
 
     /// `initialized_at(M, P) when the move path `M` was initialized at point
@@ -52,6 +53,9 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
 
     /// `moved_out_at(M, P) when the move path `M` was moved at point `P`.
     pub moved_out_at: Vec<(M, P)>,
+
+    /// `path_accessed_at(M, P) when the move path `M` was accessed at point `P`.
+    pub path_accessed_at: Vec<(M, P)>,
 }
 
 impl<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<R, L, P, V, M> {
@@ -72,6 +76,7 @@ impl<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<R, L, P, 
             path_belongs_to_var: Vec::default(),
             initialized_at: Vec::default(),
             moved_out_at: Vec::default(),
+            path_accessed_at: Vec::default(),
         }
     }
 }

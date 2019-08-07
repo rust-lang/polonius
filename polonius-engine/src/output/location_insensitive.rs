@@ -28,6 +28,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         all_facts.path_belongs_to_var.clone(),
         all_facts.initialized_at.clone(),
         all_facts.moved_out_at.clone(),
+        all_facts.path_accessed_at.clone(),
         &all_facts.cfg_edge,
         &mut result,
     );

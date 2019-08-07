@@ -1,6 +1,6 @@
 use crate::facts::AllFacts;
 use crate::intern::{InternTo, InternerTables};
-use log::{error};
+use log::error;
 use std::fs::File;
 use std::io::{self, prelude::*};
 use std::path::Path;
@@ -48,6 +48,7 @@ pub(crate) fn load_tab_delimited_facts(
             path_belongs_to_var,
             initialized_at,
             moved_out_at,
+            path_accessed_at,
         }
     }
 }

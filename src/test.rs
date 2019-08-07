@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::dump::Output;
-use crate::facts::{AllFacts, Loan, Point, Region};
+use crate::facts::{AllFacts, Loan, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;

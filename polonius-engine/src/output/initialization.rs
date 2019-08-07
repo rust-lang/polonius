@@ -10,6 +10,7 @@ pub(super) fn init_var_maybe_initialized_on_exit<Region, Loan, Point, Variable, 
     path_belongs_to_var: Vec<(MovePath, Variable)>,
     initialized_at: Vec<(MovePath, Point)>,
     moved_out_at: Vec<(MovePath, Point)>,
+    path_accessed_at: Vec<(MovePath, Point)>,
     cfg_edge: &[(Point, Point)],
     output: &mut Output<Region, Loan, Point, Variable, MovePath>,
 ) -> Vec<(Variable, Point)>
@@ -25,12 +26,14 @@ where
     let mut iteration = Iteration::new();
 
     // Relations
+    //let parent: Relation<(MovePath, MovePath)> = child.iter().map(|&(c, p)| (p, c)).collect();
     let child: Relation<(MovePath, MovePath)> = child.into();
     let path_belongs_to_var: Relation<(MovePath, Variable)> = path_belongs_to_var.into();
     let initialized_at: Relation<(MovePath, Point)> = initialized_at.into();
     let moved_out_at: Relation<(MovePath, Point)> = moved_out_at.into();
     // FIXME: is there no better way to do this?
     let cfg_edge: Relation<(Point, Point)> = cfg_edge.iter().map(|&(p, q)| (p, q)).collect();
+    let _path_accessed_at: Relation<(MovePath, Point)> = path_accessed_at.into();
 
     // Variables
 
@@ -40,7 +43,7 @@ where
         iteration.variable::<(Variable, Point)>("var_maybe_initialized_on_exit");
 
     // path_maybe_initialized_on_exit(M, P): Upon leaving `P`, the move path `M`
-    // might be initialized for some path through the CFG.
+    // might be *partially* initialized for some path through the CFG.
     let path_maybe_initialized_on_exit =
         iteration.variable::<(MovePath, Point)>("path_maybe_initialized_on_exit");
 
@@ -72,6 +75,35 @@ where
             child.extend_with(|&(daughter, _p)| daughter),
             |&(_daughter, p), &mother| (mother, p),
         );
+
+        // TODO: the following lines contain things left to implement for move
+        // tracking:
+
+        // NOTE: Double join!
+        // errors(M, P) :-
+        //     path_maybe_uninit(M, P),
+        //     path_accessed(M, P).
+
+        // Propagate across CFG edges:
+        // path_maybe_uninit(M, Q) :-
+        //     path_maybe_uninit(M, P),
+        //     cfg_edge_(P, Q)
+        //     !initialized_at(P, Q).
+
+        // Initial value (static).
+        // path_maybe_uninit(M, P) :- moved_out_at(M, P).
+
+        // Deinitialising a tree:
+        // path_maybe_uninit(Child, P) :-
+        //     moved_out_at(Mother, P),
+        //     parent(Mother, Child).
+
+        // Starting input (probably a static Relation join):
+        // path_maybe_uninit(M, Start(bb0[0])) :-
+        //     all_paths(M),
+        //     !initialized_at(M, Start(bb0[0])).
+
+        // END TODO
 
         // var_maybe_initialized_on_exit(V, P) :-
         //     path_belongs_to_var(M, V),
