@@ -31,8 +31,7 @@ where
     let path_belongs_to_var: Relation<(MovePath, Variable)> = path_belongs_to_var.into();
     let initialized_at: Relation<(MovePath, Point)> = initialized_at.into();
     let moved_out_at: Relation<(MovePath, Point)> = moved_out_at.into();
-    // FIXME: is there no better way to do this?
-    let cfg_edge: Relation<(Point, Point)> = cfg_edge.iter().map(|&(p, q)| (p, q)).collect();
+    let cfg_edge: Relation<(Point, Point)> = cfg_edge.iter().cloned().collect();
     let _path_accessed_at: Relation<(MovePath, Point)> = path_accessed_at.into();
 
     // Variables
@@ -79,10 +78,12 @@ where
         // TODO: the following lines contain things left to implement for move
         // tracking:
 
-        // NOTE: Double join!
-        // errors(M, P) :-
-        //     path_maybe_uninit(M, P),
-        //     path_accessed(M, P).
+        // path_accessed :- path_accessed(M, P).
+        //
+        // -- transitive access of all children
+        // path_accessed(Child, P) :-
+        //     path_accessed(Mother, P),
+        //     parent(Mother, Child).
 
         // Propagate across CFG edges:
         // path_maybe_uninit(M, Q) :-
@@ -93,15 +94,10 @@ where
         // Initial value (static).
         // path_maybe_uninit(M, P) :- moved_out_at(M, P).
 
-        // Deinitialising a tree:
-        // path_maybe_uninit(Child, P) :-
-        //     moved_out_at(Mother, P),
-        //     parent(Mother, Child).
-
-        // Starting input (probably a static Relation join):
-        // path_maybe_uninit(M, Start(bb0[0])) :-
-        //     all_paths(M),
-        //     !initialized_at(M, Start(bb0[0])).
+        // NOTE: Double join!
+        // errors(M, P) :-
+        //     path_maybe_uninit(M, P),
+        //     path_accessed(M, P).
 
         // END TODO
 

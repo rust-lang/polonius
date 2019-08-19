@@ -103,7 +103,6 @@ where
         //     var_live(V, Q),
         //     cfg_edge(P, Q),
         //     !var_defined(V, P).
-        // extend p with v:s from q such that v is not in q, there is an edge from p to q
         var_live_var.from_leapjoin(
             &var_live_var,
             (

@@ -40,21 +40,27 @@ pub struct AllFacts<R: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
     /// it when dropping`
     pub var_drops_region: Vec<(V, R)>,
 
-    /// `child(M1, M2) when the move path `M1` is the child of `M2`.
+    /// `child(M1, M2) when the move path `M1` is the direct or transitive child
+    /// of `M2`, e.g. `child(x.y, x)`, `child(x.y.z, x.y)`, `child(x.y.z, x)`
+    /// would all be true if there was a path like `x.y.z`.
     pub child: Vec<(M, M)>,
 
-    /// `path_belongs_to_var(M, V) for every move path `M` that starts in
-    /// variable `V`.
+    /// `path_belongs_to_var(M, V) the root path `M` starting in variable `V`.
     pub path_belongs_to_var: Vec<(M, V)>,
 
     /// `initialized_at(M, P) when the move path `M` was initialized at point
-    /// `P`.
+    /// `P`. This fact is only emitted for a prefix `M`, and not for the
+    /// implicit initialization of all of `M`'s children. E.g. a statement like
+    /// `x.y = 3` at point `P` would give the fact `initialized_at(x.y, P)` (but
+    /// neither `initialized_at(x.y.z, P)` nor `initialized_at(x, P)`).
     pub initialized_at: Vec<(M, P)>,
 
-    /// `moved_out_at(M, P) when the move path `M` was moved at point `P`.
+    /// `moved_out_at(M, P) when the move path `M` was moved at point `P`. The
+    /// same logic is applied as for `initialized_at` above.
     pub moved_out_at: Vec<(M, P)>,
 
-    /// `path_accessed_at(M, P) when the move path `M` was accessed at point `P`.
+    /// `path_accessed_at(M, P) when the move path `M` was accessed at point
+    /// `P`. The same logic as for `initialized_at` and `moved_out_at` applies.
     pub path_accessed_at: Vec<(M, P)>,
 }
 

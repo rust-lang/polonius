@@ -102,8 +102,8 @@ fn test_insensitive_errors() -> Result<(), Error> {
     let insensitive = Output::compute(&all_facts, Algorithm::LocationInsensitive, false);
 
     let mut expected = FxHashMap::default();
-    expected.insert(Point::from(22), vec![Loan::from(1)]);
-    expected.insert(Point::from(46), vec![Loan::from(2)]);
+    expected.insert(Point::from(24), vec![Loan::from(1)]);
+    expected.insert(Point::from(48), vec![Loan::from(2)]);
 
     assert_equal(&insensitive.errors, &expected);
     Ok(())
