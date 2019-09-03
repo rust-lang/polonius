@@ -1,14 +1,14 @@
 #![cfg(test)]
 
-use crate::facts::{AllFacts, Loan, Point, Region, Variable};
+use crate::dump::Output;
+use crate::facts::{AllFacts, Loan, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
 use crate::test_util::assert_equal;
 use failure::Error;
-use polonius_engine::{Algorithm, Output};
+use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
-use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
@@ -102,8 +102,8 @@ fn test_insensitive_errors() -> Result<(), Error> {
     let insensitive = Output::compute(&all_facts, Algorithm::LocationInsensitive, false);
 
     let mut expected = FxHashMap::default();
-    expected.insert(Point::from(22), vec![Loan::from(1)]);
-    expected.insert(Point::from(46), vec![Loan::from(2)]);
+    expected.insert(Point::from(24), vec![Loan::from(1)]);
+    expected.insert(Point::from(48), vec![Loan::from(2)]);
 
     assert_equal(&insensitive.errors, &expected);
     Ok(())
@@ -134,7 +134,7 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
     let tables = &mut intern::InternerTables::new();
     let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
 
-    let subset_symmetries_exist = |output: &Output<Region, Loan, Point, Variable>| {
+    let subset_symmetries_exist = |output: &Output| {
         for (_, subsets) in &output.subset {
             for (r1, rs) in subsets {
                 if rs.contains(&r1) {
@@ -500,95 +500,4 @@ fn var_drop_used_simple() {
         live_at_defined.and_then(|var| Some(tables.variables.untern_vec(var))),
         tables.points.untern(first_defined)
     );
-}
-
-fn untern_region_live_at(
-    region_live_at: FxHashMap<Point, Vec<Region>>,
-    tables: &intern::InternerTables,
-) -> BTreeMap<&str, BTreeSet<&str>> {
-    let mut result = BTreeMap::default();
-
-    for (location, regions) in &region_live_at {
-        let region_names: BTreeSet<&str> = tables.regions.untern_vec(regions).into_iter().collect();
-        let location_name = tables.points.untern(*location);
-        result.insert(location_name, region_names);
-    }
-
-    result
-}
-
-fn compare_region_live_at(dir_name: &str, fn_name: &str) {
-    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("inputs")
-        .join(dir_name)
-        .join("nll-facts")
-        .join(fn_name);
-
-    let mut input_region_live_at = FxHashMap::default();
-    let tables = &mut intern::InternerTables::new();
-    let mut all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).unwrap();
-    for (region, location) in &all_facts.region_live_at {
-        input_region_live_at
-            .entry(*location)
-            .or_insert_with(Vec::new)
-            .push(*region);
-    }
-    all_facts.region_live_at = Vec::default();
-
-    let all_points: BTreeSet<Point> = all_facts
-        .cfg_edge
-        .iter()
-        .map(|&(p, _)| p)
-        .chain(all_facts.cfg_edge.iter().map(|&(_, q)| q))
-        .collect();
-
-    for &region in &all_facts.universal_region {
-        for &location in &all_points {
-            input_region_live_at
-                .entry(location)
-                .or_insert_with(Vec::new)
-                .push(region);
-        }
-    }
-
-    let output_region_live_at = untern_region_live_at(
-        Output::compute(&all_facts, Algorithm::Naive, true)
-            .region_live_at
-            .into(),
-        &tables,
-    );
-
-    let input_region_live_at = untern_region_live_at(input_region_live_at, tables);
-
-    assert_equal(&input_region_live_at, &output_region_live_at);
-}
-
-macro_rules! region_live_at_tests {
-    ($($name:ident($dir:expr, $fn:expr),)*) => {
-        $(
-            mod $name {
-                use super::*;
-
-                #[test]
-                fn computed_region_live_at_same_as_input() {
-                    compare_region_live_at($dir, $fn)
-                }
-            }
-        )*
-    }
-}
-
-region_live_at_tests! {
-    drop_may_dangle_main("drop-may-dangle", "main"),
-    drop_liveness_main("drop-liveness", "main"),
-    enum_drop_access_drop_enum("enum-drop-access", "drop_enum"),
-    enum_drop_access_optional_drop_enum("enum-drop-access", "optional_drop_enum"),
-    issue_52059_report_when_borrow_and_drop_conflict_1("issue-52059-report-when-borrow-and-drop-conflict", "finish_1"),
-    issue_52059_report_when_borrow_and_drop_conflict_2("issue-52059-report-when-borrow-and-drop-conflict", "finish_2"),
-    issue_52059_report_when_borrow_and_drop_conflict_4("issue-52059-report-when-borrow-and-drop-conflict", "finish_4"),
-    issue_52059_report_when_borrow_and_drop_conflict_3("issue-52059-report-when-borrow-and-drop-conflict", "finish_3"),
-    maybe_initialized_drop_main("maybe-initialized-drop", "main"),
-    maybe_initialized_drop_implicit_fragment_drop_main("maybe-initialized-drop-implicit-fragment-drop", "main"),
-    maybe_initialized_drop_with_fragment_main("maybe-initialized-drop-with-fragment", "main"),
-    maybe_initialized_drop_with_uninitialized_fragments_main("maybe-initialized-drop-with-uninitialized-fragments", "main"),
 }

@@ -1,6 +1,6 @@
 use polonius_engine;
 
-pub(crate) type AllFacts = polonius_engine::AllFacts<Region, Loan, Point, Variable>;
+pub(crate) type AllFacts = polonius_engine::AllFacts<Region, Loan, Point, Variable, MovePath>;
 
 macro_rules! index_type {
     ($t:ident) => {
@@ -35,3 +35,4 @@ index_type!(Region);
 index_type!(Loan);
 index_type!(Point);
 index_type!(Variable);
+index_type!(MovePath);

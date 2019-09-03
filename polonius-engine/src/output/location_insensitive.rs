@@ -11,26 +11,35 @@
 use std::collections::BTreeSet;
 use std::time::Instant;
 
+use crate::output::initialization;
 use crate::output::liveness;
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
+pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
     dump_enabled: bool,
-    all_facts: &AllFacts<Region, Loan, Point, Variable>,
-) -> Output<Region, Loan, Point, Variable> {
+    all_facts: &AllFacts<Region, Loan, Point, Variable, MovePath>,
+) -> Output<Region, Loan, Point, Variable, MovePath> {
     let mut result = Output::new(dump_enabled);
+    let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
+        all_facts.child.clone(),
+        all_facts.path_belongs_to_var.clone(),
+        all_facts.initialized_at.clone(),
+        all_facts.moved_out_at.clone(),
+        all_facts.path_accessed_at.clone(),
+        &all_facts.cfg_edge,
+        &mut result,
+    );
     let region_live_at = liveness::init_region_live_at(
         all_facts.var_used.clone(),
         all_facts.var_drop_used.clone(),
         all_facts.var_defined.clone(),
         all_facts.var_uses_region.clone(),
         all_facts.var_drops_region.clone(),
-        all_facts.var_initialized_on_exit.clone(),
+        var_maybe_initialized_on_exit.clone(),
         &all_facts.cfg_edge,
-        all_facts.region_live_at.clone(),
         all_facts.universal_region.clone(),
         &mut result,
     );

@@ -1,5 +1,10 @@
 # polonius
 
+## v????
+
+- remove `--ignore-region-live-at`, as the `region_live_at` is now gone
+  from the inputs and is always calculated!
+
 ## v0.6.0
 
 - add a CLI option `--ignore-region-live-at` which ignores those facts and
@@ -28,6 +33,15 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 - preliminary work towards a friendly front-end format
 
 # polonius-engine
+
+
+## v0.10.0
+
+- add the initialisation-tracking inputs `child`, `path_belongs_to_var`,
+  `initialized_at`, `moved_out_at`, and `path_accessed_at`, as well as the new
+  `Atom` `MovePath` to the type of `AllFacts` to capture move paths.
+- remove the `var_maybe_initialized_on_exit` input, as it is now calculated by Polonius.
+- remove the `region_live_at` input fact, as it is now calculated by Polonius.
 
 ## v0.9.0
 

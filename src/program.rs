@@ -7,7 +7,7 @@ use polonius_parser::{
     parse_input,
 };
 
-use crate::facts::{AllFacts, Loan, Point, Region, Variable};
+use crate::facts::{AllFacts, Loan, MovePath, Point, Region, Variable};
 use crate::intern::InternerTables;
 
 /// A structure to hold and deduplicate facts
@@ -18,14 +18,17 @@ struct Facts {
     cfg_edge: BTreeSet<(Point, Point)>,
     killed: BTreeSet<(Loan, Point)>,
     outlives: BTreeSet<(Region, Region, Point)>,
-    region_live_at: BTreeSet<(Region, Point)>,
     invalidates: BTreeSet<(Point, Loan)>,
     var_defined: BTreeSet<(Variable, Point)>,
     var_used: BTreeSet<(Variable, Point)>,
     var_drop_used: BTreeSet<(Variable, Point)>,
     var_uses_region: BTreeSet<(Variable, Region)>,
     var_drops_region: BTreeSet<(Variable, Region)>,
-    var_initialized_on_exit: BTreeSet<(Variable, Point)>,
+    child: BTreeSet<(MovePath, MovePath)>,
+    path_belongs_to_var: BTreeSet<(MovePath, Variable)>,
+    initialized_at: BTreeSet<(MovePath, Point)>,
+    moved_out_at: BTreeSet<(MovePath, Point)>,
+    path_accessed_at: BTreeSet<(MovePath, Point)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -36,14 +39,17 @@ impl From<Facts> for AllFacts {
             cfg_edge: facts.cfg_edge.into_iter().collect(),
             killed: facts.killed.into_iter().collect(),
             outlives: facts.outlives.into_iter().collect(),
-            region_live_at: facts.region_live_at.into_iter().collect(),
             invalidates: facts.invalidates.into_iter().collect(),
             var_defined: facts.var_defined.into_iter().collect(),
             var_used: facts.var_used.into_iter().collect(),
             var_drop_used: facts.var_drop_used.into_iter().collect(),
             var_uses_region: facts.var_uses_region.into_iter().collect(),
             var_drops_region: facts.var_drops_region.into_iter().collect(),
-            var_initialized_on_exit: facts.var_initialized_on_exit.into_iter().collect(),
+            child: facts.child.into_iter().collect(),
+            path_belongs_to_var: facts.path_belongs_to_var.into_iter().collect(),
+            initialized_at: facts.initialized_at.into_iter().collect(),
+            moved_out_at: facts.moved_out_at.into_iter().collect(),
+            path_accessed_at: facts.path_accessed_at.into_iter().collect(),
         }
     }
 }
@@ -139,26 +145,13 @@ pub(crate) fn parse_from_program(
             // the most common statement effects: mid point effects
             for effect in &statement.effects {
                 match effect {
-                    Effect::Use { ref regions } => {
-                        // Uses.
-                        // TODO: Incomplete. We should eventually compute liveness
-                        // in order to emit `region_live_at` facts at all correct computed points,
-                        // and not just at the manually specified statements' Start point.
-                        //
-                        // facts: region_live_at(Region, Point)
-                        // region_live_at: a `use` emits a `region_live_at` the Start point
-                        facts
-                            .region_live_at
-                            .extend(regions.into_iter().map(|region| {
-                                let region = tables.regions.intern(region);
-                                (region, start)
-                            }));
-                    }
-
+                    // TODO: once the parser is revamped for liveness etc, make
+                    // sure to catch the new inputs here!
                     Effect::Fact(ref fact) => {
                         // Manually specified facts
                         emit_fact(&mut facts, fact, mid, tables)
                     }
+                    _ => {}
                 };
             }
 
@@ -211,14 +204,6 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.invalidates.insert((point, loan));
         }
 
-        // facts: region_live_at(Region, Point)
-        Fact::RegionLiveAt { ref region } => {
-            let region = tables.regions.intern(region);
-            // region_live_at: a region can be manually set live on both Start and Mid points
-            // but will mostly be computed and emitted automatically
-            facts.region_live_at.insert((region, point));
-        }
-
         // facts: var_defined(V, P)
         Fact::DefineVariable { ref variable } => {
             // var_defined: a variable is overwritten here
@@ -232,6 +217,8 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             let variable = tables.variables.intern(variable);
             facts.var_used.insert((variable, point));
         }
+
+        _ => {}
     };
 }
 
@@ -297,30 +284,6 @@ mod tests {
 
             assert_eq!(point, "\"Start(B0[1])\"");
             assert_eq!(loan, "L1");
-        }
-
-        // TODO: incomplete until either all the `region_live_at` are computed with liveness,
-        // or they are emitted manually at Start points.
-        // facts: region_live_at
-        assert_eq!(facts.region_live_at.len(), 3);
-        {
-            let region = tables.regions.untern(facts.region_live_at[0].0);
-            let point = tables.points.untern(facts.region_live_at[0].1);
-
-            assert_eq!(region, "'a");
-            assert_eq!(point, "\"Start(B1[0])\"");
-
-            let region = tables.regions.untern(facts.region_live_at[1].0);
-            let point = tables.points.untern(facts.region_live_at[1].1);
-
-            assert_eq!(region, "'b");
-            assert_eq!(point, "\"Start(B1[0])\"");
-
-            let region = tables.regions.untern(facts.region_live_at[2].0);
-            let point = tables.points.untern(facts.region_live_at[2].1);
-
-            assert_eq!(region, "'d");
-            assert_eq!(point, "\"Start(B0[1])\"");
         }
 
         assert_eq!(facts.outlives.len(), 1);

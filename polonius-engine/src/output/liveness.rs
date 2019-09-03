@@ -18,27 +18,40 @@ use facts::Atom;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
+pub(super) fn compute_live_regions<Region, Loan, Point, Variable, MovePath>(
     var_used: Vec<(Variable, Point)>,
     var_drop_used: Vec<(Variable, Point)>,
     var_defined: Vec<(Variable, Point)>,
     var_uses_region: Vec<(Variable, Region)>,
     var_drops_region: Vec<(Variable, Region)>,
     cfg_edge: &[(Point, Point)],
-    var_initialized_on_exit: Vec<(Variable, Point)>,
-    output: &mut Output<Region, Loan, Point, Variable>,
-) -> Vec<(Region, Point)> {
+    var_maybe_initialized_on_exit: Vec<(Variable, Point)>,
+    output: &mut Output<Region, Loan, Point, Variable, MovePath>,
+) -> Vec<(Region, Point)>
+where
+    Region: Atom,
+    Loan: Atom,
+    Point: Atom,
+    Variable: Atom,
+    MovePath: Atom,
+{
     debug!("compute_liveness()");
     let computation_start = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
     let var_defined_rel: Relation<(Variable, Point)> = var_defined.into();
+    let cfg_edge_rel: Relation<(Point, Point)> = cfg_edge.iter().map(|(p, q)| (*p, *q)).collect();
     let cfg_edge_reverse_rel: Relation<(Point, Point)> =
         cfg_edge.iter().map(|(p, q)| (*q, *p)).collect();
     let var_uses_region_rel: Relation<(Variable, Region)> = var_uses_region.into();
     let var_drops_region_rel: Relation<(Variable, Region)> = var_drops_region.into();
-    let var_initialized_on_exit_rel: Relation<(Variable, Point)> = var_initialized_on_exit.into();
+    let var_maybe_initialized_on_exit_rel: Relation<(Variable, Point)> =
+        var_maybe_initialized_on_exit.into();
+    let var_drop_used_rel: Relation<((Variable, Point), ())> = var_drop_used
+        .into_iter()
+        .map(|(v, p)| ((v, p), ()))
+        .collect();
 
     // Variables
 
@@ -53,8 +66,23 @@ pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variab
     // This propagates the relation `var_live(V, P) :- var_used(V, P)`:
     var_live_var.insert(var_used.into());
 
-    // This propagates the relation `var_drop_live(V, P) :- var_drop_used(V, P)`:
-    var_drop_live_var.insert(var_drop_used.into());
+    // var_maybe_initialized_on_entry(V, Q) :-
+    //     var_maybe_initialized_on_exit(V, P),
+    //     cfg_edge(P, Q).
+    let var_maybe_initialized_on_entry = Relation::from_leapjoin(
+        &var_maybe_initialized_on_exit_rel,
+        cfg_edge_rel.extend_with(|&(_v, p)| p),
+        |&(v, _p), &q| ((v, q), ()),
+    );
+
+    // var_drop_live(V, P) :-
+    //     var_drop_used(V, P),
+    //     var_maybe_initialzed_on_entry(V, P).
+    var_drop_live_var.insert(Relation::from_join(
+        &var_drop_used_rel,
+        &var_maybe_initialized_on_entry,
+        |&(v, p), &(), &()| (v, p),
+    ));
 
     while iteration.changed() {
         // region_live_at(R, P) :-
@@ -75,7 +103,6 @@ pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variab
         //     var_live(V, Q),
         //     cfg_edge(P, Q),
         //     !var_defined(V, P).
-        // extend p with v:s from q such that v is not in q, there is an edge from p to q
         var_live_var.from_leapjoin(
             &var_live_var,
             (
@@ -89,14 +116,14 @@ pub(super) fn compute_live_regions<Region: Atom, Loan: Atom, Point: Atom, Variab
         //     var_drop_live(V, Q),
         //     cfg_edge(P, Q),
         //     !var_defined(V, P)
-        //     var_initialized_on_exit(V, P).
+        //     var_maybe_initialized_on_exit(V, P).
         // extend p with v:s from q such that v is not in q, there is an edge from p to q
         var_drop_live_var.from_leapjoin(
             &var_drop_live_var,
             (
                 var_defined_rel.extend_anti(|&(v, _q)| v),
                 cfg_edge_reverse_rel.extend_with(|&(_v, q)| q),
-                var_initialized_on_exit_rel.extend_with(|&(v, _q)| v),
+                var_maybe_initialized_on_exit_rel.extend_with(|&(v, _q)| v),
             ),
             |&(v, _q), &p| (v, p),
         );
@@ -157,35 +184,34 @@ pub(super) fn make_universal_region_live<Region: Atom, Point: Atom>(
     }
 }
 
-pub(super) fn init_region_live_at<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom>(
+pub(super) fn init_region_live_at<
+    Region: Atom,
+    Loan: Atom,
+    Point: Atom,
+    Variable: Atom,
+    MovePath: Atom,
+>(
     var_used: Vec<(Variable, Point)>,
     var_drop_used: Vec<(Variable, Point)>,
     var_defined: Vec<(Variable, Point)>,
     var_uses_region: Vec<(Variable, Region)>,
     var_drops_region: Vec<(Variable, Region)>,
-    var_initialized_on_exit: Vec<(Variable, Point)>,
+    var_maybe_initialized_on_exit: Vec<(Variable, Point)>,
     cfg_edge: &[(Point, Point)],
-    region_live_at: Vec<(Region, Point)>,
     universal_region: Vec<Region>,
-    output: &mut Output<Region, Loan, Point, Variable>,
+    output: &mut Output<Region, Loan, Point, Variable, MovePath>,
 ) -> Vec<(Region, Point)> {
     debug!("init_region_live_at()");
-    let mut region_live_at = if region_live_at.is_empty() {
-        debug!("no region_live_at facts provided");
-        compute_live_regions(
-            var_used,
-            var_drop_used,
-            var_defined,
-            var_uses_region,
-            var_drops_region,
-            cfg_edge,
-            var_initialized_on_exit,
-            output,
-        )
-    } else {
-        debug!("using provided region_live_at facts");
-        region_live_at
-    };
+    let mut region_live_at = compute_live_regions(
+        var_used,
+        var_drop_used,
+        var_defined,
+        var_uses_region,
+        var_drops_region,
+        cfg_edge,
+        var_maybe_initialized_on_exit,
+        output,
+    );
 
     make_universal_region_live(&mut region_live_at, cfg_edge, universal_region);
 

@@ -1,3 +1,5 @@
 "bw0"	"Mid(bb0[1])"
 "bw1"	"Mid(bb0[6])"
-"bw0"	"Mid(bb11[1])"
+"bw1"	"Mid(bb0[11])"
+"bw0"	"Mid(bb11[2])"
+"bw0"	"Mid(bb14[1])"
