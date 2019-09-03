@@ -23,4 +23,4 @@ crate. The crate will continue to exist.
 
 Check out the [polonius working group][wg] of the compiler team.
 
-[wg]; https://rust-lang.github.io/compiler-team/working-groups/polonius/
+[wg]: https://rust-lang.github.io/compiler-team/working-groups/polonius/
