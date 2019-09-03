@@ -19,11 +19,7 @@ script:
 - cargo test --all
 - mdbook build ./book/
 
-deploy:
-  provider: pages
-  skip-cleanup: true
-  github-token: $GITHUB_TOKEN
-  local-dir: book/book
-  keep-history: false
-  on:
-    branch: master
+env:
+  RUSTINFRA_DEPLOY_DIR: book/book
+import:
+  - rust-lang/simpleinfra/travis-configs/static-websites.yml
