@@ -80,7 +80,7 @@ pub(crate) fn dump_output(
     }
     return Ok(());
 
-    fn writer_for(out_dir: &Option<PathBuf>, name: &str) -> io::Result<Box<Write>> {
+    fn writer_for(out_dir: &Option<PathBuf>, name: &str) -> io::Result<Box<dyn Write>> {
         // create a writer for the provided output.
         // If we have an output directory use that, otherwise just dump to stdout
         use std::fs;
@@ -111,7 +111,7 @@ trait OutputDump {
 }
 
 fn dump_rows(
-    stream: &mut Write,
+    stream: &mut dyn Write,
     intern: &InternerTables,
     value: &impl OutputDump,
 ) -> io::Result<()> {
