@@ -62,7 +62,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
-        let region_live_at_rel: Relation<(Region, Point)> = region_live_at.into();;
+        let region_live_at_rel: Relation<(Region, Point)> = region_live_at.into();
         let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
