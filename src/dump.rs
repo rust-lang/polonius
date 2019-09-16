@@ -289,7 +289,7 @@ pub(crate) trait Atom: Copy + From<usize> + Into<usize> {
 
 impl Atom for Origin {
     fn table(intern: &InternerTables) -> &Interner<Self> {
-        &intern.regions
+        &intern.origins
     }
 }
 
