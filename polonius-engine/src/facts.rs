@@ -3,11 +3,11 @@ use std::hash::Hash;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
-pub struct AllFacts<Origin: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
+pub struct AllFacts<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> {
     /// `borrow_region(O, B, P)` -- the origin `O` may refer to data
     /// from borrow B starting at the point P (this is usually the
     /// point *after* a borrow rvalue)
-    pub borrow_region: Vec<(Origin, L, P)>,
+    pub borrow_region: Vec<(Origin, Loan, P)>,
 
     /// `universal_region(O)` -- this is a "free region" within fn body
     pub universal_region: Vec<Origin>,
@@ -16,13 +16,13 @@ pub struct AllFacts<Origin: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
     pub cfg_edge: Vec<(P, P)>,
 
     /// `killed(B,P)` when some prefix of the path borrowed at B is assigned at point P
-    pub killed: Vec<(L, P)>,
+    pub killed: Vec<(Loan, P)>,
 
     /// `outlives(O1, P2, P)` when we require `O1@P: O2@P`
     pub outlives: Vec<(Origin, Origin, P)>,
 
-    ///  `invalidates(P, L)` when the loan L is invalidated at point P
-    pub invalidates: Vec<(P, L)>,
+    ///  `invalidates(P, L)` when the loan `L` is invalidated at point `P`
+    pub invalidates: Vec<(P, Loan)>,
 
     /// `var_used(V, P) when the variable V is used for anything but a drop at point P`
     pub var_used: Vec<(V, P)>,
@@ -64,7 +64,7 @@ pub struct AllFacts<Origin: Atom, L: Atom, P: Atom, V: Atom, M: Atom> {
     pub path_accessed_at: Vec<(M, P)>,
 }
 
-impl<Origin: Atom, L: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<Origin, L, P, V, M> {
+impl<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<Origin, Loan, P, V, M> {
     fn default() -> Self {
         AllFacts {
             borrow_region: Vec::default(),
