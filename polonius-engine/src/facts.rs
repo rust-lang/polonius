@@ -64,7 +64,9 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MoveP
     pub path_accessed_at: Vec<(MovePath, Point)>,
 }
 
-impl<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom> Default for AllFacts<Origin, Loan, Point, Variable, MovePath> {
+impl<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom> Default
+    for AllFacts<Origin, Loan, Point, Variable, MovePath>
+{
     fn default() -> Self {
         AllFacts {
             borrow_region: Vec::default(),

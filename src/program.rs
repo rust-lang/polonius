@@ -7,7 +7,7 @@ use polonius_parser::{
     parse_input,
 };
 
-use crate::facts::{AllFacts, Loan, MovePath, Point, Origin, Variable};
+use crate::facts::{AllFacts, Loan, MovePath, Origin, Point, Variable};
 use crate::intern::InternerTables;
 
 /// A structure to hold and deduplicate facts
