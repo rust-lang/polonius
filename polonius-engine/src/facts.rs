@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
-pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> {
+pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, M: Atom> {
     /// `borrow_region(O, L, P)` -- the origin `O` may refer to data
     /// from loan `L` starting at the point `P` (this is usually the
     /// point *after* a borrow rvalue)
@@ -25,20 +25,20 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> {
     pub invalidates: Vec<(Point, Loan)>,
 
     /// `var_used(V, P)` when the variable `V` is used for anything but a drop at point `P`
-    pub var_used: Vec<(V, Point)>,
+    pub var_used: Vec<(Variable, Point)>,
 
     /// `var_defined(V, P)` when the variable `V` is overwritten by the point `P`
-    pub var_defined: Vec<(V, Point)>,
+    pub var_defined: Vec<(Variable, Point)>,
 
     /// `var_used(V, P)` when the variable `V` is used in a drop at point `P`
-    pub var_drop_used: Vec<(V, Point)>,
+    pub var_drop_used: Vec<(Variable, Point)>,
 
     /// `var_uses_region(V, O)` when the type of `V` includes the origin `O`
-    pub var_uses_region: Vec<(V, Origin)>,
+    pub var_uses_region: Vec<(Variable, Origin)>,
 
     /// `var_drops_region(V, O)` when the type of `V` includes the origin `O` and uses
     /// it when dropping
-    pub var_drops_region: Vec<(V, Origin)>,
+    pub var_drops_region: Vec<(Variable, Origin)>,
 
     /// `child(M1, M2)` when the move path `M1` is the direct or transitive child
     /// of `M2`, e.g. `child(x.y, x)`, `child(x.y.z, x.y)`, `child(x.y.z, x)`
@@ -46,7 +46,7 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> {
     pub child: Vec<(M, M)>,
 
     /// `path_belongs_to_var(M, V)` the root path `M` starting in variable `V`.
-    pub path_belongs_to_var: Vec<(M, V)>,
+    pub path_belongs_to_var: Vec<(M, Variable)>,
 
     /// `initialized_at(M, P)` when the move path `M` was initialized at point
     /// `P`. This fact is only emitted for a prefix `M`, and not for the
@@ -64,7 +64,7 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> {
     pub path_accessed_at: Vec<(M, Point)>,
 }
 
-impl<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> Default for AllFacts<Origin, Loan, Point, V, M> {
+impl<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, M: Atom> Default for AllFacts<Origin, Loan, Point, Variable, M> {
     fn default() -> Self {
         AllFacts {
             borrow_region: Vec::default(),
