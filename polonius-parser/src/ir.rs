@@ -40,17 +40,17 @@ pub struct Statement {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
-    Use { regions: Vec<String> },
+    Use { origins: Vec<String> },
     Fact(Fact),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fact {
     Outlives { a: String, b: String },
-    BorrowRegionAt { region: String, loan: String },
+    BorrowRegionAt { origin: String, loan: String },
     Invalidates { loan: String },
     Kill { loan: String },
-    RegionLiveAt { region: String },
+    RegionLiveAt { origin: String },
     DefineVariable { variable: String },
     UseVariable { variable: String },
 }

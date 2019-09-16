@@ -12,12 +12,12 @@ Comment: () = {
 
 VarRegionMappings = Comma<VarRegionMapping>;
 VarRegionMapping: (String, String) = {
-                 "(" <Variable> "," <Region> ")" => (<>),
+                 "(" <Variable> "," <Origin> ")" => (<>),
 };
 
 VarUsesRegion = "var_uses_region" "{" <VarRegionMappings> "}";
 VarDropsRegion = "var_drops_region" "{" <VarRegionMappings> "}";
-UniversalRegions = "universal_regions" "{" <Comma<Region>> "}";
+UniversalRegions = "universal_regions" "{" <Comma<Origin>> "}";
 BlockDefn : Block = {
     "block" <name:Block> "{" <statements:Statement*> Comment* <goto:Goto> "}" => Block { <> },
 };
@@ -39,17 +39,17 @@ Effect = {
 };
 
 Fact : Fact = {
-  "outlives" "(" <a:Region> ":" <b:Region> ")" => Fact::Outlives { <> },
-  "borrow_region_at" "(" <region:Region> "," <loan:Loan> ")" => Fact::BorrowRegionAt { <> },
+  "outlives" "(" <a:Origin> ":" <b:Origin> ")" => Fact::Outlives { <> },
+  "borrow_region_at" "(" <origin:Origin> "," <loan:Loan> ")" => Fact::BorrowRegionAt { <> },
   "invalidates" "(" <loan:Loan> ")" => Fact::Invalidates { <> },
   "kill" "(" <loan:Loan> ")" => Fact::Kill { <> },
   "var_used" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
   "var_defined" "(" <variable:Variable> ")" => Fact::DefineVariable { <> },
-  "region_live_at" "(" <region:Region> ")" => Fact::RegionLiveAt { <> },
+  "region_live_at" "(" <origin:Origin> ")" => Fact::RegionLiveAt { <> },
   "var_drop_used" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
 };
 
-Use : Effect = "use" "(" <regions:Comma<Region>> ")" => Effect::Use { <> };
+Use : Effect = "use" "(" <origins:Comma<Origin>> ")" => Effect::Use { <> };
 
 Comma<T>: Vec<T> = {
     <v:(<T> ",")*> <e:T?> => match e {
@@ -62,7 +62,7 @@ Comma<T>: Vec<T> = {
     }
 };
 
-Region: String = {
+Origin: String = {
     r"'\w+" => <>.to_string()
 };
 

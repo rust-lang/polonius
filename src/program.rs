@@ -171,11 +171,11 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
     match fact {
         // facts: borrow_region(Origin, Loan, Point)
         Fact::BorrowRegionAt {
-            ref region,
+            ref origin,
             ref loan,
         } => {
-            // borrow_region: a `borrow_region_at` occurs on the Mid point
-            let origin = tables.origins.intern(region);
+            // borrow_region: a `borrow_region` occurs on the Mid point
+            let origin = tables.origins.intern(origin);
             let loan = tables.loans.intern(loan);
 
             facts.borrow_region.insert((origin, loan, point));
