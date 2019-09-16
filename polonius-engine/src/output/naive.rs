@@ -81,8 +81,6 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // output
         let errors = iteration.variable("errors");
 
-        //let compute_region_live_at = all_facts.region_live_at.is_empty();
-
         // load initial facts.
         subset.insert(all_facts.outlives.into());
         requires.insert(all_facts.borrow_region.into());
