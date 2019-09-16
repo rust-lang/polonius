@@ -4,8 +4,8 @@ use std::hash::Hash;
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
 pub struct AllFacts<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> {
-    /// `borrow_region(O, B, P)` -- the origin `O` may refer to data
-    /// from borrow B starting at the point P (this is usually the
+    /// `borrow_region(O, L, P)` -- the origin `O` may refer to data
+    /// from loan `L` starting at the point P (this is usually the
     /// point *after* a borrow rvalue)
     pub borrow_region: Vec<(Origin, Loan, P)>,
 
@@ -15,7 +15,7 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> {
     /// `cfg_edge(P,Q)` for each edge P -> Q in the control flow
     pub cfg_edge: Vec<(P, P)>,
 
-    /// `killed(B,P)` when some prefix of the path borrowed at B is assigned at point P
+    /// `killed(L,P)` when some prefix of the path borrowed at `L` is assigned at point `P`
     pub killed: Vec<(Loan, P)>,
 
     /// `outlives(O1, P2, P)` when we require `O1@P: O2@P`
