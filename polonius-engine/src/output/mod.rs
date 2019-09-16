@@ -65,7 +65,6 @@ impl ::std::str::FromStr for Algorithm {
 pub struct Output<Origin, Loan, Point, Variable, MovePath>
 where
     Origin: Atom,
-    Origin: Atom,
     Loan: Atom,
     Point: Atom,
     Variable: Atom,
