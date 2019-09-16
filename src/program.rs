@@ -7,23 +7,23 @@ use polonius_parser::{
     parse_input,
 };
 
-use crate::facts::{AllFacts, Loan, MovePath, Point, Region, Variable};
+use crate::facts::{AllFacts, Loan, MovePath, Point, Origin, Variable};
 use crate::intern::InternerTables;
 
 /// A structure to hold and deduplicate facts
 #[derive(Default)]
 struct Facts {
-    borrow_region: BTreeSet<(Region, Loan, Point)>,
-    universal_region: BTreeSet<Region>,
+    borrow_region: BTreeSet<(Origin, Loan, Point)>,
+    universal_region: BTreeSet<Origin>,
     cfg_edge: BTreeSet<(Point, Point)>,
     killed: BTreeSet<(Loan, Point)>,
-    outlives: BTreeSet<(Region, Region, Point)>,
+    outlives: BTreeSet<(Origin, Origin, Point)>,
     invalidates: BTreeSet<(Point, Loan)>,
     var_defined: BTreeSet<(Variable, Point)>,
     var_used: BTreeSet<(Variable, Point)>,
     var_drop_used: BTreeSet<(Variable, Point)>,
-    var_uses_region: BTreeSet<(Variable, Region)>,
-    var_drops_region: BTreeSet<(Variable, Region)>,
+    var_uses_region: BTreeSet<(Variable, Origin)>,
+    var_drops_region: BTreeSet<(Variable, Origin)>,
     child: BTreeSet<(MovePath, MovePath)>,
     path_belongs_to_var: BTreeSet<(MovePath, Variable)>,
     initialized_at: BTreeSet<(MovePath, Point)>,
@@ -63,7 +63,7 @@ pub(crate) fn parse_from_program(
 
     let mut facts: Facts = Default::default();
 
-    // facts: universal_region(Region)
+    // facts: universal_region(Origin)
     facts.universal_region.extend(
         input
             .universal_regions
@@ -169,7 +169,7 @@ pub(crate) fn parse_from_program(
 
 fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut InternerTables) {
     match fact {
-        // facts: borrow_region(Region, Loan, Point)
+        // facts: borrow_region(Origin, Loan, Point)
         Fact::BorrowRegionAt {
             ref region,
             ref loan,
@@ -181,7 +181,7 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.borrow_region.insert((region, loan, point));
         }
 
-        // facts: outlives(Region, Region, Point)
+        // facts: outlives(Origin, Origin, Point)
         Fact::Outlives { ref a, ref b } => {
             // outlives: a `outlives` occurs on Mid points
             let region_a = tables.regions.intern(a);

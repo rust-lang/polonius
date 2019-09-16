@@ -41,7 +41,7 @@ where
 }
 
 pub(crate) struct InternerTables {
-    pub(crate) regions: Interner<Region>,
+    pub(crate) regions: Interner<Origin>,
     pub(crate) loans: Interner<Loan>,
     pub(crate) points: Interner<Point>,
     pub(crate) variables: Interner<Variable>,
@@ -74,7 +74,7 @@ macro_rules! intern_impl {
     };
 }
 
-intern_impl!(Region, regions);
+intern_impl!(Origin, regions);
 intern_impl!(Loan, loans);
 intern_impl!(Point, points);
 intern_impl!(Variable, variables);
