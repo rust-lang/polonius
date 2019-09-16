@@ -16,10 +16,10 @@ use crate::output::location_insensitive;
 use crate::output::Output;
 use facts::{AllFacts, Atom};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
+pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
     dump_enabled: bool,
-    all_facts: AllFacts<Region, Loan, Point, Variable, MovePath>,
-) -> Output<Region, Loan, Point, Variable, MovePath> {
+    all_facts: AllFacts<Origin, Loan, Point, Variable, MovePath>,
+) -> Output<Origin, Loan, Point, Variable, MovePath> {
     let lins_output = location_insensitive::compute(dump_enabled, &all_facts);
     if lins_output.errors.is_empty() {
         lins_output

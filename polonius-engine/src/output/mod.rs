@@ -62,10 +62,10 @@ impl ::std::str::FromStr for Algorithm {
 }
 
 #[derive(Clone, Debug)]
-pub struct Output<Region, Loan, Point, Variable, MovePath>
+pub struct Output<Origin, Loan, Point, Variable, MovePath>
 where
-    Region: Atom,
-    Region: Atom,
+    Origin: Atom,
+    Origin: Atom,
     Loan: Atom,
     Point: Atom,
     Variable: Atom,
@@ -77,12 +77,12 @@ where
 
     // these are just for debugging
     pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
-    pub restricts: FxHashMap<Point, BTreeMap<Region, BTreeSet<Loan>>>,
-    pub restricts_anywhere: FxHashMap<Region, BTreeSet<Loan>>,
-    pub region_live_at: FxHashMap<Point, Vec<Region>>,
+    pub restricts: FxHashMap<Point, BTreeMap<Origin, BTreeSet<Loan>>>,
+    pub restricts_anywhere: FxHashMap<Origin, BTreeSet<Loan>>,
+    pub region_live_at: FxHashMap<Point, Vec<Origin>>,
     pub invalidates: FxHashMap<Point, Vec<Loan>>,
-    pub subset: FxHashMap<Point, BTreeMap<Region, BTreeSet<Region>>>,
-    pub subset_anywhere: FxHashMap<Region, BTreeSet<Region>>,
+    pub subset: FxHashMap<Point, BTreeMap<Origin, BTreeSet<Origin>>>,
+    pub subset_anywhere: FxHashMap<Origin, BTreeSet<Origin>>,
     pub var_live_at: FxHashMap<Point, Vec<Variable>>,
     pub var_drop_live_at: FxHashMap<Point, Vec<Variable>>,
     pub path_maybe_initialized_at: FxHashMap<Point, Vec<MovePath>>,
@@ -125,16 +125,16 @@ fn compare_errors<Loan: Atom, Point: Atom>(
     differ
 }
 
-impl<Region, Loan, Point, Variable, MovePath> Output<Region, Loan, Point, Variable, MovePath>
+impl<Origin, Loan, Point, Variable, MovePath> Output<Origin, Loan, Point, Variable, MovePath>
 where
-    Region: Atom,
+    Origin: Atom,
     Loan: Atom,
     Point: Atom,
     Variable: Atom,
     MovePath: Atom,
 {
     pub fn compute(
-        all_facts: &AllFacts<Region, Loan, Point, Variable, MovePath>,
+        all_facts: &AllFacts<Origin, Loan, Point, Variable, MovePath>,
         algorithm: Algorithm,
         dump_enabled: bool,
     ) -> Self {
@@ -194,7 +194,7 @@ where
         }
     }
 
-    pub fn restricts_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Loan>>> {
+    pub fn restricts_at(&self, location: Point) -> Cow<'_, BTreeMap<Origin, BTreeSet<Loan>>> {
         assert!(self.dump_enabled);
         match self.restricts.get(&location) {
             Some(map) => Cow::Borrowed(map),
@@ -202,7 +202,7 @@ where
         }
     }
 
-    pub fn regions_live_at(&self, location: Point) -> &[Region] {
+    pub fn regions_live_at(&self, location: Point) -> &[Origin] {
         assert!(self.dump_enabled);
         match self.region_live_at.get(&location) {
             Some(v) => v,
@@ -210,7 +210,7 @@ where
         }
     }
 
-    pub fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Region, BTreeSet<Region>>> {
+    pub fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Origin, BTreeSet<Origin>>> {
         assert!(self.dump_enabled);
         match self.subset.get(&location) {
             Some(v) => Cow::Borrowed(v),
