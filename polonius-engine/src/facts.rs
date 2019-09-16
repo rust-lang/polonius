@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
-pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, M: Atom> {
+pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom> {
     /// `borrow_region(O, L, P)` -- the origin `O` may refer to data
     /// from loan `L` starting at the point `P` (this is usually the
     /// point *after* a borrow rvalue)
@@ -43,28 +43,28 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, M: At
     /// `child(M1, M2)` when the move path `M1` is the direct or transitive child
     /// of `M2`, e.g. `child(x.y, x)`, `child(x.y.z, x.y)`, `child(x.y.z, x)`
     /// would all be true if there was a path like `x.y.z`.
-    pub child: Vec<(M, M)>,
+    pub child: Vec<(MovePath, MovePath)>,
 
     /// `path_belongs_to_var(M, V)` the root path `M` starting in variable `V`.
-    pub path_belongs_to_var: Vec<(M, Variable)>,
+    pub path_belongs_to_var: Vec<(MovePath, Variable)>,
 
     /// `initialized_at(M, P)` when the move path `M` was initialized at point
     /// `P`. This fact is only emitted for a prefix `M`, and not for the
     /// implicit initialization of all of `M`'s children. E.g. a statement like
     /// `x.y = 3` at point `P` would give the fact `initialized_at(x.y, P)` (but
     /// neither `initialized_at(x.y.z, P)` nor `initialized_at(x, P)`).
-    pub initialized_at: Vec<(M, Point)>,
+    pub initialized_at: Vec<(MovePath, Point)>,
 
     /// `moved_out_at(M, P)` when the move path `M` was moved at point `P`. The
     /// same logic is applied as for `initialized_at` above.
-    pub moved_out_at: Vec<(M, Point)>,
+    pub moved_out_at: Vec<(MovePath, Point)>,
 
     /// `path_accessed_at(M, P)` when the move path `M` was accessed at point
     /// `P`. The same logic as for `initialized_at` and `moved_out_at` applies.
-    pub path_accessed_at: Vec<(M, Point)>,
+    pub path_accessed_at: Vec<(MovePath, Point)>,
 }
 
-impl<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, M: Atom> Default for AllFacts<Origin, Loan, Point, Variable, M> {
+impl<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom> Default for AllFacts<Origin, Loan, Point, Variable, MovePath> {
     fn default() -> Self {
         AllFacts {
             borrow_region: Vec::default(),
