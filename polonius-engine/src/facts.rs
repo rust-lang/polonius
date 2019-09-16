@@ -3,35 +3,35 @@ use std::hash::Hash;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
-pub struct AllFacts<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> {
+pub struct AllFacts<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> {
     /// `borrow_region(O, L, P)` -- the origin `O` may refer to data
-    /// from loan `L` starting at the point P (this is usually the
+    /// from loan `L` starting at the point `P` (this is usually the
     /// point *after* a borrow rvalue)
-    pub borrow_region: Vec<(Origin, Loan, P)>,
+    pub borrow_region: Vec<(Origin, Loan, Point)>,
 
     /// `universal_region(O)` -- this is a "free region" within fn body
     pub universal_region: Vec<Origin>,
 
-    /// `cfg_edge(P,Q)` for each edge P -> Q in the control flow
-    pub cfg_edge: Vec<(P, P)>,
+    /// `cfg_edge(P,Q)` for each edge `P -> Q` in the control flow
+    pub cfg_edge: Vec<(Point, Point)>,
 
     /// `killed(L,P)` when some prefix of the path borrowed at `L` is assigned at point `P`
-    pub killed: Vec<(Loan, P)>,
+    pub killed: Vec<(Loan, Point)>,
 
     /// `outlives(O1, P2, P)` when we require `O1@P: O2@P`
-    pub outlives: Vec<(Origin, Origin, P)>,
+    pub outlives: Vec<(Origin, Origin, Point)>,
 
     ///  `invalidates(P, L)` when the loan `L` is invalidated at point `P`
-    pub invalidates: Vec<(P, Loan)>,
+    pub invalidates: Vec<(Point, Loan)>,
 
     /// `var_used(V, P) when the variable V is used for anything but a drop at point P`
-    pub var_used: Vec<(V, P)>,
+    pub var_used: Vec<(V, Point)>,
 
     /// `var_defined(V, P) when the variable V is overwritten by the point P`
-    pub var_defined: Vec<(V, P)>,
+    pub var_defined: Vec<(V, Point)>,
 
     /// `var_used(V, P) when the variable V is used in a drop at point P`
-    pub var_drop_used: Vec<(V, P)>,
+    pub var_drop_used: Vec<(V, Point)>,
 
     /// `var_uses_region(V, O)` when the type of V includes the origin `O`
     pub var_uses_region: Vec<(V, Origin)>,
@@ -53,18 +53,18 @@ pub struct AllFacts<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> {
     /// implicit initialization of all of `M`'s children. E.g. a statement like
     /// `x.y = 3` at point `P` would give the fact `initialized_at(x.y, P)` (but
     /// neither `initialized_at(x.y.z, P)` nor `initialized_at(x, P)`).
-    pub initialized_at: Vec<(M, P)>,
+    pub initialized_at: Vec<(M, Point)>,
 
     /// `moved_out_at(M, P) when the move path `M` was moved at point `P`. The
     /// same logic is applied as for `initialized_at` above.
-    pub moved_out_at: Vec<(M, P)>,
+    pub moved_out_at: Vec<(M, Point)>,
 
     /// `path_accessed_at(M, P) when the move path `M` was accessed at point
     /// `P`. The same logic as for `initialized_at` and `moved_out_at` applies.
-    pub path_accessed_at: Vec<(M, P)>,
+    pub path_accessed_at: Vec<(M, Point)>,
 }
 
-impl<Origin: Atom, Loan: Atom, P: Atom, V: Atom, M: Atom> Default for AllFacts<Origin, Loan, P, V, M> {
+impl<Origin: Atom, Loan: Atom, Point: Atom, V: Atom, M: Atom> Default for AllFacts<Origin, Loan, Point, V, M> {
     fn default() -> Self {
         AllFacts {
             borrow_region: Vec::default(),
