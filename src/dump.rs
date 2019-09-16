@@ -486,7 +486,7 @@ fn build_outputs_by_point_for_visualization(
         ),
         facts_by_point(
             output.region_live_at.iter(),
-            |(pt, region)| (*pt, region.clone()),
+            |(pt, origin)| (*pt, origin.clone()),
             "region_live_at".to_string(),
             1,
             intern,

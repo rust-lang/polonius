@@ -68,24 +68,24 @@ pub(crate) fn parse_from_program(
         input
             .universal_regions
             .iter()
-            .map(|region| tables.origins.intern(region)),
+            .map(|origin| tables.origins.intern(origin)),
     );
 
     facts
         .var_drops_region
-        .extend(input.var_drops_region.iter().map(|(variable, region)| {
+        .extend(input.var_drops_region.iter().map(|(variable, origin)| {
             (
                 tables.variables.intern(variable),
-                tables.origins.intern(region),
+                tables.origins.intern(origin),
             )
         }));
 
     facts
         .var_uses_region
-        .extend(input.var_uses_region.iter().map(|(variable, region)| {
+        .extend(input.var_uses_region.iter().map(|(variable, origin)| {
             (
                 tables.variables.intern(variable),
-                tables.origins.intern(region),
+                tables.origins.intern(origin),
             )
         }));
 
@@ -175,10 +175,10 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             ref loan,
         } => {
             // borrow_region: a `borrow_region_at` occurs on the Mid point
-            let region = tables.origins.intern(region);
+            let origin = tables.origins.intern(region);
             let loan = tables.loans.intern(loan);
 
-            facts.borrow_region.insert((region, loan, point));
+            facts.borrow_region.insert((origin, loan, point));
         }
 
         // facts: outlives(Origin, Origin, Point)
@@ -299,11 +299,11 @@ mod tests {
 
         assert_eq!(facts.borrow_region.len(), 1);
         {
-            let region = tables.origins.untern(facts.borrow_region[0].0);
+            let origin = tables.origins.untern(facts.borrow_region[0].0);
             let loan = tables.loans.untern(facts.borrow_region[0].1);
             let point = tables.points.untern(facts.borrow_region[0].2);
 
-            assert_eq!(region, "'b");
+            assert_eq!(origin, "'b");
             assert_eq!(loan, "L1");
             assert_eq!(point, "\"Mid(B1[0])\"");
         }
