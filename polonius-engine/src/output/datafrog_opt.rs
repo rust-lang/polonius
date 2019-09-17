@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use crate::output::initialization;
@@ -50,305 +49,346 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         let mut iteration = Iteration::new();
 
         // static inputs
-        let cfg_edge_rel = Relation::from_iter(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
+        let cfg_edge_rel = Relation::from_iter(
+            all_facts
+                .cfg_edge
+                .iter()
+                .map(|&(point1, point2)| (point1, point2)),
+        );
 
         let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.into();
 
         // `invalidates` facts, stored ready for joins
         let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
 
-        // we need `region_live_at` in both variable and relation forms.
+        // we need `region_live_at` in both variable and relation forms,
         // (respectively, for join and antijoin).
         let region_live_at_rel: Relation<(T::Origin, T::Point)> = region_live_at.into();
         let region_live_at_var =
             iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
-        let borrow_region_rp =
-            iteration.variable::<((T::Origin, T::Point), T::Loan)>("borrow_region_rp");
+        let borrow_region_op =
+            iteration.variable::<((T::Origin, T::Point), T::Loan)>("borrow_region_op");
 
-        // .decl subset(R1, R2, P)
+        // .decl subset(origin1, origin2, point)
         //
-        // Indicates that `R1: R2` at the point `P`.
-        let subset_r1p = iteration.variable::<((T::Origin, T::Point), T::Origin)>("subset_r1p");
+        // Indicates that `origin1: origin2` at `point`.
+        let subset_o1p = iteration.variable::<((T::Origin, T::Point), T::Origin)>("subset_o1p");
 
-        // .decl requires(R, B, P)
+        // .decl requires(origin, loan, point)
         //
-        // At the point, things with origin R may depend on data from
-        // borrow B
-        let requires_rp = iteration.variable::<((T::Origin, T::Point), T::Loan)>("requires_rp");
+        // At `point`, things with `origin` may depend on data from `loan`.
+        let requires_op = iteration.variable::<((T::Origin, T::Point), T::Loan)>("requires_op");
 
-        // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
-        // need to be enforced at the point P
+        // .decl borrow_live_at(loan, point)
+        //
+        // True if the restrictions of the `loan` need to be enforced at `point`.
         let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
 
-        // .decl live_to_dying_regions(R1, R2, P, Q)
+        // .decl live_to_dying_regions(origin1, origin2, point1, point2)
         //
-        // The regions `R1` and `R2` are "live to dead"
-        // on the edge `P -> Q` if:
+        // The origins `origin1` and `origin2` are "live to dead"
+        // on the edge `point1 -> point2` if:
         //
-        // - In P, `R1` <= `R2`
-        // - In Q, `R1` is live but `R2` is dead.
+        // - In `point1`, `origin1` <= `origin2`
+        // - In `point2`, `origin1` is live but `origin2` is dead.
         //
-        // In that case, `Q` would like to add all the
-        // live things reachable from `R2` to `R1`.
+        // In that case, `point2` would like to add all the
+        // live things reachable from `origin2` to `origin1`.
         //
-        let live_to_dying_regions_r2pq = iteration
-            .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("live_to_dying_regions_r2pq");
+        let live_to_dying_regions_o2pq = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("live_to_dying_regions_o2pq");
 
-        // .decl dying_region_requires((R, P, Q), B)
+        // .decl dying_region_requires((origin, point1, point2), loan)
         //
-        // The origin `R` requires the borrow `B`, but the
-        // origin `R` goes dead along the edge `P -> Q`
+        // The `origin` requires `loan`, but the `origin` goes dead
+        // along the edge `point1 -> point2`.
         let dying_region_requires = iteration
             .variable::<((T::Origin, T::Point, T::Point), T::Loan)>("dying_region_requires");
 
-        // .decl dying_can_reach_origins(R, P, Q)
+        // .decl dying_can_reach_origins(origin, point1, point2)
         //
-        // Contains dead regions where we are interested
+        // Contains dead origins where we are interested
         // in computing the transitive closure of things they
         // can reach.
+        //
+        // FIXME: this relation was named before renaming the `regions` atoms to `origins`, and
+        // will need to be renamed to change "_origins" to "_ascendants", "_roots", etc.
         let dying_can_reach_origins =
             iteration.variable::<((T::Origin, T::Point), T::Point)>("dying_can_reach_origins");
 
-        // .decl dying_can_reach(R1, R2, P, Q)
+        // .decl dying_can_reach(origin1, origin2, point1, point2)
         //
-        // Indicates that the origin `R1`, which is dead
-        // in `Q`, can reach the origin `R2` in P.
+        // Indicates that `origin1`, which is dead
+        // in `point2`, can reach `origin2` in `point1`.
         //
         // This is effectively the transitive subset
-        // relation, but we try to limit it to regions
-        // that are dying on the edge P -> Q.
-        let dying_can_reach_r2q =
+        // relation, but we try to limit it to origins
+        // that are dying on the edge `point1 -> point2`.
+        let dying_can_reach_o2q =
             iteration.variable::<((T::Origin, T::Point), (T::Origin, T::Point))>("dying_can_reach");
         let dying_can_reach_1 = iteration.variable_indistinct("dying_can_reach_1");
 
-        // .decl dying_can_reach_live(R1, R2, P, Q)
+        // .decl dying_can_reach_live(origin1, origin2, point1, point2)
         //
-        // Indicates that, along the edge `P -> Q`, the dead (in Q)
-        // origin R1 can reach the live (in Q) origin R2 via a subset
+        // Indicates that, along the edge `point1 -> point2`, the dead (in `point2`)
+        // `origin1` can reach the live (in `point2`) `origin2` via a subset
         // relation. This is a subset of the full `dying_can_reach`
-        // relation where we filter down to those cases where R2 is
-        // live in Q.
+        // relation where we filter down to those cases where `origin2` is
+        // live in `point2`.
         let dying_can_reach_live = iteration
             .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("dying_can_reach_live");
 
-        // .decl dead_borrow_region_can_reach_root((R, P), B)
+        // .decl dead_borrow_region_can_reach_root((origin, point), loan)
         //
-        // Indicates a "borrow region" R at P which is not live on
-        // entry to P.
+        // Indicates a "borrow region" `origin` at `point` which is not live on
+        // entry to `point`.
         let dead_borrow_region_can_reach_root = iteration
             .variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_root");
 
-        // .decl dead_borrow_region_can_reach_dead((R2, P), B)
+        // .decl dead_borrow_region_can_reach_dead((origin2, point), loan)
         let dead_borrow_region_can_reach_dead = iteration
             .variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_dead");
         let dead_borrow_region_can_reach_dead_1 =
             iteration.variable_indistinct("dead_borrow_region_can_reach_dead_1");
 
-        // .decl errors(B, P)
+        // .decl errors(loan, point)
         let errors = iteration.variable("errors");
 
         // Make "variable" versions of the relations, needed for joins.
-        borrow_region_rp.extend(all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)));
-        invalidates.extend(all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())));
-        region_live_at_var.extend(region_live_at_rel.iter().map(|&(r, p)| ((r, p), ())));
+        borrow_region_op.extend(
+            all_facts
+                .borrow_region
+                .iter()
+                .map(|&(origin, loan, point)| ((origin, point), loan)),
+        );
+        invalidates.extend(
+            all_facts
+                .invalidates
+                .iter()
+                .map(|&(point, loan)| ((loan, point), ())),
+        );
+        region_live_at_var.extend(
+            region_live_at_rel
+                .iter()
+                .map(|&(origin, point)| ((origin, point), ())),
+        );
 
-        // subset(R1, R2, P) :- outlives(R1, R2, P).
-        subset_r1p.extend(all_facts.outlives.iter().map(|&(r1, r2, p)| ((r1, p), r2)));
+        // subset(origin1, origin2, point) :- outlives(origin1, origin2, point).
+        subset_o1p.extend(
+            all_facts
+                .outlives
+                .iter()
+                .map(|&(origin1, origin2, point)| ((origin1, point), origin2)),
+        );
 
-        // requires(R, B, P) :- borrow_region(R, B, P).
-        requires_rp.extend(all_facts.borrow_region.iter().map(|&(r, b, p)| ((r, p), b)));
+        // requires(origin, loan, point) :- borrow_region(origin, loan, point).
+        requires_op.extend(
+            all_facts
+                .borrow_region
+                .iter()
+                .map(|&(origin, loan, point)| ((origin, point), loan)),
+        );
 
         // .. and then start iterating rules!
         while iteration.changed() {
             // Cleanup step: remove symmetries
-            // - remove regions which are `subset`s of themselves
+            // - remove origins which are `subset`s of themselves
             //
             // FIXME: investigate whether is there a better way to do that without complicating
             // the rules too much, because it would also require temporary variables and
             // impact performance. Until then, the big reduction in tuples improves performance
             // a lot, even if we're potentially adding a small number of tuples
             // per round just to remove them in the next round.
-            subset_r1p
+            subset_o1p
                 .recent
                 .borrow_mut()
                 .elements
-                .retain(|&((r1, _), r2)| r1 != r2);
+                .retain(|&((origin1, _), origin2)| origin1 != origin2);
 
-            // live_to_dying_regions(R1, R2, P, Q) :-
-            //   subset(R1, R2, P),
-            //   cfg_edge(P, Q),
-            //   region_live_at(R1, Q),
-            //   !region_live_at(R2, Q).
-            live_to_dying_regions_r2pq.from_leapjoin(
-                &subset_r1p,
+            // live_to_dying_regions(origin1, origin2, point1, point2) :-
+            //   subset(origin1, origin2, point1),
+            //   cfg_edge(point1, point2),
+            //   region_live_at(origin1, point2),
+            //   !region_live_at(origin2, point2).
+            live_to_dying_regions_o2pq.from_leapjoin(
+                &subset_o1p,
                 (
-                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    region_live_at_rel.extend_with(|&((r1, _), _)| r1),
-                    region_live_at_rel.extend_anti(|&((_, _), r2)| r2),
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    region_live_at_rel.extend_with(|&((origin1, _), _)| origin1),
+                    region_live_at_rel.extend_anti(|&((_, _), origin2)| origin2),
                 ),
-                |&((r1, p), r2), &q| ((r2, p, q), r1),
+                |&((origin1, point1), origin2), &point2| ((origin2, point1, point2), origin1),
             );
 
-            // dying_region_requires((R, P, Q), B) :-
-            //   requires(R, B, P),
-            //   !killed(B, P),
-            //   cfg_edge(P, Q),
-            //   !region_live_at(R, Q).
+            // dying_region_requires((origin, point1, point2), loan) :-
+            //   requires(origin, loan, point1),
+            //   !killed(loan, point1),
+            //   cfg_edge(point1, point2),
+            //   !region_live_at(origin, point2).
             dying_region_requires.from_leapjoin(
-                &requires_rp,
+                &requires_op,
                 (
-                    killed_rel.filter_anti(|&((_, p), b)| (b, p)),
-                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    region_live_at_rel.extend_anti(|&((r, _), _)| r),
+                    killed_rel.filter_anti(|&((_, point1), loan)| (loan, point1)),
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    region_live_at_rel.extend_anti(|&((origin, _), _)| origin),
                 ),
-                |&((r, p), b), &q| ((r, p, q), b),
+                |&((origin, point1), loan), &point2| ((origin, point1, point2), loan),
             );
 
-            // dying_can_reach_origins(R2, P, Q) :-
-            //   live_to_dying_regions(_, R2, P, Q).
-            dying_can_reach_origins.from_map(&live_to_dying_regions_r2pq, |&((r2, p, q), _r1)| {
-                ((r2, p), q)
-            });
+            // dying_can_reach_origins(origin2, point1, point2) :-
+            //   live_to_dying_regions(_, origin2, point1, point2).
+            dying_can_reach_origins.from_map(
+                &live_to_dying_regions_o2pq,
+                |&((origin2, point1, point2), _origin1)| ((origin2, point1), point2),
+            );
 
-            // dying_can_reach_origins(R, P, Q) :-
-            //   dying_region_requires(R, P, Q, _B).
-            dying_can_reach_origins
-                .from_map(&dying_region_requires, |&((r, p, q), _b)| ((r, p), q));
+            // dying_can_reach_origins(origin, point1, point2) :-
+            //   dying_region_requires(origin, point1, point2, _loan).
+            dying_can_reach_origins.from_map(
+                &dying_region_requires,
+                |&((origin, point1, point2), _loan)| ((origin, point1), point2),
+            );
 
-            // dying_can_reach(R1, R2, P, Q) :-
-            //   dying_can_reach_origins(R1, P, Q),
-            //   subset(R1, R2, P).
-            dying_can_reach_r2q.from_join(
+            // dying_can_reach(origin1, origin2, point1, point2) :-
+            //   dying_can_reach_origins(origin1, point1, point2),
+            //   subset(origin1, origin2, point1).
+            dying_can_reach_o2q.from_join(
                 &dying_can_reach_origins,
-                &subset_r1p,
-                |&(r1, p), &q, &r2| ((r2, q), (r1, p)),
+                &subset_o1p,
+                |&(origin1, point1), &point2, &origin2| ((origin2, point2), (origin1, point1)),
             );
 
-            // dying_can_reach(R1, R3, P, Q) :-
-            //   dying_can_reach(R1, R2, P, Q),
-            //   !region_live_at(R2, Q),
-            //   subset(R2, R3, P).
+            // dying_can_reach(origin1, origin3, point1, point2) :-
+            //   dying_can_reach(origin1, origin2, point1, point2),
+            //   !region_live_at(origin2, point2),
+            //   subset(origin2, origin3, point1).
             //
             // This is the "transitive closure" rule, but
             // note that we only apply it with the
-            // "intermediate" origin R2 is dead at Q.
+            // "intermediate" `origin2` is dead at `point2`.
             dying_can_reach_1.from_antijoin(
-                &dying_can_reach_r2q,
+                &dying_can_reach_o2q,
                 &region_live_at_rel,
-                |&(r2, q), &(r1, p)| ((r2, p), (r1, q)),
+                |&(origin2, point2), &(origin1, point1)| ((origin2, point1), (origin1, point2)),
             );
-            dying_can_reach_r2q.from_join(
+            dying_can_reach_o2q.from_join(
                 &dying_can_reach_1,
-                &subset_r1p,
-                |&(_r2, p), &(r1, q), &r3| ((r3, q), (r1, p)),
+                &subset_o1p,
+                |&(_origin2, point1), &(origin1, point2), &origin3| {
+                    ((origin3, point2), (origin1, point1))
+                },
             );
 
-            // dying_can_reach_live(R1, R2, P, Q) :-
-            //    dying_can_reach(R1, R2, P, Q),
-            //    region_live_at(R2, Q).
+            // dying_can_reach_live(origin1, origin2, point1, point2) :-
+            //   dying_can_reach(origin1, origin2, point1, point2),
+            //   region_live_at(origin2, point2).
             dying_can_reach_live.from_join(
-                &dying_can_reach_r2q,
+                &dying_can_reach_o2q,
                 &region_live_at_var,
-                |&(r2, q), &(r1, p), &()| ((r1, p, q), r2),
+                |&(origin2, point2), &(origin1, point1), _| ((origin1, point1, point2), origin2),
             );
 
-            // subset(R1, R2, Q) :-
-            //   subset(R1, R2, P),
-            //   cfg_edge(P, Q),
-            //   region_live_at(R1, Q),
-            //   region_live_at(R2, Q).
+            // subset(origin1, origin2, point2) :-
+            //   subset(origin1, origin2, point1),
+            //   cfg_edge(point1, point2),
+            //   region_live_at(origin1, point2),
+            //   region_live_at(origin2, point2).
             //
-            // Carry `R1 <= R2` from P into Q if both `R1` and
-            // `R2` are live in Q.
-            subset_r1p.from_leapjoin(
-                &subset_r1p,
+            // Carry `origin1 <= origin2` from `point1` into `point2` if both `origin1` and
+            // `origin2` are live in `point2`.
+            subset_o1p.from_leapjoin(
+                &subset_o1p,
                 (
-                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    region_live_at_rel.extend_with(|&((r1, _), _)| r1),
-                    region_live_at_rel.extend_with(|&((_, _), r2)| r2),
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    region_live_at_rel.extend_with(|&((origin1, _), _)| origin1),
+                    region_live_at_rel.extend_with(|&((_, _), origin2)| origin2),
                 ),
-                |&((r1, _p), r2), &q| ((r1, q), r2),
+                |&((origin1, _point1), origin2), &point2| ((origin1, point2), origin2),
             );
 
-            // subset(R1, R3, Q) :-
-            //   live_to_dying_regions(R1, R2, P, Q),
-            //   dying_can_reach_live(R2, R3, P, Q).
-            subset_r1p.from_join(
-                &live_to_dying_regions_r2pq,
+            // subset(origin1, origin3, point2) :-
+            //   live_to_dying_regions(origin1, origin2, point1, point2),
+            //   dying_can_reach_live(origin2, origin3, point1, point2).
+            subset_o1p.from_join(
+                &live_to_dying_regions_o2pq,
                 &dying_can_reach_live,
-                |&(_r2, _p, q), &r1, &r3| ((r1, q), r3),
+                |&(_origin2, _point1, point2), &origin1, &origin3| ((origin1, point2), origin3),
             );
 
-            // requires(R2, B, Q) :-
-            //   dying_region_requires(R1, B, P, Q),
-            //   dying_can_reach_live(R1, R2, P, Q).
+            // requires(origin2, loan, point2) :-
+            //   dying_region_requires(origin1, loan, point1, point2),
+            //   dying_can_reach_live(origin1, origin2, point1, point2).
             //
-            // Communicate a `R1 requires B` relation across
-            // an edge `P -> Q` where `R1` is dead in Q; in
-            // that case, for each origin `R2` live in `Q`
-            // where `R1 <= R2` in P, we add `R2 requires B`
-            // to `Q`.
-            requires_rp.from_join(
+            // Communicate a `origin1 requires loan` relation across
+            // an edge `point1 -> point2` where `origin1` is dead in `point2`; in
+            // that case, for each origin `origin2` live in `point2`
+            // where `origin1 <= origin2` in `point1`, we add `origin2 requires loan`
+            // to `point2`.
+            requires_op.from_join(
                 &dying_region_requires,
                 &dying_can_reach_live,
-                |&(_r1, _p, q), &b, &r2| ((r2, q), b),
+                |&(_origin1, _point1, point2), &loan, &origin2| ((origin2, point2), loan),
             );
 
-            // requires(R, B, Q) :-
-            //   requires(R, B, P),
-            //   !killed(B, P),
-            //   cfg_edge(P, Q),
-            //   region_live_at(R, Q).
-            requires_rp.from_leapjoin(
-                &requires_rp,
+            // requires(origin, loan, point2) :-
+            //   requires(origin, loan, point1),
+            //   !killed(loan, point1),
+            //   cfg_edge(point1, point2),
+            //   region_live_at(origin, point2).
+            requires_op.from_leapjoin(
+                &requires_op,
                 (
-                    killed_rel.filter_anti(|&((_, p), b)| (b, p)),
-                    cfg_edge_rel.extend_with(|&((_, p), _)| p),
-                    region_live_at_rel.extend_with(|&((r, _), _)| r),
+                    killed_rel.filter_anti(|&((_, point1), loan)| (loan, point1)),
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    region_live_at_rel.extend_with(|&((origin, _), _)| origin),
                 ),
-                |&((r, _), b), &q| ((r, q), b),
+                |&((origin, _), loan), &point2| ((origin, point2), loan),
             );
 
-            // dead_borrow_region_can_reach_root((R, P), B) :-
-            //   borrow_region(R, B, P),
-            //   !region_live_at(R, P).
+            // dead_borrow_region_can_reach_root((origin, point), loan) :-
+            //   borrow_region(origin, loan, point),
+            //   !region_live_at(origin, point).
             dead_borrow_region_can_reach_root.from_antijoin(
-                &borrow_region_rp,
+                &borrow_region_op,
                 &region_live_at_rel,
-                |&(r, p), &b| ((r, p), b),
+                |&(origin, point), &loan| ((origin, point), loan),
             );
 
-            // dead_borrow_region_can_reach_dead((R, P), B) :-
-            //   dead_borrow_region_can_reach_root((R, P), B).
+            // dead_borrow_region_can_reach_dead((origin, point), loan) :-
+            //   dead_borrow_region_can_reach_root((origin, point), loan).
             dead_borrow_region_can_reach_dead
                 .from_map(&dead_borrow_region_can_reach_root, |&tuple| tuple);
 
-            // dead_borrow_region_can_reach_dead((R2, P), B) :-
-            //   dead_borrow_region_can_reach_dead(R1, B, P),
-            //   subset(R1, R2, P),
-            //   !region_live_at(R2, P).
+            // dead_borrow_region_can_reach_dead((origin2, point), loan) :-
+            //   dead_borrow_region_can_reach_dead(origin1, loan, point),
+            //   subset(origin1, origin2, point),
+            //   !region_live_at(origin2, point).
             dead_borrow_region_can_reach_dead_1.from_join(
                 &dead_borrow_region_can_reach_dead,
-                &subset_r1p,
-                |&(_r1, p), &b, &r2| ((r2, p), b),
+                &subset_o1p,
+                |&(_origin1, point), &loan, &origin2| ((origin2, point), loan),
             );
             dead_borrow_region_can_reach_dead.from_antijoin(
                 &dead_borrow_region_can_reach_dead_1,
                 &region_live_at_rel,
-                |&(r2, p), &b| ((r2, p), b),
+                |&(origin2, point), &loan| ((origin2, point), loan),
             );
 
-            // borrow_live_at(B, P) :- requires(R, B, P), region_live_at(R, P)
-            borrow_live_at.from_join(&requires_rp, &region_live_at_var, |&(_r, p), &b, &()| {
-                ((b, p), ())
-            });
+            // borrow_live_at(loan, point) :-
+            //   requires(origin, loan, point),
+            //   region_live_at(origin, point).
+            borrow_live_at.from_join(
+                &requires_op,
+                &region_live_at_var,
+                |&(_origin, point), &loan, _| ((loan, point), ()),
+            );
 
-            // borrow_live_at(B, P) :-
-            //   dead_borrow_region_can_reach_dead(R1, B, P),
-            //   subset(R1, R2, P),
-            //   region_live_at(R2, P).
+            // borrow_live_at(loan, point) :-
+            //   dead_borrow_region_can_reach_dead(origin1, loan, point),
+            //   subset(origin1, origin2, point),
+            //   region_live_at(origin2, point).
             //
             // NB: the datafrog code below uses
             // `dead_borrow_region_can_reach_dead_1`, which is equal
@@ -357,55 +397,63 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
             borrow_live_at.from_join(
                 &dead_borrow_region_can_reach_dead_1,
                 &region_live_at_var,
-                |&(_r2, p), &b, &()| ((b, p), ()),
+                |&(_origin2, point), &loan, _| ((loan, point), ()),
             );
 
-            // errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
-            errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
+            // errors(loan, point) :-
+            //   invalidates(loan, point),
+            //   borrow_live_at(loan, point).
+            errors.from_join(&invalidates, &borrow_live_at, |&(loan, point), _, _| {
+                (loan, point)
+            });
         }
 
         if dump_enabled {
-            for (origin, location) in &region_live_at_rel.elements {
+            for &(origin, location) in region_live_at_rel.iter() {
                 result
                     .region_live_at
-                    .entry(*location)
-                    .or_insert(vec![])
-                    .push(*origin);
+                    .entry(location)
+                    .or_default()
+                    .push(origin);
             }
 
-            let subset_r1p = subset_r1p.complete();
+            let subset_o1p = subset_o1p.complete();
             assert!(
-                subset_r1p.iter().filter(|&((r1, _), r2)| r1 == r2).count() == 0,
+                subset_o1p
+                    .iter()
+                    .filter(|&((origin1, _), origin2)| origin1 == origin2)
+                    .count()
+                    == 0,
                 "unwanted subset symmetries"
             );
-            for ((r1, location), r2) in &subset_r1p.elements {
+            for &((origin1, location), origin2) in subset_o1p.iter() {
                 result
                     .subset
-                    .entry(*location)
-                    .or_insert(BTreeMap::new())
-                    .entry(*r1)
-                    .or_insert(BTreeSet::new())
-                    .insert(*r2);
+                    .entry(location)
+                    .or_default()
+                    .entry(origin1)
+                    .or_default()
+                    .insert(origin2);
             }
 
-            let requires_rp = requires_rp.complete();
-            for ((origin, location), borrow) in &requires_rp.elements {
+            let requires_op = requires_op.complete();
+            for &((origin, location), loan) in requires_op.iter() {
                 result
                     .restricts
-                    .entry(*location)
-                    .or_insert(BTreeMap::new())
-                    .entry(*origin)
-                    .or_insert(BTreeSet::new())
-                    .insert(*borrow);
+                    .entry(location)
+                    .or_default()
+                    .entry(origin)
+                    .or_default()
+                    .insert(loan);
             }
 
             let borrow_live_at = borrow_live_at.complete();
-            for ((borrow, location), ()) in &borrow_live_at.elements {
+            for &((loan, location), _) in borrow_live_at.iter() {
                 result
                     .borrow_live_at
-                    .entry(*location)
-                    .or_insert(Vec::new())
-                    .push(*borrow);
+                    .entry(location)
+                    .or_default()
+                    .push(loan);
             }
         }
 
@@ -420,12 +468,8 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         );
     }
 
-    for (borrow, location) in &errors.elements {
-        result
-            .errors
-            .entry(*location)
-            .or_insert(Vec::new())
-            .push(*borrow);
+    for &(loan, location) in errors.iter() {
+        result.errors.entry(location).or_default().push(loan);
     }
 
     result

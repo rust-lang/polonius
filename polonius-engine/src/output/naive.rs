@@ -10,7 +10,6 @@
 
 //! A version of the Naive datalog analysis using Datafrog.
 
-use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use crate::output::initialization;
@@ -65,11 +64,11 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
 
         // different indices for `subset`.
-        let subset_r1p = iteration.variable_indistinct("subset_r1p");
-        let subset_r2p = iteration.variable_indistinct("subset_r2p");
+        let subset_o1p = iteration.variable_indistinct("subset_o1p");
+        let subset_o2p = iteration.variable_indistinct("subset_o2p");
 
         // different index for `requires`.
-        let requires_rp = iteration.variable_indistinct("requires_rp");
+        let requires_op = iteration.variable_indistinct("requires_op");
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
@@ -82,8 +81,17 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         // load initial facts.
         subset.insert(all_facts.outlives.into());
         requires.insert(all_facts.borrow_region.into());
-        invalidates.extend(all_facts.invalidates.iter().map(|&(p, b)| ((b, p), ())));
-        region_live_at_var.extend(region_live_at_rel.iter().map(|&(r, p)| ((r, p), ())));
+        invalidates.extend(
+            all_facts
+                .invalidates
+                .iter()
+                .map(|&(point, loan)| ((loan, point), ())),
+        );
+        region_live_at_var.extend(
+            region_live_at_rel
+                .iter()
+                .map(|&(origin, point)| ((origin, point), ())),
+        );
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -99,112 +107,134 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
                 .recent
                 .borrow_mut()
                 .elements
-                .retain(|&(r1, r2, _)| r1 != r2);
+                .retain(|&(origin1, origin2, _)| origin1 != origin2);
 
             // remap fields to re-index by keys.
-            subset_r1p.from_map(&subset, |&(r1, r2, p)| ((r1, p), r2));
-            subset_r2p.from_map(&subset, |&(r1, r2, p)| ((r2, p), r1));
+            subset_o1p.from_map(&subset, |&(origin1, origin2, point)| {
+                ((origin1, point), origin2)
+            });
+            subset_o2p.from_map(&subset, |&(origin1, origin2, point)| {
+                ((origin2, point), origin1)
+            });
 
-            requires_rp.from_map(&requires, |&(r, b, p)| ((r, p), b));
+            requires_op.from_map(&requires, |&(origin, loan, point)| ((origin, point), loan));
 
-            // subset(R1, R2, P) :- outlives(R1, R2, P).
+            // subset(origin1, origin2, point) :- outlives(origin1, origin2, point).
             // Already loaded; outlives is static.
 
-            // subset(R1, R3, P) :-
-            //   subset(R1, R2, P),
-            //   subset(R2, R3, P).
-            subset.from_join(&subset_r2p, &subset_r1p, |&(_r2, p), &r1, &r3| (r1, r3, p));
+            // subset(origin1, origin3, point) :-
+            //   subset(origin1, origin2, point),
+            //   subset(origin2, origin3, point).
+            subset.from_join(
+                &subset_o2p,
+                &subset_o1p,
+                |&(_origin2, point), &origin1, &origin3| (origin1, origin3, point),
+            );
 
-            // subset(R1, R2, Q) :-
-            //   subset(R1, R2, P),
-            //   cfg_edge(P, Q),
-            //   region_live_at(R1, Q),
-            //   region_live_at(R2, Q).
+            // subset(origin1, origin2, point2) :-
+            //   subset(origin1, origin2, point1),
+            //   cfg_edge(point1, point2),
+            //   region_live_at(origin1, point2),
+            //   region_live_at(origin2, point2).
             subset.from_leapjoin(
                 &subset,
                 (
-                    cfg_edge_rel.extend_with(|&(_r1, _r2, p)| p),
-                    region_live_at_rel.extend_with(|&(r1, _r2, _p)| r1),
-                    region_live_at_rel.extend_with(|&(_r1, r2, _p)| r2),
+                    cfg_edge_rel.extend_with(|&(_origin1, _origin2, point1)| point1),
+                    region_live_at_rel.extend_with(|&(origin1, _origin2, _point1)| origin1),
+                    region_live_at_rel.extend_with(|&(_origin1, origin2, _point1)| origin2),
                 ),
-                |&(r1, r2, _p), &q| (r1, r2, q),
+                |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
 
-            // requires(R, B, P) :- borrow_region(R, B, P).
+            // requires(origin, loan, point) :- borrow_region(origin, loan, point).
             // Already loaded; borrow_region is static.
 
-            // requires(R2, B, P) :-
-            //   requires(R1, B, P),
-            //   subset(R1, R2, P).
-            requires.from_join(&requires_rp, &subset_r1p, |&(_r1, p), &b, &r2| (r2, b, p));
+            // requires(origin2, loan, point) :-
+            //   requires(origin1, loan, point),
+            //   subset(origin1, origin2, point).
+            requires.from_join(
+                &requires_op,
+                &subset_o1p,
+                |&(_origin1, point), &loan, &origin2| (origin2, loan, point),
+            );
 
-            // requires(R, B, Q) :-
-            //   requires(R, B, P),
-            //   !killed(B, P),
-            //   cfg_edge(P, Q),
-            //   region_live_at(R, Q).
+            // requires(origin, loan, point2) :-
+            //   requires(origin, loan, point1),
+            //   !killed(loan, point1),
+            //   cfg_edge(point1, point2),
+            //   region_live_at(origin, point2).
             requires.from_leapjoin(
                 &requires,
                 (
-                    killed_rel.filter_anti(|&(_r, b, p)| (b, p)),
-                    cfg_edge_rel.extend_with(|&(_r, _b, p)| p),
-                    region_live_at_rel.extend_with(|&(r, _b, _p)| r),
+                    killed_rel.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
+                    cfg_edge_rel.extend_with(|&(_origin, _loan, point1)| point1),
+                    region_live_at_rel.extend_with(|&(origin, _loan, _point1)| origin),
                 ),
-                |&(r, b, _p), &q| (r, b, q),
+                |&(origin, loan, _point1), &point2| (origin, loan, point2),
             );
 
-            // borrow_live_at(B, P) :-
-            //   requires(R, B, P),
-            //   region_live_at(R, P).
-            borrow_live_at.from_join(&requires_rp, &region_live_at_var, |&(_r, p), &b, &()| {
-                ((b, p), ())
-            });
+            // borrow_live_at(loan, point) :-
+            //   requires(origin, loan, point),
+            //   region_live_at(origin, point).
+            borrow_live_at.from_join(
+                &requires_op,
+                &region_live_at_var,
+                |&(_origin, point), &loan, _| ((loan, point), ()),
+            );
 
-            // .decl errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
-            errors.from_join(&invalidates, &borrow_live_at, |&(b, p), &(), &()| (b, p));
+            // errors(loan, point) :-
+            //   invalidates(loan, point),
+            //   borrow_live_at(loan, point).
+            errors.from_join(&invalidates, &borrow_live_at, |&(loan, point), _, _| {
+                (loan, point)
+            });
         }
 
         if dump_enabled {
             let subset = subset.complete();
             assert!(
-                subset.iter().filter(|&(r1, r2, _)| r1 == r2).count() == 0,
+                subset
+                    .iter()
+                    .filter(|&(origin1, origin2, _)| origin1 == origin2)
+                    .count()
+                    == 0,
                 "unwanted subset symmetries"
             );
-            for (r1, r2, location) in &subset.elements {
+            for &(origin1, origin2, location) in subset.iter() {
                 result
                     .subset
-                    .entry(*location)
-                    .or_insert_with(BTreeMap::new)
-                    .entry(*r1)
-                    .or_insert_with(BTreeSet::new)
-                    .insert(*r2);
+                    .entry(location)
+                    .or_default()
+                    .entry(origin1)
+                    .or_default()
+                    .insert(origin2);
             }
 
             let requires = requires.complete();
-            for (origin, borrow, location) in &requires.elements {
+            for &(origin, loan, location) in requires.iter() {
                 result
                     .restricts
-                    .entry(*location)
-                    .or_insert_with(BTreeMap::new)
-                    .entry(*origin)
-                    .or_insert_with(BTreeSet::new)
-                    .insert(*borrow);
+                    .entry(location)
+                    .or_default()
+                    .entry(origin)
+                    .or_default()
+                    .insert(loan);
             }
 
-            for (origin, location) in &region_live_at_rel.elements {
+            for &(origin, location) in region_live_at_rel.iter() {
                 result
                     .region_live_at
-                    .entry(*location)
-                    .or_insert_with(Vec::new)
-                    .push(*origin);
+                    .entry(location)
+                    .or_default()
+                    .push(origin);
             }
 
             let borrow_live_at = borrow_live_at.complete();
-            for &((loan, location), ()) in &borrow_live_at.elements {
+            for &((loan, location), _) in borrow_live_at.iter() {
                 result
                     .borrow_live_at
                     .entry(location)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(loan);
             }
         }
@@ -220,12 +250,8 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         );
     }
 
-    for (borrow, location) in &errors.elements {
-        result
-            .errors
-            .entry(*location)
-            .or_insert_with(Vec::new)
-            .push(*borrow);
+    for &(loan, location) in errors.iter() {
+        result.errors.entry(location).or_default().push(loan);
     }
 
     result

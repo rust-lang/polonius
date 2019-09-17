@@ -311,9 +311,9 @@ impl Atom for Variable {
     }
 }
 
-impl Atom for MovePath {
+impl Atom for Path {
     fn table(intern: &InternerTables) -> &Interner<Self> {
-        &intern.move_paths
+        &intern.paths
     }
 }
 
@@ -326,12 +326,12 @@ fn facts_by_point<F: Clone, Out: OutputDump>(
 ) -> HashMap<Point, String> {
     let mut by_point: HashMap<Point, Vec<Out>> = HashMap::new();
     for f in facts {
-        let (p, o) = point(f);
-        by_point.entry(p).or_insert_with(Vec::new).push(o);
+        let (point, o) = point(f);
+        by_point.entry(point).or_insert_with(Vec::new).push(o);
     }
     by_point
         .into_iter()
-        .map(|(p, o)| {
+        .map(|(point, o)| {
             let mut rows: Vec<Vec<&str>> = Vec::new();
             OutputDump::push_all(&o, intern, &mut vec![], &mut rows);
             let s = rows
@@ -354,7 +354,7 @@ fn facts_by_point<F: Clone, Out: OutputDump>(
                 .join("\\l")
                 + "\\l";
             // in graphviz, \l is a \n that left-aligns
-            (p, s)
+            (point, s)
         })
         .collect()
 }
@@ -366,70 +366,70 @@ fn build_inputs_by_point_for_visualization(
     vec![
         facts_by_point(
             all_facts.borrow_region.iter().cloned(),
-            |(a, b, p)| (p, (a, b)),
+            |(origin, loan, point)| (point, (origin, loan)),
             "borrow_region".to_string(),
             2,
             intern,
         ),
         facts_by_point(
             all_facts.killed.iter().cloned(),
-            |(l, p)| (p, (l,)),
+            |(loan, point)| (point, (loan,)),
             "killed".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             all_facts.outlives.iter().cloned(),
-            |(r1, r2, p)| (p, (r1, r2)),
+            |(origin1, origin2, point)| (point, (origin1, origin2)),
             "outlives".to_string(),
             2,
             intern,
         ),
         facts_by_point(
             all_facts.invalidates.iter().cloned(),
-            |(p, l)| (p, (l,)),
+            |(point, loan)| (point, (loan,)),
             "invalidates".to_string(),
             0,
             intern,
         ),
         facts_by_point(
             all_facts.var_used.iter().cloned(),
-            |(v, p)| (p, (v,)),
+            |(var, point)| (point, (var,)),
             "var_used".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             all_facts.var_defined.iter().cloned(),
-            |(v, p)| (p, (v,)),
+            |(var, point)| (point, (var,)),
             "var_defined".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             all_facts.var_drop_used.iter().cloned(),
-            |(v, p)| (p, (v,)),
+            |(var, point)| (point, (var,)),
             "var_drop_used".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             all_facts.initialized_at.iter().cloned(),
-            |(v, p)| (p, (v,)),
+            |(var, point)| (point, (var,)),
             "initialized_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             all_facts.moved_out_at.iter().cloned(),
-            |(v, p)| (p, (v,)),
+            |(var, point)| (point, (var,)),
             "moved_out_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             all_facts.path_accessed_at.iter().cloned(),
-            |(v, p)| (p, (v,)),
+            |(var, point)| (point, (var,)),
             "path_accessed_at".to_string(),
             1,
             intern,
@@ -444,56 +444,56 @@ fn build_outputs_by_point_for_visualization(
     vec![
         facts_by_point(
             output.borrow_live_at.iter(),
-            |(pt, loans)| (*pt, loans.clone()),
+            |(point, loans)| (*point, loans.clone()),
             "borrow_live_at".to_string(),
             0,
             intern,
         ),
         facts_by_point(
             output.restricts.iter(),
-            |(pt, region_to_loans)| (*pt, region_to_loans.clone()),
+            |(point, origin_to_loans)| (*point, origin_to_loans.clone()),
             "restricts".to_string(),
             0,
             intern,
         ),
         facts_by_point(
             output.invalidates.iter(),
-            |(pt, loans)| (*pt, loans.clone()),
+            |(point, loans)| (*point, loans.clone()),
             "invalidates".to_string(),
             0,
             intern,
         ),
         facts_by_point(
             output.subset.iter(),
-            |(pt, region_to_regions)| (*pt, region_to_regions.clone()),
+            |(point, origin_to_origins)| (*point, origin_to_origins.clone()),
             "subset".to_string(),
             0,
             intern,
         ),
         facts_by_point(
             output.var_live_at.iter(),
-            |(p, v)| (*p, v.clone()),
+            |(point, var)| (*point, var.clone()),
             "var_live_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             output.var_drop_live_at.iter(),
-            |(p, v)| (*p, v.clone()),
+            |(point, var)| (*point, var.clone()),
             "var_drop_live_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             output.region_live_at.iter(),
-            |(pt, origin)| (*pt, origin.clone()),
+            |(point, origin)| (*point, origin.clone()),
             "region_live_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
             output.var_maybe_initialized_on_exit.iter(),
-            |(p, v)| (*p, v.clone()),
+            |(point, var)| (*point, var.clone()),
             "var_maybe_initialized_on_exit".to_string(),
             1,
             intern,
@@ -522,10 +522,10 @@ pub(crate) fn graphviz(
     let outputs_by_point = build_outputs_by_point_for_visualization(output, intern);
 
     output_fragments.push("digraph g {\n  graph [\n  rankdir = \"TD\"\n];\n".to_string());
-    for (idx, &(p1, p2)) in all_facts.cfg_edge.iter().enumerate() {
+    for (idx, &(point1, point2)) in all_facts.cfg_edge.iter().enumerate() {
         let graphviz_code = graphviz_for_edge(
-            p1,
-            p2,
+            point1,
+            point2,
             idx,
             &mut seen_nodes,
             &inputs_by_point,
@@ -542,8 +542,8 @@ pub(crate) fn graphviz(
 }
 
 fn graphviz_for_edge(
-    p1: Point,
-    p2: Point,
+    point1: Point,
+    point2: Point,
     edge_index: usize,
     seen_points: &mut BTreeSet<usize>,
     inputs_by_point: &[HashMap<Point, String>],
@@ -552,7 +552,7 @@ fn graphviz_for_edge(
 ) -> Vec<String> {
     let mut ret = Vec::new();
     maybe_render_point(
-        p1,
+        point1,
         seen_points,
         inputs_by_point,
         outputs_by_point,
@@ -560,7 +560,7 @@ fn graphviz_for_edge(
         intern,
     );
     maybe_render_point(
-        p2,
+        point2,
         seen_points,
         inputs_by_point,
         outputs_by_point,
@@ -569,41 +569,41 @@ fn graphviz_for_edge(
     );
     ret.push(format!(
         "\"node{0}\" -> \"node{1}\":f0 [\n  id = {2}\n];\n",
-        p1.index(),
-        p2.index(),
+        point1.index(),
+        point2.index(),
         edge_index
     ));
     ret
 }
 
 fn maybe_render_point(
-    pt: Point,
+    point: Point,
     seen_points: &mut BTreeSet<usize>,
     inputs_by_point: &[HashMap<Point, String>],
     outputs_by_point: &[HashMap<Point, String>],
     render_vec: &mut Vec<String>,
     intern: &InternerTables,
 ) {
-    if seen_points.contains(&pt.index()) {
+    if seen_points.contains(&point.index()) {
         return;
     }
-    seen_points.insert(pt.index());
+    seen_points.insert(point.index());
 
     let input_tuples = inputs_by_point
         .iter()
-        .filter_map(|inp| inp.get(&pt).map(std::string::ToString::to_string))
+        .filter_map(|inp| inp.get(&point).map(ToString::to_string))
         .collect::<Vec<_>>()
         .join(" | ");
 
     let output_tuples = outputs_by_point
         .iter()
-        .filter_map(|outp| outp.get(&pt).map(std::string::ToString::to_string))
+        .filter_map(|outp| outp.get(&point).map(ToString::to_string))
         .collect::<Vec<_>>()
         .join(" | ");
 
     render_vec.push(format!("\"node{0}\" [\n  label = \"{{ <f0> {1} | INPUTS | {2} | OUTPUTS | {3} }}\"\n  shape = \"record\"\n];\n",
-                     pt.index(),
-                     escape_for_graphviz(Point::table(intern).untern(pt)),
+                     point.index(),
+                     escape_for_graphviz(Point::table(intern).untern(point)),
                      &input_tuples,
                      &output_tuples));
 }
@@ -652,45 +652,45 @@ impl Liveness {
         self.point_facts.extend(other.point_facts);
     }
 
-    fn from_polonius_data(output: &Output, all_facts: &AllFacts, point: Point) -> Self {
+    fn from_polonius_data(output: &Output, all_facts: &AllFacts, location: Point) -> Self {
         let mut point_facts = Vec::default();
 
         point_facts.extend(
             all_facts
                 .var_defined
                 .iter()
-                .filter(|&(_v, p)| *p == point)
-                .map(|&(v, p)| ("☠".to_string(), v, p)),
+                .filter(|&(_var, point)| *point == location)
+                .map(|&(var, point)| ("☠".to_string(), var, point)),
         );
 
         point_facts.extend(
             all_facts
                 .var_drop_used
                 .iter()
-                .filter(|&(_v, p)| *p == point)
-                .map(|&(v, p)| ("💧".to_string(), v, p)),
+                .filter(|&(_var, point)| *point == location)
+                .map(|&(var, point)| ("💧".to_string(), var, point)),
         );
 
         point_facts.extend(
             all_facts
                 .var_used
                 .iter()
-                .filter(|&(_v, p)| *p == point)
-                .map(|&(v, p)| ("🔧".to_string(), v, p)),
+                .filter(|&(_var, point)| *point == location)
+                .map(|&(var, point)| ("🔧".to_string(), var, point)),
         );
 
         Self {
             point_facts,
             use_live_vars: output
                 .var_live_at
-                .get(&point)
+                .get(&location)
                 .map_or(HashSet::default(), |live| live.iter().cloned().collect()),
 
             drop_live_vars: output
                 .var_drop_live_at
-                .get(&point)
+                .get(&location)
                 .map_or(HashSet::default(), |live| live.iter().cloned().collect()),
-            cfg_points: vec![point],
+            cfg_points: vec![location],
         }
     }
 }
@@ -702,7 +702,7 @@ fn render_cfg_label(node: &Liveness, intern: &InternerTables) -> String {
     let mut fragments = vec![if cfg_points.len() <= 3 {
         node.cfg_points
             .iter()
-            .map(|p| intern.points.untern(*p).replace("\"", ""))
+            .map(|point| intern.points.untern(*point).replace("\"", ""))
             .collect::<Vec<String>>()
             .join(", ")
     } else {
@@ -721,12 +721,12 @@ fn render_cfg_label(node: &Liveness, intern: &InternerTables) -> String {
 
     fragments[0].push_str("\\l");
 
-    fragments.extend(node.point_facts.iter().map(|(label, var, pt)| {
+    fragments.extend(node.point_facts.iter().map(|(label, var, point)| {
         format!(
             "{}({}, {}).",
             label,
             intern.variables.untern(*var).replace("\"", ""),
-            intern.points.untern(*pt).replace("\"", ""),
+            intern.points.untern(*point).replace("\"", ""),
         )
     }));
 
@@ -745,16 +745,16 @@ pub(crate) fn liveness_graph(
     let mut cfg = StableGraph::<Liveness, ()>::new();
     let mut point_to_node = HashMap::new();
 
-    for &(p1, p2) in all_facts.cfg_edge.iter() {
-        let n1 = *point_to_node
-            .entry(p1)
-            .or_insert_with(|| cfg.add_node(Liveness::from_polonius_data(output, all_facts, p1)));
+    for &(point1, point2) in all_facts.cfg_edge.iter() {
+        let node1 = *point_to_node.entry(point1).or_insert_with(|| {
+            cfg.add_node(Liveness::from_polonius_data(output, all_facts, point1))
+        });
 
-        let n2 = *point_to_node
-            .entry(p2)
-            .or_insert_with(|| cfg.add_node(Liveness::from_polonius_data(output, all_facts, p2)));
+        let node2 = *point_to_node.entry(point2).or_insert_with(|| {
+            cfg.add_node(Liveness::from_polonius_data(output, all_facts, point2))
+        });
 
-        cfg.add_edge(n1, n2, ());
+        cfg.add_edge(node1, node2, ());
     }
 
     info!("Reducing the liveness graph...");
@@ -829,14 +829,14 @@ pub(crate) fn liveness_graph(
     for edge in cfg.edge_references() {
         let edge_live_vars = edge_live_vars(&cfg[edge.source()], &cfg[edge.target()]);
 
-        for &v in edge_live_vars.iter() {
+        for &var in edge_live_vars.iter() {
             let liveness_status = vec![
-                if cfg[edge.source()].use_live_vars.contains(&v) {
+                if cfg[edge.source()].use_live_vars.contains(&var) {
                     "U"
                 } else {
                     ""
                 },
-                if cfg[edge.source()].drop_live_vars.contains(&v) {
+                if cfg[edge.source()].drop_live_vars.contains(&var) {
                     "D"
                 } else {
                     ""
@@ -848,9 +848,9 @@ pub(crate) fn liveness_graph(
                 "{} -> {} [label=\" {} {}\", color=\"{}\", penwidth = 2 arrowhead = none]",
                 cfg.to_index(edge.target()),
                 cfg.to_index(edge.source()),
-                intern.variables.untern(v).replace("\"", ""),
+                intern.variables.untern(var).replace("\"", ""),
                 liveness_status,
-                colour_palette[v.index() % colour_palette.len()],
+                colour_palette[var.index() % colour_palette.len()],
             ));
         }
 

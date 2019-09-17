@@ -38,12 +38,12 @@ index_type!(Origin);
 index_type!(Loan);
 index_type!(Point);
 index_type!(Variable);
-index_type!(MovePath);
+index_type!(Path);
 
 impl FactTypes for LocalFacts {
     type Origin = Origin;
     type Loan = Loan;
     type Point = Point;
     type Variable = Variable;
-    type MovePath = MovePath;
+    type Path = Path;
 }

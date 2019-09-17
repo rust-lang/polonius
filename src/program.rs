@@ -7,7 +7,7 @@ use polonius_parser::{
     parse_input,
 };
 
-use crate::facts::{AllFacts, Loan, MovePath, Origin, Point, Variable};
+use crate::facts::{AllFacts, Loan, Origin, Path, Point, Variable};
 use crate::intern::InternerTables;
 
 /// A structure to hold and deduplicate facts
@@ -24,11 +24,11 @@ struct Facts {
     var_drop_used: BTreeSet<(Variable, Point)>,
     var_uses_region: BTreeSet<(Variable, Origin)>,
     var_drops_region: BTreeSet<(Variable, Origin)>,
-    child: BTreeSet<(MovePath, MovePath)>,
-    path_belongs_to_var: BTreeSet<(MovePath, Variable)>,
-    initialized_at: BTreeSet<(MovePath, Point)>,
-    moved_out_at: BTreeSet<(MovePath, Point)>,
-    path_accessed_at: BTreeSet<(MovePath, Point)>,
+    child: BTreeSet<(Path, Path)>,
+    path_belongs_to_var: BTreeSet<(Path, Variable)>,
+    initialized_at: BTreeSet<(Path, Point)>,
+    moved_out_at: BTreeSet<(Path, Point)>,
+    path_accessed_at: BTreeSet<(Path, Point)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -184,10 +184,10 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
         // facts: outlives(Origin, Origin, Point)
         Fact::Outlives { ref a, ref b } => {
             // outlives: a `outlives` occurs on Mid points
-            let region_a = tables.origins.intern(a);
-            let region_b = tables.origins.intern(b);
+            let origin_a = tables.origins.intern(a);
+            let origin_b = tables.origins.intern(b);
 
-            facts.outlives.insert((region_a, region_b, point));
+            facts.outlives.insert((origin_a, origin_b, point));
         }
 
         // facts: killed(Loan, Point)
@@ -204,14 +204,14 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.invalidates.insert((point, loan));
         }
 
-        // facts: var_defined(V, P)
+        // facts: var_defined(Variable, Point)
         Fact::DefineVariable { ref variable } => {
             // var_defined: a variable is overwritten here
             let variable = tables.variables.intern(variable);
             facts.var_defined.insert((variable, point));
         }
 
-        // facts: var_used(V, P)
+        // facts: var_used(Variable, Point)
         Fact::UseVariable { ref variable } => {
             // var_used: a variable is used here
             let variable = tables.variables.intern(variable);
@@ -262,7 +262,7 @@ mod tests {
         let universal_regions: Vec<_> = facts
             .universal_region
             .iter()
-            .map(|r| tables.origins.untern(*r).to_string())
+            .map(|origin| tables.origins.untern(*origin).to_string())
             .collect();
         assert_eq!(universal_regions, ["'a", "'b", "'c"]);
 
@@ -288,12 +288,12 @@ mod tests {
 
         assert_eq!(facts.outlives.len(), 1);
         {
-            let region_a = tables.origins.untern(facts.outlives[0].0);
-            let region_b = tables.origins.untern(facts.outlives[0].1);
+            let origin_a = tables.origins.untern(facts.outlives[0].0);
+            let origin_b = tables.origins.untern(facts.outlives[0].1);
             let point = tables.points.untern(facts.outlives[0].2);
 
-            assert_eq!(region_a, "'a");
-            assert_eq!(region_b, "'b");
+            assert_eq!(origin_a, "'a");
+            assert_eq!(origin_b, "'b");
             assert_eq!(point, "\"Mid(B1[0])\"");
         }
 
@@ -321,8 +321,8 @@ mod tests {
         let points: BTreeSet<Point> = facts
             .cfg_edge
             .iter()
-            .map(|&(p, _)| p)
-            .chain(facts.cfg_edge.iter().map(|&(_, q)| q))
+            .map(|&(point1, _)| point1)
+            .chain(facts.cfg_edge.iter().map(|&(_, point2)| point2))
             .collect();
         assert_eq!(points.len(), 6);
         assert_eq!(facts.cfg_edge.len(), 5);
