@@ -6,6 +6,7 @@
 - [Generating inputs from rustc](./generate_inputs.md)
 - [Rules](./rules.md)
   - [Atoms](./rules/atoms.md)
+  - [Relations](./rules/relations.md)
   - [Initialization](./rules/initialization.md)
 - [Testing Polonius](./testing.md)
 - [See also](./see_also.md)
