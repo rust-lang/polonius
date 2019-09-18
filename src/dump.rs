@@ -13,7 +13,7 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-pub(crate) type Output = PoloniusEngineOutput<Region, Loan, Point, Variable, MovePath>;
+pub(crate) type Output = PoloniusEngineOutput<Origin, Loan, Point, Variable, MovePath>;
 
 pub(crate) fn dump_output(
     output: &Output,
@@ -287,9 +287,9 @@ pub(crate) trait Atom: Copy + From<usize> + Into<usize> {
     fn table(intern: &InternerTables) -> &Interner<Self>;
 }
 
-impl Atom for Region {
+impl Atom for Origin {
     fn table(intern: &InternerTables) -> &Interner<Self> {
-        &intern.regions
+        &intern.origins
     }
 }
 
@@ -486,7 +486,7 @@ fn build_outputs_by_point_for_visualization(
         ),
         facts_by_point(
             output.region_live_at.iter(),
-            |(pt, region)| (*pt, region.clone()),
+            |(pt, origin)| (*pt, origin.clone()),
             "region_live_at".to_string(),
             1,
             intern,

@@ -20,10 +20,10 @@ use facts::{AllFacts, Atom};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
+pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
     dump_enabled: bool,
-    all_facts: AllFacts<Region, Loan, Point, Variable, MovePath>,
-) -> Output<Region, Loan, Point, Variable, MovePath> {
+    all_facts: AllFacts<Origin, Loan, Point, Variable, MovePath>,
+) -> Output<Origin, Loan, Point, Variable, MovePath> {
     let mut result = Output::new(dump_enabled);
 
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
@@ -57,11 +57,11 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // static inputs
         let cfg_edge_rel: Relation<(Point, Point)> = all_facts.cfg_edge.into();
         let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
-        let region_live_at_rel: Relation<(Region, Point)> = region_live_at.into();
+        let region_live_at_rel: Relation<(Origin, Point)> = region_live_at.into();
 
         // .. some variables, ..
-        let subset = iteration.variable::<(Region, Region, Point)>("subset");
-        let requires = iteration.variable::<(Region, Loan, Point)>("requires");
+        let subset = iteration.variable::<(Origin, Origin, Point)>("subset");
+        let requires = iteration.variable::<(Origin, Loan, Point)>("requires");
         let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
 
         // `invalidates` facts, stored ready for joins
@@ -76,12 +76,10 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
-        let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
+        let region_live_at_var = iteration.variable::<((Origin, Point), ())>("region_live_at");
 
         // output
         let errors = iteration.variable("errors");
-
-        //let compute_region_live_at = all_facts.region_live_at.is_empty();
 
         // load initial facts.
         subset.insert(all_facts.outlives.into());
@@ -185,22 +183,22 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
             }
 
             let requires = requires.complete();
-            for (region, borrow, location) in &requires.elements {
+            for (origin, borrow, location) in &requires.elements {
                 result
                     .restricts
                     .entry(*location)
                     .or_insert_with(BTreeMap::new)
-                    .entry(*region)
+                    .entry(*origin)
                     .or_insert_with(BTreeSet::new)
                     .insert(*borrow);
             }
 
-            for (region, location) in &region_live_at_rel.elements {
+            for (origin, location) in &region_live_at_rel.elements {
                 result
                     .region_live_at
                     .entry(*location)
                     .or_insert_with(Vec::new)
-                    .push(*region);
+                    .push(*origin);
             }
 
             let borrow_live_at = borrow_live_at.complete();

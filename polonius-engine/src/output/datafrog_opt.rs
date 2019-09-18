@@ -18,10 +18,10 @@ use crate::output::Output;
 use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
+pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
     dump_enabled: bool,
-    all_facts: AllFacts<Region, Loan, Point, Variable, MovePath>,
-) -> Output<Region, Loan, Point, Variable, MovePath> {
+    all_facts: AllFacts<Origin, Loan, Point, Variable, MovePath>,
+) -> Output<Origin, Loan, Point, Variable, MovePath> {
     let mut result = Output::new(dump_enabled);
 
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
@@ -62,22 +62,22 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
-        let region_live_at_rel: Relation<(Region, Point)> = region_live_at.into();
-        let region_live_at_var = iteration.variable::<((Region, Point), ())>("region_live_at");
+        let region_live_at_rel: Relation<(Origin, Point)> = region_live_at.into();
+        let region_live_at_var = iteration.variable::<((Origin, Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
-        let borrow_region_rp = iteration.variable::<((Region, Point), Loan)>("borrow_region_rp");
+        let borrow_region_rp = iteration.variable::<((Origin, Point), Loan)>("borrow_region_rp");
 
         // .decl subset(R1, R2, P)
         //
         // Indicates that `R1: R2` at the point `P`.
-        let subset_r1p = iteration.variable::<((Region, Point), Region)>("subset_r1p");
+        let subset_r1p = iteration.variable::<((Origin, Point), Origin)>("subset_r1p");
 
         // .decl requires(R, B, P)
         //
-        // At the point, things with region R may depend on data from
+        // At the point, things with origin R may depend on data from
         // borrow B
-        let requires_rp = iteration.variable::<((Region, Point), Loan)>("requires_rp");
+        let requires_rp = iteration.variable::<((Origin, Point), Loan)>("requires_rp");
 
         // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
         // need to be enforced at the point P
@@ -95,14 +95,14 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // live things reachable from `R2` to `R1`.
         //
         let live_to_dying_regions_r2pq =
-            iteration.variable::<((Region, Point, Point), Region)>("live_to_dying_regions_r2pq");
+            iteration.variable::<((Origin, Point, Point), Origin)>("live_to_dying_regions_r2pq");
 
         // .decl dying_region_requires((R, P, Q), B)
         //
-        // The region `R` requires the borrow `B`, but the
-        // region `R` goes dead along the edge `P -> Q`
+        // The origin `R` requires the borrow `B`, but the
+        // origin `R` goes dead along the edge `P -> Q`
         let dying_region_requires =
-            iteration.variable::<((Region, Point, Point), Loan)>("dying_region_requires");
+            iteration.variable::<((Origin, Point, Point), Loan)>("dying_region_requires");
 
         // .decl dying_can_reach_origins(R, P, Q)
         //
@@ -110,40 +110,40 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // in computing the transitive closure of things they
         // can reach.
         let dying_can_reach_origins =
-            iteration.variable::<((Region, Point), Point)>("dying_can_reach_origins");
+            iteration.variable::<((Origin, Point), Point)>("dying_can_reach_origins");
 
         // .decl dying_can_reach(R1, R2, P, Q)
         //
-        // Indicates that the region `R1`, which is dead
-        // in `Q`, can reach the region `R2` in P.
+        // Indicates that the origin `R1`, which is dead
+        // in `Q`, can reach the origin `R2` in P.
         //
         // This is effectively the transitive subset
         // relation, but we try to limit it to regions
         // that are dying on the edge P -> Q.
         let dying_can_reach_r2q =
-            iteration.variable::<((Region, Point), (Region, Point))>("dying_can_reach");
+            iteration.variable::<((Origin, Point), (Origin, Point))>("dying_can_reach");
         let dying_can_reach_1 = iteration.variable_indistinct("dying_can_reach_1");
 
         // .decl dying_can_reach_live(R1, R2, P, Q)
         //
         // Indicates that, along the edge `P -> Q`, the dead (in Q)
-        // region R1 can reach the live (in Q) region R2 via a subset
+        // origin R1 can reach the live (in Q) origin R2 via a subset
         // relation. This is a subset of the full `dying_can_reach`
         // relation where we filter down to those cases where R2 is
         // live in Q.
         let dying_can_reach_live =
-            iteration.variable::<((Region, Point, Point), Region)>("dying_can_reach_live");
+            iteration.variable::<((Origin, Point, Point), Origin)>("dying_can_reach_live");
 
         // .decl dead_borrow_region_can_reach_root((R, P), B)
         //
         // Indicates a "borrow region" R at P which is not live on
         // entry to P.
         let dead_borrow_region_can_reach_root =
-            iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_root");
+            iteration.variable::<((Origin, Point), Loan)>("dead_borrow_region_can_reach_root");
 
         // .decl dead_borrow_region_can_reach_dead((R2, P), B)
         let dead_borrow_region_can_reach_dead =
-            iteration.variable::<((Region, Point), Loan)>("dead_borrow_region_can_reach_dead");
+            iteration.variable::<((Origin, Point), Loan)>("dead_borrow_region_can_reach_dead");
         let dead_borrow_region_can_reach_dead_1 =
             iteration.variable_indistinct("dead_borrow_region_can_reach_dead_1");
 
@@ -234,7 +234,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
             //
             // This is the "transitive closure" rule, but
             // note that we only apply it with the
-            // "intermediate" region R2 is dead at Q.
+            // "intermediate" origin R2 is dead at Q.
             dying_can_reach_1.from_antijoin(
                 &dying_can_reach_r2q,
                 &region_live_at_rel,
@@ -288,7 +288,7 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
             //
             // Communicate a `R1 requires B` relation across
             // an edge `P -> Q` where `R1` is dead in Q; in
-            // that case, for each region `R2` live in `Q`
+            // that case, for each origin `R2` live in `Q`
             // where `R1 <= R2` in P, we add `R2 requires B`
             // to `Q`.
             requires_rp.from_join(
@@ -366,12 +366,12 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         }
 
         if dump_enabled {
-            for (region, location) in &region_live_at_rel.elements {
+            for (origin, location) in &region_live_at_rel.elements {
                 result
                     .region_live_at
                     .entry(*location)
                     .or_insert(vec![])
-                    .push(*region);
+                    .push(*origin);
             }
 
             let subset_r1p = subset_r1p.complete();
@@ -390,12 +390,12 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
             }
 
             let requires_rp = requires_rp.complete();
-            for ((region, location), borrow) in &requires_rp.elements {
+            for ((origin, location), borrow) in &requires_rp.elements {
                 result
                     .restricts
                     .entry(*location)
                     .or_insert(BTreeMap::new())
-                    .entry(*region)
+                    .entry(*origin)
                     .or_insert(BTreeSet::new())
                     .insert(*borrow);
             }

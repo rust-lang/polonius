@@ -162,7 +162,7 @@ fn no_subset_symmetries_exist() -> Result<(), Error> {
 // are extracted from rustc's test suite, and fail because of differences between the Naive
 // and DatafrogOpt variants, on the computation of the transitive closure.
 // They are part of the same pattern that the optimized variant misses, and only differ in
-// the length of the `outlives` chain reaching a live region at a specific point.
+// the length of the `outlives` chain reaching a live origin at a specific point.
 
 #[test]
 fn send_is_not_static_std_sync() {
@@ -223,7 +223,7 @@ fn issue_31567() {
 
 #[test]
 fn borrowed_local_error() {
-    // This test is related to the previous 3: there is still a borrow_region outliving a live region,
+    // This test is related to the previous 3: there is still a borrow_region outliving a live origin,
     // through a chain of `outlives` at a single point, but this time there are also 2 points
     // and an edge.
 

@@ -5,17 +5,17 @@ use facts::Atom;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn init_var_maybe_initialized_on_exit<Region, Loan, Point, Variable, MovePath>(
+pub(super) fn init_var_maybe_initialized_on_exit<Origin, Loan, Point, Variable, MovePath>(
     child: Vec<(MovePath, MovePath)>,
     path_belongs_to_var: Vec<(MovePath, Variable)>,
     initialized_at: Vec<(MovePath, Point)>,
     moved_out_at: Vec<(MovePath, Point)>,
     path_accessed_at: Vec<(MovePath, Point)>,
     cfg_edge: &[(Point, Point)],
-    output: &mut Output<Region, Loan, Point, Variable, MovePath>,
+    output: &mut Output<Origin, Loan, Point, Variable, MovePath>,
 ) -> Vec<(Variable, Point)>
 where
-    Region: Atom,
+    Origin: Atom,
     Loan: Atom,
     Point: Atom,
     Variable: Atom,

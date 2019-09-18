@@ -77,7 +77,7 @@ fn effects() {
     assert_eq!(
         effects[0],
         Effect::Use {
-            regions: vec!["'a".to_string()]
+            origins: vec!["'a".to_string()]
         }
     );
     assert_eq!(
@@ -90,7 +90,7 @@ fn effects() {
     assert_eq!(
         effects[2],
         Effect::Fact(Fact::BorrowRegionAt {
-            region: "'b".to_string(),
+            origin: "'b".to_string(),
             loan: "L1".to_string()
         })
     );
@@ -137,14 +137,14 @@ fn effects_start() {
                 loan: "L0".to_string()
             }),
             Effect::Fact(Fact::RegionLiveAt {
-                region: "'a".to_string()
+                origin: "'a".to_string()
             })
         ]
     );
     assert_eq!(
         statements.effects,
         [Effect::Use {
-            regions: vec!["'a".to_string()]
+            origins: vec!["'a".to_string()]
         }]
     );
 
@@ -172,7 +172,7 @@ fn effects_start() {
     assert_eq!(
         statements.effects,
         [Effect::Use {
-            regions: vec!["'c".to_string()]
+            origins: vec!["'c".to_string()]
         }]
     );
 }

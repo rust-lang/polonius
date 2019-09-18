@@ -7,23 +7,23 @@ use polonius_parser::{
     parse_input,
 };
 
-use crate::facts::{AllFacts, Loan, MovePath, Point, Region, Variable};
+use crate::facts::{AllFacts, Loan, MovePath, Origin, Point, Variable};
 use crate::intern::InternerTables;
 
 /// A structure to hold and deduplicate facts
 #[derive(Default)]
 struct Facts {
-    borrow_region: BTreeSet<(Region, Loan, Point)>,
-    universal_region: BTreeSet<Region>,
+    borrow_region: BTreeSet<(Origin, Loan, Point)>,
+    universal_region: BTreeSet<Origin>,
     cfg_edge: BTreeSet<(Point, Point)>,
     killed: BTreeSet<(Loan, Point)>,
-    outlives: BTreeSet<(Region, Region, Point)>,
+    outlives: BTreeSet<(Origin, Origin, Point)>,
     invalidates: BTreeSet<(Point, Loan)>,
     var_defined: BTreeSet<(Variable, Point)>,
     var_used: BTreeSet<(Variable, Point)>,
     var_drop_used: BTreeSet<(Variable, Point)>,
-    var_uses_region: BTreeSet<(Variable, Region)>,
-    var_drops_region: BTreeSet<(Variable, Region)>,
+    var_uses_region: BTreeSet<(Variable, Origin)>,
+    var_drops_region: BTreeSet<(Variable, Origin)>,
     child: BTreeSet<(MovePath, MovePath)>,
     path_belongs_to_var: BTreeSet<(MovePath, Variable)>,
     initialized_at: BTreeSet<(MovePath, Point)>,
@@ -63,29 +63,29 @@ pub(crate) fn parse_from_program(
 
     let mut facts: Facts = Default::default();
 
-    // facts: universal_region(Region)
+    // facts: universal_region(Origin)
     facts.universal_region.extend(
         input
             .universal_regions
             .iter()
-            .map(|region| tables.regions.intern(region)),
+            .map(|origin| tables.origins.intern(origin)),
     );
 
     facts
         .var_drops_region
-        .extend(input.var_drops_region.iter().map(|(variable, region)| {
+        .extend(input.var_drops_region.iter().map(|(variable, origin)| {
             (
                 tables.variables.intern(variable),
-                tables.regions.intern(region),
+                tables.origins.intern(origin),
             )
         }));
 
     facts
         .var_uses_region
-        .extend(input.var_uses_region.iter().map(|(variable, region)| {
+        .extend(input.var_uses_region.iter().map(|(variable, origin)| {
             (
                 tables.variables.intern(variable),
-                tables.regions.intern(region),
+                tables.origins.intern(origin),
             )
         }));
 
@@ -169,23 +169,23 @@ pub(crate) fn parse_from_program(
 
 fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut InternerTables) {
     match fact {
-        // facts: borrow_region(Region, Loan, Point)
+        // facts: borrow_region(Origin, Loan, Point)
         Fact::BorrowRegionAt {
-            ref region,
+            ref origin,
             ref loan,
         } => {
-            // borrow_region: a `borrow_region_at` occurs on the Mid point
-            let region = tables.regions.intern(region);
+            // borrow_region: a `borrow_region` occurs on the Mid point
+            let origin = tables.origins.intern(origin);
             let loan = tables.loans.intern(loan);
 
-            facts.borrow_region.insert((region, loan, point));
+            facts.borrow_region.insert((origin, loan, point));
         }
 
-        // facts: outlives(Region, Region, Point)
+        // facts: outlives(Origin, Origin, Point)
         Fact::Outlives { ref a, ref b } => {
             // outlives: a `outlives` occurs on Mid points
-            let region_a = tables.regions.intern(a);
-            let region_b = tables.regions.intern(b);
+            let region_a = tables.origins.intern(a);
+            let region_b = tables.origins.intern(b);
 
             facts.outlives.insert((region_a, region_b, point));
         }
@@ -262,7 +262,7 @@ mod tests {
         let universal_regions: Vec<_> = facts
             .universal_region
             .iter()
-            .map(|r| tables.regions.untern(*r).to_string())
+            .map(|r| tables.origins.untern(*r).to_string())
             .collect();
         assert_eq!(universal_regions, ["'a", "'b", "'c"]);
 
@@ -288,8 +288,8 @@ mod tests {
 
         assert_eq!(facts.outlives.len(), 1);
         {
-            let region_a = tables.regions.untern(facts.outlives[0].0);
-            let region_b = tables.regions.untern(facts.outlives[0].1);
+            let region_a = tables.origins.untern(facts.outlives[0].0);
+            let region_b = tables.origins.untern(facts.outlives[0].1);
             let point = tables.points.untern(facts.outlives[0].2);
 
             assert_eq!(region_a, "'a");
@@ -299,11 +299,11 @@ mod tests {
 
         assert_eq!(facts.borrow_region.len(), 1);
         {
-            let region = tables.regions.untern(facts.borrow_region[0].0);
+            let origin = tables.origins.untern(facts.borrow_region[0].0);
             let loan = tables.loans.untern(facts.borrow_region[0].1);
             let point = tables.points.untern(facts.borrow_region[0].2);
 
-            assert_eq!(region, "'b");
+            assert_eq!(origin, "'b");
             assert_eq!(loan, "L1");
             assert_eq!(point, "\"Mid(B1[0])\"");
         }

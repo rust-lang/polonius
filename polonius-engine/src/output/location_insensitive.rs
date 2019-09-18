@@ -18,10 +18,10 @@ use crate::output::Output;
 use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, Atom};
 
-pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
+pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
     dump_enabled: bool,
-    all_facts: &AllFacts<Region, Loan, Point, Variable, MovePath>,
-) -> Output<Region, Loan, Point, Variable, MovePath> {
+    all_facts: &AllFacts<Origin, Loan, Point, Variable, MovePath>,
+) -> Output<Origin, Loan, Point, Variable, MovePath> {
     let mut result = Output::new(dump_enabled);
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
         all_facts.child.clone(),
@@ -51,12 +51,12 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         let mut iteration = Iteration::new();
 
         // static inputs
-        let region_live_at: Relation<(Region, Point)> = region_live_at.into();
+        let region_live_at: Relation<(Origin, Point)> = region_live_at.into();
         let invalidates = Relation::from_iter(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
 
         // .. some variables, ..
-        let subset = iteration.variable::<(Region, Region)>("subset");
-        let requires = iteration.variable::<(Region, Loan)>("requires");
+        let subset = iteration.variable::<(Origin, Origin)>("subset");
+        let requires = iteration.variable::<(Origin, Loan)>("requires");
 
         let potential_errors = iteration.variable::<(Loan, Point)>("potential_errors");
 
@@ -103,20 +103,20 @@ pub(super) fn compute<Region: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
             }
 
             let requires = requires.complete();
-            for (region, borrow) in &requires.elements {
+            for (origin, borrow) in &requires.elements {
                 result
                     .restricts_anywhere
-                    .entry(*region)
+                    .entry(*origin)
                     .or_insert(BTreeSet::new())
                     .insert(*borrow);
             }
 
-            for (region, location) in &region_live_at.elements {
+            for (origin, location) in &region_live_at.elements {
                 result
                     .region_live_at
                     .entry(*location)
                     .or_insert(vec![])
-                    .push(*region);
+                    .push(*origin);
             }
         }
 
