@@ -3,9 +3,9 @@ use crate::dump::Output;
 use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
-use failure::Error;
 use log::error;
 use polonius_engine::Algorithm;
+use std::error::Error;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
@@ -56,7 +56,7 @@ macro_rules! attempt {
     };
 }
 
-pub fn main(opt: Opt) -> Result<(), Error> {
+pub fn main(opt: Opt) -> Result<(), Box<dyn Error>> {
     let output_directory = opt
         .output_directory
         .as_ref()
@@ -69,7 +69,7 @@ pub fn main(opt: Opt) -> Result<(), Error> {
     for facts_dir in &opt.fact_dirs {
         let tables = &mut intern::InternerTables::new();
 
-        let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
+        let result: Result<(Duration, AllFacts, Output), Box<dyn Error>> = attempt! {
             let verbose = opt.verbose;
             let all_facts =
                 tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
