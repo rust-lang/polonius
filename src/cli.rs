@@ -138,9 +138,9 @@ FLAGS:
 OPTIONS:
     -a <algorithm> [default: Naive]
         [possible values: {variants}]
-        --graphviz_file <graphviz_file>                Generate a graphviz file to visualize the computation
-        --dump-liveness-graph <liveness_graph_file>    Generate a graphviz file to visualize the liveness information
-    -o, --output <output_directory>                    Directory where to output resulting tuples
+        --graphviz-file <graphviz file>          Generate a graphviz file to visualize the computation
+        --dump-liveness-graph <graphviz file>    Generate a graphviz file to visualize the liveness information
+    -o, --output <output_directory>              Directory where to output resulting tuples
 
 ARGS:
     <fact_dirs>..."#,
@@ -164,7 +164,7 @@ ARGS:
         show_tuples: args.contains("--show-tuples"),
         skip_timing: args.contains("--skip-timing"),
         verbose: args.contains(["-v", "--verbose"]),
-        graphviz_file: arg_from_str(&mut args, "--graphviz_file")?,
+        graphviz_file: arg_from_str(&mut args, "--graphviz-file")?,
         output_directory: arg_from_str(&mut args, "-o")?.or(arg_from_str(&mut args, "--output")?),
         liveness_graph_file: arg_from_str(&mut args, "--dump-liveness-graph")?,
         fact_dirs: args.free().map_err(readable_pico_error)?,
