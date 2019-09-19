@@ -61,8 +61,8 @@ pub fn main(opt: Options) -> Result<(), Error> {
 
         let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
             let verbose = opt.verbose;
-            let all_facts =
-                tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir)).map_err(|e|Error(e.to_string()))?;
+            let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))
+                .map_err(|e| Error(e.to_string()))?;
             let algorithm = opt.algorithm;
             let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
             let (duration, output) =
