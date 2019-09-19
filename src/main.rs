@@ -1,10 +1,13 @@
-extern crate env_logger;
-
 use polonius::cli;
-use std::error::Error;
+use std::process::exit;
 
-pub fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
-    let options = cli::Options::from_args()?;
-    cli::main(options)
+fn main() -> Result<(), cli::Error> {
+    match cli::options_from_args() {
+        Ok(options) => cli::main(options),
+        Err(e) => {
+            // override default `Termination` error printing
+            eprintln!("{}\n\nFor more information try --help", e);
+            exit(1);
+        }
+    }
 }

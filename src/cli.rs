@@ -4,11 +4,13 @@ use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
 use log::error;
-use pico_args::Arguments;
+use pico_args as pico;
 use polonius_engine::Algorithm;
-use std::error::Error;
+use std::error;
+use std::fmt;
 use std::path::Path;
 use std::process::exit;
+use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 const PKG_NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -27,13 +29,24 @@ pub struct Options {
     liveness_graph_file: Option<String>,
 }
 
+#[derive(Debug)]
+pub struct Error(String);
+
+impl error::Error for Error {}
+
+impl fmt::Display for Error {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.write_str(&self.0)
+    }
+}
+
 macro_rules! attempt {
     ($($tokens:tt)*) => {
         (|| Ok({ $($tokens)* }))()
     };
 }
 
-pub fn main(opt: Options) -> Result<(), Box<dyn Error>> {
+pub fn main(opt: Options) -> Result<(), Error> {
     let output_directory = opt
         .output_directory
         .as_ref()
@@ -46,10 +59,10 @@ pub fn main(opt: Options) -> Result<(), Box<dyn Error>> {
     for facts_dir in &opt.fact_dirs {
         let tables = &mut intern::InternerTables::new();
 
-        let result: Result<(Duration, AllFacts, Output), Box<dyn Error>> = attempt! {
+        let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
             let verbose = opt.verbose;
             let all_facts =
-                tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+                tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir)).map_err(|e|Error(e.to_string()))?;
             let algorithm = opt.algorithm;
             let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
             let (duration, output) =
@@ -96,19 +109,19 @@ fn timed<T>(op: impl FnOnce() -> T) -> (Duration, T) {
     (duration, output)
 }
 
-impl Options {
-    pub fn from_args() -> Result<Options, Box<dyn Error>> {
-        let mut args = Arguments::from_env();
+// Parses the provided CLI arguments into `Options`
+pub fn options_from_args() -> Result<Options, Error> {
+    let mut args = pico::Arguments::from_env();
 
-        // 1) print optional information before exiting: help, version
-        let show_help = args.contains(["-h", "--help"]);
-        if show_help {
-            let variants: Vec<_> = Algorithm::variants()
-                .iter()
-                .map(|s| s.to_string())
-                .collect();
+    // 1) print optional information before exiting: help, version
+    let show_help = args.contains(["-h", "--help"]);
+    if show_help {
+        let variants: Vec<_> = Algorithm::variants()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
 
-            println!(
+        println!(
                 r#"{name} {version}
 {description}
 
@@ -136,46 +149,76 @@ ARGS:
                 description = PKG_DESCRIPTION,
                 variants = variants.join(", ")
             );
-            exit(0);
-        }
+        exit(0);
+    }
 
-        // print version if needed
-        if args.contains("-V") {
-            println!("{} {}", PKG_NAME, PKG_VERSION);
-            exit(0);
-        }
+    // print version if needed
+    if args.contains("-V") {
+        println!("{} {}", PKG_NAME, PKG_VERSION);
+        exit(0);
+    }
 
-        // 2) parse args
-        // TODO: the error printed when `value_from_str` is called is terrible.
-        // The new unreleased version of pico_args (current: 0.1) will allow to get the error enum, and print what we need.
-        // Finish this when it's released !
-        let options = Options {
-            algorithm: args.value_from_str("-a")?.unwrap_or(Algorithm::Naive),
-            show_tuples: args.contains("--show-tuples"),
-            skip_timing: args.contains("--skip-timing"),
-            verbose: args.contains(["-v", "--verbose"]),
-            graphviz_file: args.value_from_str("--graphviz_file")?,
-            output_directory: args
-                .value_from_str("-o")?
-                .or(args.value_from_str("--output")?),
-            liveness_graph_file: args.value_from_str("--dump-liveness-graph")?,
-            fact_dirs: args.free()?,
-        };
+    // 2) parse args
+    let options = Options {
+        algorithm: arg_from_str(&mut args, "-a")?.unwrap_or(Algorithm::Naive),
+        show_tuples: args.contains("--show-tuples"),
+        skip_timing: args.contains("--skip-timing"),
+        verbose: args.contains(["-v", "--verbose"]),
+        graphviz_file: arg_from_str(&mut args, "--graphviz_file")?,
+        output_directory: arg_from_str(&mut args, "-o")?.or(arg_from_str(&mut args, "--output")?),
+        liveness_graph_file: arg_from_str(&mut args, "--dump-liveness-graph")?,
+        fact_dirs: args.free().map_err(readable_pico_error)?,
+    };
 
-        // 3) validate args: a fact directory is required
-        if options.fact_dirs.is_empty() {
-            println!(
-                r#"error: The following required arguments were not provided:
+    // 3) validate args: a fact directory is required
+    if options.fact_dirs.is_empty() {
+        println!(
+            r#"error: The following required arguments were not provided:
     <fact_dirs>...
 
 USAGE:
     polonius <fact_dirs>... -a <algorithm>
 
 For more information try --help"#
-            );
-            exit(1);
-        }
-
-        Ok(options)
+        );
+        exit(1);
     }
+
+    Ok(options)
+}
+
+// Read an argument from the CLI, parse it, but with a readable error message if it fails
+pub fn arg_from_str<T>(args: &mut pico::Arguments, key: &'static str) -> Result<Option<T>, Error>
+where
+    T: FromStr,
+    <T as FromStr>::Err: fmt::Display,
+{
+    args.value_from_str(key).map_err(|e| {
+        Error(format!(
+            "error parsing argument '{}': {}",
+            key,
+            readable_pico_error(e)
+        ))
+    })
+}
+
+// Make a pico_args error a bit more readable than just its `Debug` output
+fn readable_pico_error(error: pico::Error) -> Error {
+    use pico::Error;
+    Error(match error {
+        Error::ArgumentParsingFailed { cause } => format!("failed to parse ({})", cause),
+        Error::Utf8ArgumentParsingFailed { value, cause } => {
+            format!("'{}' isn't a valid value ({})", value, cause)
+        }
+        Error::OptionWithoutAValue(_) => "missing value".to_string(),
+        Error::UnusedArgsLeft(left) => {
+            let plural = if left.len() > 1 { "were" } else { "was" };
+            format!(
+                "error parsing arguments: {} {} not recognized",
+                left.join(", "),
+                plural
+            )
+        }
+        Error::NonUtf8Argument => "not a valid utf8 value".to_string(),
+    })
 }
