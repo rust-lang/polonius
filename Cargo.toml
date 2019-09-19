@@ -10,7 +10,6 @@ keywords = ["compiler", "borrowck", "datalog"]
 edition = "2018"
 
 [dev-dependencies]
-assert_cli = "0.6"
 diff = "0.1.0"
 polonius-parser = {version = "0.3.0", path = "polonius-parser" }
 
