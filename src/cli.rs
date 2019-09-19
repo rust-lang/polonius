@@ -212,12 +212,7 @@ fn readable_pico_error(error: pico::Error) -> Error {
         }
         Error::OptionWithoutAValue(_) => "missing value".to_string(),
         Error::UnusedArgsLeft(left) => {
-            let plural = if left.len() > 1 { "were" } else { "was" };
-            format!(
-                "error parsing arguments: {} {} not recognized",
-                left.join(", "),
-                plural
-            )
+            format!("error, unrecognized arguments: {}", left.join(", "))
         }
         Error::NonUtf8Argument => "not a valid utf8 value".to_string(),
     })
