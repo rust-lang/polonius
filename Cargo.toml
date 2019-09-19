@@ -14,7 +14,6 @@ diff = "0.1.0"
 polonius-parser = {version = "0.3.0", path = "polonius-parser" }
 
 [dependencies]
-env_logger = "0.5"
 rustc-hash = "1.0.0"
 polonius-engine = {version = "0.10.0", path = "polonius-engine" }
 log = "0.4"
