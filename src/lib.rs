@@ -1,7 +1,5 @@
-extern crate clap;
 extern crate polonius_engine;
 extern crate rustc_hash;
-extern crate structopt;
 
 mod dump;
 mod facts;

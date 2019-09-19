@@ -8,8 +8,8 @@ use crate::tab_delim;
 use crate::test_util::assert_equal;
 use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
-use std::path::Path;
 use std::error::Error;
+use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     let naive = Output::compute(all_facts, Algorithm::Naive, true);
