@@ -13,7 +13,7 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-pub(crate) type Output = PoloniusEngineOutput<Origin, Loan, Point, Variable, MovePath>;
+pub(crate) type Output = PoloniusEngineOutput<T>;
 
 pub(crate) fn dump_output(
     output: &Output,

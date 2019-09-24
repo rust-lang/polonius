@@ -16,12 +16,12 @@ use crate::output::liveness;
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
-use facts::{AllFacts, Atom};
+use facts::{AllFacts, FactTypes};
 
-pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
+pub(super) fn compute<T: FactTypes>(
     dump_enabled: bool,
-    all_facts: &AllFacts<Origin, Loan, Point, Variable, MovePath>,
-) -> Output<Origin, Loan, Point, Variable, MovePath> {
+    all_facts: &AllFacts<T>,
+) -> Output<T> {
     let mut result = Output::new(dump_enabled);
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
         all_facts.child.clone(),
@@ -51,14 +51,14 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         let mut iteration = Iteration::new();
 
         // static inputs
-        let region_live_at: Relation<(Origin, Point)> = region_live_at.into();
+        let region_live_at: Relation<(T::Origin, T::Point)> = region_live_at.into();
         let invalidates = Relation::from_iter(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
 
         // .. some variables, ..
-        let subset = iteration.variable::<(Origin, Origin)>("subset");
-        let requires = iteration.variable::<(Origin, Loan)>("requires");
+        let subset = iteration.variable::<(T::Origin, T::Origin)>("subset");
+        let requires = iteration.variable::<(T::Origin, T::Loan)>("requires");
 
-        let potential_errors = iteration.variable::<(Loan, Point)>("potential_errors");
+        let potential_errors = iteration.variable::<(T::Loan, T::Point)>("potential_errors");
 
         // load initial facts.
 

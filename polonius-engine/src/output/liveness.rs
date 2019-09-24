@@ -14,54 +14,47 @@ use std::collections::BTreeSet;
 use std::time::Instant;
 
 use crate::output::Output;
-use facts::Atom;
+use facts::FactTypes;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn compute_live_regions<Origin, Loan, Point, Variable, MovePath>(
-    var_used: Vec<(Variable, Point)>,
-    var_drop_used: Vec<(Variable, Point)>,
-    var_defined: Vec<(Variable, Point)>,
-    var_uses_region: Vec<(Variable, Origin)>,
-    var_drops_region: Vec<(Variable, Origin)>,
-    cfg_edge: &[(Point, Point)],
-    var_maybe_initialized_on_exit: Vec<(Variable, Point)>,
-    output: &mut Output<Origin, Loan, Point, Variable, MovePath>,
-) -> Vec<(Origin, Point)>
-where
-    Origin: Atom,
-    Loan: Atom,
-    Point: Atom,
-    Variable: Atom,
-    MovePath: Atom,
-{
+pub(super) fn compute_live_regions<T: FactTypes>(
+    var_used: Vec<(T::Variable, T::Point)>,
+    var_drop_used: Vec<(T::Variable, T::Point)>,
+    var_defined: Vec<(T::Variable, T::Point)>,
+    var_uses_region: Vec<(T::Variable, T::Origin)>,
+    var_drops_region: Vec<(T::Variable, T::Origin)>,
+    cfg_edge: &[(T::Point, T::Point)],
+    var_maybe_initialized_on_exit: Vec<(T::Variable, T::Point)>,
+    output: &mut Output<T>,
+) -> Vec<(T::Origin, T::Point)> {
     debug!("compute_liveness()");
     let computation_start = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
-    let var_defined_rel: Relation<(Variable, Point)> = var_defined.into();
-    let cfg_edge_rel: Relation<(Point, Point)> = cfg_edge.iter().map(|(p, q)| (*p, *q)).collect();
-    let cfg_edge_reverse_rel: Relation<(Point, Point)> =
+    let var_defined_rel: Relation<(T::Variable, T::Point)> = var_defined.into();
+    let cfg_edge_rel: Relation<(T::Point, T::Point)> = cfg_edge.iter().map(|(p, q)| (*p, *q)).collect();
+    let cfg_edge_reverse_rel: Relation<(T::Point, T::Point)> =
         cfg_edge.iter().map(|(p, q)| (*q, *p)).collect();
-    let var_uses_region_rel: Relation<(Variable, Origin)> = var_uses_region.into();
-    let var_drops_region_rel: Relation<(Variable, Origin)> = var_drops_region.into();
-    let var_maybe_initialized_on_exit_rel: Relation<(Variable, Point)> =
+    let var_uses_region_rel: Relation<(T::Variable, T::Origin)> = var_uses_region.into();
+    let var_drops_region_rel: Relation<(T::Variable, T::Origin)> = var_drops_region.into();
+    let var_maybe_initialized_on_exit_rel: Relation<(T::Variable, T::Point)> =
         var_maybe_initialized_on_exit.into();
-    let var_drop_used_rel: Relation<((Variable, Point), ())> = var_drop_used
+    let var_drop_used_rel: Relation<((T::Variable, T::Point), ())> = var_drop_used
         .into_iter()
         .map(|(v, p)| ((v, p), ()))
         .collect();
 
-    // Variables
+    // T::Variables
 
     // `var_live`: variable V is live upon entry in point P
-    let var_live_var = iteration.variable::<(Variable, Point)>("var_live_at");
+    let var_live_var = iteration.variable::<(T::Variable, T::Point)>("var_live_at");
     // `var_drop_live`: variable V is drop-live (will be used for a drop) upon entry in point P
-    let var_drop_live_var = iteration.variable::<(Variable, Point)>("var_drop_live_at");
+    let var_drop_live_var = iteration.variable::<(T::Variable, T::Point)>("var_drop_live_at");
 
     // This is what we are actually calculating:
-    let region_live_at_var = iteration.variable::<((Origin, Point), ())>("region_live_at");
+    let region_live_at_var = iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
     // This propagates the relation `var_live(V, P) :- var_used(V, P)`:
     var_live_var.insert(var_used.into());
@@ -163,14 +156,14 @@ where
         .collect()
 }
 
-pub(super) fn make_universal_region_live<Origin: Atom, Point: Atom>(
-    region_live_at: &mut Vec<(Origin, Point)>,
-    cfg_edge: &[(Point, Point)],
-    universal_region: Vec<Origin>,
+pub(super) fn make_universal_region_live<T: FactTypes>(
+    region_live_at: &mut Vec<(T::Origin, T::Point)>,
+    cfg_edge: &[(T::Point, T::Point)],
+    universal_region: Vec<T::Origin>,
 ) {
     debug!("make_universal_regions_live()");
 
-    let all_points: BTreeSet<Point> = cfg_edge
+    let all_points: BTreeSet<T::Point> = cfg_edge
         .iter()
         .map(|&(p, _)| p)
         .chain(cfg_edge.iter().map(|&(_, q)| q))
@@ -184,23 +177,17 @@ pub(super) fn make_universal_region_live<Origin: Atom, Point: Atom>(
     }
 }
 
-pub(super) fn init_region_live_at<
-    Origin: Atom,
-    Loan: Atom,
-    Point: Atom,
-    Variable: Atom,
-    MovePath: Atom,
->(
-    var_used: Vec<(Variable, Point)>,
-    var_drop_used: Vec<(Variable, Point)>,
-    var_defined: Vec<(Variable, Point)>,
-    var_uses_region: Vec<(Variable, Origin)>,
-    var_drops_region: Vec<(Variable, Origin)>,
-    var_maybe_initialized_on_exit: Vec<(Variable, Point)>,
-    cfg_edge: &[(Point, Point)],
-    universal_region: Vec<Origin>,
-    output: &mut Output<Origin, Loan, Point, Variable, MovePath>,
-) -> Vec<(Origin, Point)> {
+pub(super) fn init_region_live_at<T: FactTypes>(
+    var_used: Vec<(T::Variable, T::Point)>,
+    var_drop_used: Vec<(T::Variable, T::Point)>,
+    var_defined: Vec<(T::Variable, T::Point)>,
+    var_uses_region: Vec<(T::Variable, T::Origin)>,
+    var_drops_region: Vec<(T::Variable, T::Origin)>,
+    var_maybe_initialized_on_exit: Vec<(T::Variable, T::Point)>,
+    cfg_edge: &[(T::Point, T::Point)],
+    universal_region: Vec<T::Origin>,
+    output: &mut Output<T>,
+) -> Vec<(T::Origin, T::Point)> {
     debug!("init_region_live_at()");
     let mut region_live_at = compute_live_regions(
         var_used,
