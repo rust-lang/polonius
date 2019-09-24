@@ -1,6 +1,9 @@
-use polonius_engine;
+use polonius_engine::{self, FactTypes};
 
-pub(crate) type AllFacts = polonius_engine::AllFacts<T>;
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct LocalFacts;
+
+pub(crate) type AllFacts = polonius_engine::AllFacts<LocalFacts>;
 
 macro_rules! index_type {
     ($t:ident) => {
@@ -36,3 +39,11 @@ index_type!(Loan);
 index_type!(Point);
 index_type!(Variable);
 index_type!(MovePath);
+
+impl FactTypes for LocalFacts {
+    type Origin = Origin;
+    type Loan = Loan;
+    type Point = Point;
+    type Variable = Variable;
+    type MovePath = MovePath;
+}

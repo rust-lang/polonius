@@ -118,20 +118,16 @@ fn compare_errors<Loan: Atom, Point: Atom>(
 }
 
 impl<T: FactTypes> Output<T> {
-    pub fn compute(
-        all_facts: AllFacts<T>,
-        algorithm: Algorithm,
-        dump_enabled: bool,
-    ) -> Self {
+    pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
         match algorithm {
-            Algorithm::Naive => naive::compute(dump_enabled, all_facts),
-            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts),
+            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
+            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
             Algorithm::LocationInsensitive => {
-                location_insensitive::compute(dump_enabled, all_facts)
+                location_insensitive::compute(dump_enabled, &all_facts)
             }
             Algorithm::Compare => {
                 let naive_output = naive::compute(dump_enabled, all_facts.clone());
-                let opt_output = datafrog_opt::compute(dump_enabled, all_facts);
+                let opt_output = datafrog_opt::compute(dump_enabled, all_facts.clone());
                 if compare_errors(&naive_output.errors, &opt_output.errors) {
                     panic!(concat!(
                         "The errors reported by the naive algorithm differ from ",
@@ -143,7 +139,7 @@ impl<T: FactTypes> Output<T> {
                 }
                 opt_output
             }
-            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts),
+            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone()),
         }
     }
 
@@ -179,7 +175,10 @@ impl<T: FactTypes> Output<T> {
         }
     }
 
-    pub fn restricts_at(&self, location: T::Point) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Loan>>> {
+    pub fn restricts_at(
+        &self,
+        location: T::Point,
+    ) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Loan>>> {
         assert!(self.dump_enabled);
         match self.restricts.get(&location) {
             Some(map) => Cow::Borrowed(map),
@@ -195,7 +194,10 @@ impl<T: FactTypes> Output<T> {
         }
     }
 
-    pub fn subsets_at(&self, location: T::Point) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Origin>>> {
+    pub fn subsets_at(
+        &self,
+        location: T::Point,
+    ) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Origin>>> {
         assert!(self.dump_enabled);
         match self.subset.get(&location) {
             Some(v) => Cow::Borrowed(v),

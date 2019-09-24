@@ -34,7 +34,8 @@ pub(super) fn compute_live_regions<T: FactTypes>(
 
     // Relations
     let var_defined_rel: Relation<(T::Variable, T::Point)> = var_defined.into();
-    let cfg_edge_rel: Relation<(T::Point, T::Point)> = cfg_edge.iter().map(|(p, q)| (*p, *q)).collect();
+    let cfg_edge_rel: Relation<(T::Point, T::Point)> =
+        cfg_edge.iter().map(|(p, q)| (*p, *q)).collect();
     let cfg_edge_reverse_rel: Relation<(T::Point, T::Point)> =
         cfg_edge.iter().map(|(p, q)| (*q, *p)).collect();
     let var_uses_region_rel: Relation<(T::Variable, T::Origin)> = var_uses_region.into();

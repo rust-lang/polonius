@@ -18,31 +18,28 @@ use crate::output::Output;
 use datafrog::{Iteration, Relation, RelationLeaper};
 use facts::{AllFacts, FactTypes};
 
-pub(super) fn compute<T: FactTypes>(
-    dump_enabled: bool,
-    all_facts: AllFacts<T>,
-) -> Output<T> {
+pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
     let mut result = Output::new(dump_enabled);
 
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
-        all_facts.child.clone(),
-        all_facts.path_belongs_to_var.clone(),
-        all_facts.initialized_at.clone(),
-        all_facts.moved_out_at.clone(),
-        all_facts.path_accessed_at.clone(),
-        &all_facts.cfg_edge.clone(),
+        all_facts.child,
+        all_facts.path_belongs_to_var,
+        all_facts.initialized_at,
+        all_facts.moved_out_at,
+        all_facts.path_accessed_at,
+        &all_facts.cfg_edge,
         &mut result,
     );
 
     let region_live_at = liveness::init_region_live_at(
-        all_facts.var_used.clone(),
-        all_facts.var_drop_used.clone(),
-        all_facts.var_defined.clone(),
-        all_facts.var_uses_region.clone(),
-        all_facts.var_drops_region.clone(),
-        var_maybe_initialized_on_exit.clone(),
-        &all_facts.cfg_edge.clone(),
-        all_facts.universal_region.clone(),
+        all_facts.var_used,
+        all_facts.var_drop_used,
+        all_facts.var_defined,
+        all_facts.var_uses_region,
+        all_facts.var_drops_region,
+        var_maybe_initialized_on_exit,
+        &all_facts.cfg_edge,
+        all_facts.universal_region,
         &mut result,
     );
 
@@ -55,7 +52,7 @@ pub(super) fn compute<T: FactTypes>(
         // static inputs
         let cfg_edge_rel = Relation::from_iter(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
 
-        let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.clone().into();
+        let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.into();
 
         // `invalidates` facts, stored ready for joins
         let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
@@ -63,10 +60,12 @@ pub(super) fn compute<T: FactTypes>(
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
         let region_live_at_rel: Relation<(T::Origin, T::Point)> = region_live_at.into();
-        let region_live_at_var = iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
+        let region_live_at_var =
+            iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
-        let borrow_region_rp = iteration.variable::<((T::Origin, T::Point), T::Loan)>("borrow_region_rp");
+        let borrow_region_rp =
+            iteration.variable::<((T::Origin, T::Point), T::Loan)>("borrow_region_rp");
 
         // .decl subset(R1, R2, P)
         //
@@ -94,15 +93,15 @@ pub(super) fn compute<T: FactTypes>(
         // In that case, `Q` would like to add all the
         // live things reachable from `R2` to `R1`.
         //
-        let live_to_dying_regions_r2pq =
-            iteration.variable::<((T::Origin, T::Point, T::Point), T::Origin)>("live_to_dying_regions_r2pq");
+        let live_to_dying_regions_r2pq = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("live_to_dying_regions_r2pq");
 
         // .decl dying_region_requires((R, P, Q), B)
         //
         // The origin `R` requires the borrow `B`, but the
         // origin `R` goes dead along the edge `P -> Q`
-        let dying_region_requires =
-            iteration.variable::<((T::Origin, T::Point, T::Point), T::Loan)>("dying_region_requires");
+        let dying_region_requires = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Loan)>("dying_region_requires");
 
         // .decl dying_can_reach_origins(R, P, Q)
         //
@@ -131,19 +130,19 @@ pub(super) fn compute<T: FactTypes>(
         // relation. This is a subset of the full `dying_can_reach`
         // relation where we filter down to those cases where R2 is
         // live in Q.
-        let dying_can_reach_live =
-            iteration.variable::<((T::Origin, T::Point, T::Point), T::Origin)>("dying_can_reach_live");
+        let dying_can_reach_live = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("dying_can_reach_live");
 
         // .decl dead_borrow_region_can_reach_root((R, P), B)
         //
         // Indicates a "borrow region" R at P which is not live on
         // entry to P.
-        let dead_borrow_region_can_reach_root =
-            iteration.variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_root");
+        let dead_borrow_region_can_reach_root = iteration
+            .variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_root");
 
         // .decl dead_borrow_region_can_reach_dead((R2, P), B)
-        let dead_borrow_region_can_reach_dead =
-            iteration.variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_dead");
+        let dead_borrow_region_can_reach_dead = iteration
+            .variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_dead");
         let dead_borrow_region_can_reach_dead_1 =
             iteration.variable_indistinct("dead_borrow_region_can_reach_dead_1");
 

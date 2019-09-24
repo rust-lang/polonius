@@ -20,10 +20,7 @@ use facts::{AllFacts, FactTypes};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn compute<T: FactTypes>(
-    dump_enabled: bool,
-    all_facts: AllFacts<T>,
-) -> Output<T> {
+pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
     let mut result = Output::new(dump_enabled);
 
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
@@ -76,7 +73,8 @@ pub(super) fn compute<T: FactTypes>(
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
-        let region_live_at_var = iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
+        let region_live_at_var =
+            iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
         // output
         let errors = iteration.variable("errors");
