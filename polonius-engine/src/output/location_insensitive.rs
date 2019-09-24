@@ -20,7 +20,7 @@ use facts::{AllFacts, FactTypes};
 
 pub(super) fn compute<T: FactTypes>(
     dump_enabled: bool,
-    all_facts: &AllFacts<T>,
+    all_facts: AllFacts<T>,
 ) -> Output<T> {
     let mut result = Output::new(dump_enabled);
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(

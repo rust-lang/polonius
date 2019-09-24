@@ -200,7 +200,7 @@ pub(super) fn init_region_live_at<T: FactTypes>(
         output,
     );
 
-    make_universal_region_live(&mut region_live_at, cfg_edge, universal_region);
+    make_universal_region_live::<T>(&mut region_live_at, cfg_edge, universal_region);
 
     region_live_at
 }

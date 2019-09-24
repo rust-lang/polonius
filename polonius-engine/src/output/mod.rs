@@ -119,19 +119,19 @@ fn compare_errors<Loan: Atom, Point: Atom>(
 
 impl<T: FactTypes> Output<T> {
     pub fn compute(
-        all_facts: &AllFacts<T>,
+        all_facts: AllFacts<T>,
         algorithm: Algorithm,
         dump_enabled: bool,
     ) -> Self {
         match algorithm {
-            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
-            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
+            Algorithm::Naive => naive::compute(dump_enabled, all_facts),
+            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts),
             Algorithm::LocationInsensitive => {
-                location_insensitive::compute(dump_enabled, &all_facts)
+                location_insensitive::compute(dump_enabled, all_facts)
             }
             Algorithm::Compare => {
                 let naive_output = naive::compute(dump_enabled, all_facts.clone());
-                let opt_output = datafrog_opt::compute(dump_enabled, all_facts.clone());
+                let opt_output = datafrog_opt::compute(dump_enabled, all_facts);
                 if compare_errors(&naive_output.errors, &opt_output.errors) {
                     panic!(concat!(
                         "The errors reported by the naive algorithm differ from ",
@@ -143,7 +143,7 @@ impl<T: FactTypes> Output<T> {
                 }
                 opt_output
             }
-            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone()),
+            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts),
         }
     }
 

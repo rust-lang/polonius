@@ -20,7 +20,7 @@ pub(super) fn compute<T: FactTypes>(
     dump_enabled: bool,
     all_facts: AllFacts<T>,
 ) -> Output<T> {
-    let lins_output = location_insensitive::compute(dump_enabled, &all_facts);
+    let lins_output = location_insensitive::compute(dump_enabled, all_facts.clone());
     if lins_output.errors.is_empty() {
         lins_output
     } else {

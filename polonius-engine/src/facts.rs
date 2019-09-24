@@ -93,7 +93,7 @@ pub trait Atom:
     fn index(self) -> usize;
 }
 
-pub trait FactTypes {
+pub trait FactTypes: Copy + Clone + Debug {
     type Origin: Atom;
     type Loan: Atom;
     type Point: Atom;
