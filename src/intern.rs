@@ -1,10 +1,11 @@
 use crate::facts::*;
+use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 
 /// When we load facts out of the table, they are essentially random
 /// strings. We create an intern table to map those to small integers.
 pub(crate) struct Interner<TargetType: From<usize> + Copy> {
-    strings: HashMap<String, TargetType>,
+    strings: FxHashMap<String, TargetType>,
     rev_strings: Vec<String>,
 }
 
@@ -14,7 +15,7 @@ where
 {
     fn new() -> Self {
         Self {
-            strings: HashMap::new(),
+            strings: HashMap::default(),
             rev_strings: vec![],
         }
     }
