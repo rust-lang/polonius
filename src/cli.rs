@@ -3,51 +3,41 @@ use crate::dump::Output;
 use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
-use failure::Error;
 use log::error;
+use pico_args as pico;
 use polonius_engine::Algorithm;
+use std::error;
+use std::fmt;
 use std::path::Path;
+use std::process::exit;
+use std::str::FromStr;
 use std::time::{Duration, Instant};
-use structopt::StructOpt;
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "borrow-check")]
-pub struct Opt {
-    #[structopt(
-        short = "a",
-        env = "POLONIUS_ALGORITHM",
-        default_value = "naive",
-        raw(possible_values = "&Algorithm::variants()", case_insensitive = "true")
-    )]
+const PKG_NAME: &'static str = env!("CARGO_PKG_NAME");
+const PKG_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const PKG_DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
+
+#[derive(Debug)]
+pub struct Options {
     algorithm: Algorithm,
-    #[structopt(long = "show-tuples", help = "Show output tuples on stdout")]
     show_tuples: bool,
-    #[structopt(long = "skip-timing", help = "Do not display timing results")]
     skip_timing: bool,
-    #[structopt(
-        short = "v",
-        long = "verbose",
-        help = "Show intermediate output tuples and not just errors"
-    )]
     verbose: bool,
-    #[structopt(
-        long = "graphviz_file",
-        help = "Generate a graphviz file to visualize the computation"
-    )]
     graphviz_file: Option<String>,
-    #[structopt(
-        short = "o",
-        long = "output",
-        help = "Directory where to output resulting tuples"
-    )]
     output_directory: Option<String>,
-    #[structopt(raw(required = "true"))]
     fact_dirs: Vec<String>,
-    #[structopt(
-        long = "dump-liveness-graph",
-        help = "Generate a graphviz file to visualize the liveness information"
-    )]
     liveness_graph_file: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct Error(String);
+
+impl error::Error for Error {}
+
+impl fmt::Display for Error {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.write_str(&self.0)
+    }
 }
 
 macro_rules! attempt {
@@ -56,7 +46,7 @@ macro_rules! attempt {
     };
 }
 
-pub fn main(opt: Opt) -> Result<(), Error> {
+pub fn main(opt: Options) -> Result<(), Error> {
     let output_directory = opt
         .output_directory
         .as_ref()
@@ -71,8 +61,8 @@ pub fn main(opt: Opt) -> Result<(), Error> {
 
         let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
             let verbose = opt.verbose;
-            let all_facts =
-                tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))?;
+            let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))
+                .map_err(|e| Error(e.to_string()))?;
             let algorithm = opt.algorithm;
             let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
             let (duration, output) =
@@ -117,4 +107,113 @@ fn timed<T>(op: impl FnOnce() -> T) -> (Duration, T) {
     let output = op();
     let duration = start.elapsed();
     (duration, output)
+}
+
+// Parses the provided CLI arguments into `Options`
+pub fn options_from_args() -> Result<Options, Error> {
+    let mut args = pico::Arguments::from_env();
+
+    // 1) print optional information before exiting: help, version
+    let show_help = args.contains(["-h", "--help"]);
+    if show_help {
+        let variants: Vec<_> = Algorithm::variants()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        println!(
+                r#"{name} {version}
+{description}
+
+USAGE:
+    polonius [FLAGS] [OPTIONS] <fact_dirs>...
+
+FLAGS:
+    -h, --help           Prints help information
+        --show-tuples    Show output tuples on stdout
+        --skip-timing    Do not display timing results
+    -V, --version        Prints version information
+    -v, --verbose        Show intermediate output tuples and not just errors
+
+OPTIONS:
+    -a <algorithm> [default: Naive]
+        [possible values: {variants}]
+        --graphviz-file <graphviz file>          Generate a graphviz file to visualize the computation
+        --dump-liveness-graph <graphviz file>    Generate a graphviz file to visualize the liveness information
+    -o, --output <output_directory>              Directory where to output resulting tuples
+
+ARGS:
+    <fact_dirs>..."#,
+                name = PKG_NAME,
+                version = PKG_VERSION,
+                description = PKG_DESCRIPTION,
+                variants = variants.join(", ")
+            );
+        exit(0);
+    }
+
+    // print version if needed
+    if args.contains("-V") {
+        println!("{} {}", PKG_NAME, PKG_VERSION);
+        exit(0);
+    }
+
+    // 2) parse args
+    let options = Options {
+        algorithm: arg_from_str(&mut args, "-a")?.unwrap_or(Algorithm::Naive),
+        show_tuples: args.contains("--show-tuples"),
+        skip_timing: args.contains("--skip-timing"),
+        verbose: args.contains(["-v", "--verbose"]),
+        graphviz_file: arg_from_str(&mut args, "--graphviz-file")?,
+        output_directory: arg_from_str(&mut args, "-o")?.or(arg_from_str(&mut args, "--output")?),
+        liveness_graph_file: arg_from_str(&mut args, "--dump-liveness-graph")?,
+        fact_dirs: args.free().map_err(readable_pico_error)?,
+    };
+
+    // 3) validate args: a fact directory is required
+    if options.fact_dirs.is_empty() {
+        println!(
+            r#"error: The following required arguments were not provided:
+    <fact_dirs>...
+
+USAGE:
+    polonius <fact_dirs>... -a <algorithm>
+
+For more information try --help"#
+        );
+        exit(1);
+    }
+
+    Ok(options)
+}
+
+// Read an argument from the CLI, parse it, but with a readable error message if it fails
+pub fn arg_from_str<T>(args: &mut pico::Arguments, key: &'static str) -> Result<Option<T>, Error>
+where
+    T: FromStr,
+    <T as FromStr>::Err: fmt::Display,
+{
+    args.value_from_str(key).map_err(|e| {
+        Error(format!(
+            "error parsing argument '{}': {}",
+            key,
+            readable_pico_error(e)
+        ))
+    })
+}
+
+// Make a pico_args error a bit more readable than just its `Debug` output
+fn readable_pico_error(error: pico::Error) -> Error {
+    use pico::Error;
+    Error(match error {
+        Error::ArgumentParsingFailed { cause } => format!("failed to parse ({})", cause),
+        Error::Utf8ArgumentParsingFailed { value, cause } => {
+            format!("'{}' isn't a valid value ({})", value, cause)
+        }
+        Error::OptionWithoutAValue(_) => "missing value".to_string(),
+        Error::UnusedArgsLeft(left) => {
+            format!("error, unrecognized arguments: {}", left.join(", "))
+        }
+        Error::NonUtf8Argument => "not a valid utf8 value".to_string(),
+    })
 }

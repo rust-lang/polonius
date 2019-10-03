@@ -6,9 +6,9 @@ use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
 use crate::test_util::assert_equal;
-use failure::Error;
 use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
+use std::error::Error;
 use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
@@ -55,7 +55,7 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     assert_equal(&naive.errors, &opt.errors);
 }
 
-fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Error> {
+fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Box<dyn Error>> {
     let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("inputs")
         .join(dir_name)
@@ -74,7 +74,7 @@ macro_rules! tests {
                 use super::*;
 
                 #[test]
-                fn datafrog_opt() -> Result<(), Error> {
+                fn datafrog_opt() -> Result<(), Box<dyn Error>> {
                     test_fn($dir, $fn, Algorithm::DatafrogOpt)
                 }
             }
@@ -90,7 +90,7 @@ tests! {
 }
 
 #[test]
-fn test_insensitive_errors() -> Result<(), Error> {
+fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
     let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("inputs")
         .join("issue-47680")
@@ -110,7 +110,7 @@ fn test_insensitive_errors() -> Result<(), Error> {
 }
 
 #[test]
-fn test_sensitive_passes_issue_47680() -> Result<(), Error> {
+fn test_sensitive_passes_issue_47680() -> Result<(), Box<dyn Error>> {
     let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("inputs")
         .join("issue-47680")
@@ -125,7 +125,7 @@ fn test_sensitive_passes_issue_47680() -> Result<(), Error> {
 }
 
 #[test]
-fn no_subset_symmetries_exist() -> Result<(), Error> {
+fn no_subset_symmetries_exist() -> Result<(), Box<dyn Error>> {
     let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("inputs")
         .join("issue-47680")

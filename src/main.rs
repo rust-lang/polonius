@@ -1,12 +1,13 @@
-extern crate env_logger;
-extern crate failure;
-extern crate polonius;
-extern crate structopt;
+use polonius::cli;
+use std::process::exit;
 
-use structopt::StructOpt;
-
-pub fn main() -> Result<(), failure::Error> {
-    env_logger::init();
-    let opt = polonius::cli::Opt::from_args();
-    polonius::cli::main(opt)
+fn main() -> Result<(), cli::Error> {
+    match cli::options_from_args() {
+        Ok(options) => cli::main(options),
+        Err(e) => {
+            // override default `Termination` error printing
+            eprintln!("{}\n\nFor more information try --help", e);
+            exit(1);
+        }
+    }
 }
