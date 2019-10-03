@@ -16,14 +16,11 @@ use std::time::Instant;
 use crate::output::initialization;
 use crate::output::liveness;
 use crate::output::Output;
-use facts::{AllFacts, Atom};
+use facts::{AllFacts, FactTypes};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
-    dump_enabled: bool,
-    all_facts: AllFacts<Origin, Loan, Point, Variable, MovePath>,
-) -> Output<Origin, Loan, Point, Variable, MovePath> {
+pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
     let mut result = Output::new(dump_enabled);
 
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
@@ -55,17 +52,17 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         let mut iteration = Iteration::new();
 
         // static inputs
-        let cfg_edge_rel: Relation<(Point, Point)> = all_facts.cfg_edge.into();
-        let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
-        let region_live_at_rel: Relation<(Origin, Point)> = region_live_at.into();
+        let cfg_edge_rel: Relation<(T::Point, T::Point)> = all_facts.cfg_edge.into();
+        let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.into();
+        let region_live_at_rel: Relation<(T::Origin, T::Point)> = region_live_at.into();
 
         // .. some variables, ..
-        let subset = iteration.variable::<(Origin, Origin, Point)>("subset");
-        let requires = iteration.variable::<(Origin, Loan, Point)>("requires");
-        let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
+        let subset = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset");
+        let requires = iteration.variable::<(T::Origin, T::Loan, T::Point)>("requires");
+        let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
 
         // `invalidates` facts, stored ready for joins
-        let invalidates = iteration.variable::<((Loan, Point), ())>("invalidates");
+        let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
 
         // different indices for `subset`.
         let subset_r1p = iteration.variable_indistinct("subset_r1p");
@@ -76,7 +73,8 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
-        let region_live_at_var = iteration.variable::<((Origin, Point), ())>("region_live_at");
+        let region_live_at_var =
+            iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
         // output
         let errors = iteration.variable("errors");

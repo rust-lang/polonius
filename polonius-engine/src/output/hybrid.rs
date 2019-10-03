@@ -14,12 +14,9 @@
 use crate::output::datafrog_opt;
 use crate::output::location_insensitive;
 use crate::output::Output;
-use facts::{AllFacts, Atom};
+use facts::{AllFacts, FactTypes};
 
-pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
-    dump_enabled: bool,
-    all_facts: AllFacts<Origin, Loan, Point, Variable, MovePath>,
-) -> Output<Origin, Loan, Point, Variable, MovePath> {
+pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
     let lins_output = location_insensitive::compute(dump_enabled, &all_facts);
     if lins_output.errors.is_empty() {
         lins_output

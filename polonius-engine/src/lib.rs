@@ -11,5 +11,6 @@ mod output;
 // Reexports of facts
 pub use facts::AllFacts;
 pub use facts::Atom;
+pub use facts::FactTypes;
 pub use output::Algorithm;
 pub use output::Output;

@@ -16,12 +16,9 @@ use crate::output::liveness;
 use crate::output::Output;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
-use facts::{AllFacts, Atom};
+use facts::{AllFacts, FactTypes};
 
-pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, MovePath: Atom>(
-    dump_enabled: bool,
-    all_facts: AllFacts<Origin, Loan, Point, Variable, MovePath>,
-) -> Output<Origin, Loan, Point, Variable, MovePath> {
+pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
     let mut result = Output::new(dump_enabled);
 
     let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
@@ -55,33 +52,35 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // static inputs
         let cfg_edge_rel = Relation::from_iter(all_facts.cfg_edge.iter().map(|&(p, q)| (p, q)));
 
-        let killed_rel: Relation<(Loan, Point)> = all_facts.killed.into();
+        let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.into();
 
         // `invalidates` facts, stored ready for joins
-        let invalidates = iteration.variable::<((Loan, Point), ())>("invalidates");
+        let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
 
         // we need `region_live_at` in both variable and relation forms.
         // (respectively, for join and antijoin).
-        let region_live_at_rel: Relation<(Origin, Point)> = region_live_at.into();
-        let region_live_at_var = iteration.variable::<((Origin, Point), ())>("region_live_at");
+        let region_live_at_rel: Relation<(T::Origin, T::Point)> = region_live_at.into();
+        let region_live_at_var =
+            iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
         // `borrow_region` input but organized for join
-        let borrow_region_rp = iteration.variable::<((Origin, Point), Loan)>("borrow_region_rp");
+        let borrow_region_rp =
+            iteration.variable::<((T::Origin, T::Point), T::Loan)>("borrow_region_rp");
 
         // .decl subset(R1, R2, P)
         //
         // Indicates that `R1: R2` at the point `P`.
-        let subset_r1p = iteration.variable::<((Origin, Point), Origin)>("subset_r1p");
+        let subset_r1p = iteration.variable::<((T::Origin, T::Point), T::Origin)>("subset_r1p");
 
         // .decl requires(R, B, P)
         //
         // At the point, things with origin R may depend on data from
         // borrow B
-        let requires_rp = iteration.variable::<((Origin, Point), Loan)>("requires_rp");
+        let requires_rp = iteration.variable::<((T::Origin, T::Point), T::Loan)>("requires_rp");
 
         // .decl borrow_live_at(B, P) -- true if the restrictions of the borrow B
         // need to be enforced at the point P
-        let borrow_live_at = iteration.variable::<((Loan, Point), ())>("borrow_live_at");
+        let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
 
         // .decl live_to_dying_regions(R1, R2, P, Q)
         //
@@ -94,15 +93,15 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // In that case, `Q` would like to add all the
         // live things reachable from `R2` to `R1`.
         //
-        let live_to_dying_regions_r2pq =
-            iteration.variable::<((Origin, Point, Point), Origin)>("live_to_dying_regions_r2pq");
+        let live_to_dying_regions_r2pq = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("live_to_dying_regions_r2pq");
 
         // .decl dying_region_requires((R, P, Q), B)
         //
         // The origin `R` requires the borrow `B`, but the
         // origin `R` goes dead along the edge `P -> Q`
-        let dying_region_requires =
-            iteration.variable::<((Origin, Point, Point), Loan)>("dying_region_requires");
+        let dying_region_requires = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Loan)>("dying_region_requires");
 
         // .decl dying_can_reach_origins(R, P, Q)
         //
@@ -110,7 +109,7 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // in computing the transitive closure of things they
         // can reach.
         let dying_can_reach_origins =
-            iteration.variable::<((Origin, Point), Point)>("dying_can_reach_origins");
+            iteration.variable::<((T::Origin, T::Point), T::Point)>("dying_can_reach_origins");
 
         // .decl dying_can_reach(R1, R2, P, Q)
         //
@@ -121,7 +120,7 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // relation, but we try to limit it to regions
         // that are dying on the edge P -> Q.
         let dying_can_reach_r2q =
-            iteration.variable::<((Origin, Point), (Origin, Point))>("dying_can_reach");
+            iteration.variable::<((T::Origin, T::Point), (T::Origin, T::Point))>("dying_can_reach");
         let dying_can_reach_1 = iteration.variable_indistinct("dying_can_reach_1");
 
         // .decl dying_can_reach_live(R1, R2, P, Q)
@@ -131,19 +130,19 @@ pub(super) fn compute<Origin: Atom, Loan: Atom, Point: Atom, Variable: Atom, Mov
         // relation. This is a subset of the full `dying_can_reach`
         // relation where we filter down to those cases where R2 is
         // live in Q.
-        let dying_can_reach_live =
-            iteration.variable::<((Origin, Point, Point), Origin)>("dying_can_reach_live");
+        let dying_can_reach_live = iteration
+            .variable::<((T::Origin, T::Point, T::Point), T::Origin)>("dying_can_reach_live");
 
         // .decl dead_borrow_region_can_reach_root((R, P), B)
         //
         // Indicates a "borrow region" R at P which is not live on
         // entry to P.
-        let dead_borrow_region_can_reach_root =
-            iteration.variable::<((Origin, Point), Loan)>("dead_borrow_region_can_reach_root");
+        let dead_borrow_region_can_reach_root = iteration
+            .variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_root");
 
         // .decl dead_borrow_region_can_reach_dead((R2, P), B)
-        let dead_borrow_region_can_reach_dead =
-            iteration.variable::<((Origin, Point), Loan)>("dead_borrow_region_can_reach_dead");
+        let dead_borrow_region_can_reach_dead = iteration
+            .variable::<((T::Origin, T::Point), T::Loan)>("dead_borrow_region_can_reach_dead");
         let dead_borrow_region_can_reach_dead_1 =
             iteration.variable_indistinct("dead_borrow_region_can_reach_dead_1");
 

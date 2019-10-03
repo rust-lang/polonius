@@ -1,50 +1,43 @@
 use std::time::Instant;
 
 use crate::output::Output;
-use facts::Atom;
+use facts::FactTypes;
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
-pub(super) fn init_var_maybe_initialized_on_exit<Origin, Loan, Point, Variable, MovePath>(
-    child: Vec<(MovePath, MovePath)>,
-    path_belongs_to_var: Vec<(MovePath, Variable)>,
-    initialized_at: Vec<(MovePath, Point)>,
-    moved_out_at: Vec<(MovePath, Point)>,
-    path_accessed_at: Vec<(MovePath, Point)>,
-    cfg_edge: &[(Point, Point)],
-    output: &mut Output<Origin, Loan, Point, Variable, MovePath>,
-) -> Vec<(Variable, Point)>
-where
-    Origin: Atom,
-    Loan: Atom,
-    Point: Atom,
-    Variable: Atom,
-    MovePath: Atom,
-{
+pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
+    child: Vec<(T::MovePath, T::MovePath)>,
+    path_belongs_to_var: Vec<(T::MovePath, T::Variable)>,
+    initialized_at: Vec<(T::MovePath, T::Point)>,
+    moved_out_at: Vec<(T::MovePath, T::Point)>,
+    path_accessed_at: Vec<(T::MovePath, T::Point)>,
+    cfg_edge: &[(T::Point, T::Point)],
+    output: &mut Output<T>,
+) -> Vec<(T::Variable, T::Point)> {
     debug!("compute_initialization()");
     let computation_start = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
-    //let parent: Relation<(MovePath, MovePath)> = child.iter().map(|&(c, p)| (p, c)).collect();
-    let child: Relation<(MovePath, MovePath)> = child.into();
-    let path_belongs_to_var: Relation<(MovePath, Variable)> = path_belongs_to_var.into();
-    let initialized_at: Relation<(MovePath, Point)> = initialized_at.into();
-    let moved_out_at: Relation<(MovePath, Point)> = moved_out_at.into();
-    let cfg_edge: Relation<(Point, Point)> = cfg_edge.iter().cloned().collect();
-    let _path_accessed_at: Relation<(MovePath, Point)> = path_accessed_at.into();
+    //let parent: Relation<(T::MovePath, T::MovePath)> = child.iter().map(|&(c, p)| (p, c)).collect();
+    let child: Relation<(T::MovePath, T::MovePath)> = child.into();
+    let path_belongs_to_var: Relation<(T::MovePath, T::Variable)> = path_belongs_to_var.into();
+    let initialized_at: Relation<(T::MovePath, T::Point)> = initialized_at.into();
+    let moved_out_at: Relation<(T::MovePath, T::Point)> = moved_out_at.into();
+    let cfg_edge: Relation<(T::Point, T::Point)> = cfg_edge.iter().cloned().collect();
+    let _path_accessed_at: Relation<(T::MovePath, T::Point)> = path_accessed_at.into();
 
     // Variables
 
     // var_maybe_initialized_on_exit(V, P): Upon leaving `P`, at least one part of the
     // variable `V` might be initialized for some path through the CFG.
     let var_maybe_initialized_on_exit =
-        iteration.variable::<(Variable, Point)>("var_maybe_initialized_on_exit");
+        iteration.variable::<(T::Variable, T::Point)>("var_maybe_initialized_on_exit");
 
     // path_maybe_initialized_on_exit(M, P): Upon leaving `P`, the move path `M`
     // might be *partially* initialized for some path through the CFG.
     let path_maybe_initialized_on_exit =
-        iteration.variable::<(MovePath, Point)>("path_maybe_initialized_on_exit");
+        iteration.variable::<(T::MovePath, T::Point)>("path_maybe_initialized_on_exit");
 
     // Initial propagation of static relations
 

@@ -18,7 +18,7 @@ mod initialization;
 mod liveness;
 mod location_insensitive;
 mod naive;
-use facts::{AllFacts, Atom};
+use facts::{AllFacts, Atom, FactTypes};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Algorithm {
@@ -62,30 +62,23 @@ impl ::std::str::FromStr for Algorithm {
 }
 
 #[derive(Clone, Debug)]
-pub struct Output<Origin, Loan, Point, Variable, MovePath>
-where
-    Origin: Atom,
-    Loan: Atom,
-    Point: Atom,
-    Variable: Atom,
-    MovePath: Atom,
-{
-    pub errors: FxHashMap<Point, Vec<Loan>>,
+pub struct Output<T: FactTypes> {
+    pub errors: FxHashMap<T::Point, Vec<T::Loan>>,
 
     pub dump_enabled: bool,
 
     // these are just for debugging
-    pub borrow_live_at: FxHashMap<Point, Vec<Loan>>,
-    pub restricts: FxHashMap<Point, BTreeMap<Origin, BTreeSet<Loan>>>,
-    pub restricts_anywhere: FxHashMap<Origin, BTreeSet<Loan>>,
-    pub region_live_at: FxHashMap<Point, Vec<Origin>>,
-    pub invalidates: FxHashMap<Point, Vec<Loan>>,
-    pub subset: FxHashMap<Point, BTreeMap<Origin, BTreeSet<Origin>>>,
-    pub subset_anywhere: FxHashMap<Origin, BTreeSet<Origin>>,
-    pub var_live_at: FxHashMap<Point, Vec<Variable>>,
-    pub var_drop_live_at: FxHashMap<Point, Vec<Variable>>,
-    pub path_maybe_initialized_at: FxHashMap<Point, Vec<MovePath>>,
-    pub var_maybe_initialized_on_exit: FxHashMap<Point, Vec<Variable>>,
+    pub borrow_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub restricts: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
+    pub restricts_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
+    pub region_live_at: FxHashMap<T::Point, Vec<T::Origin>>,
+    pub invalidates: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub subset: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Origin>>>,
+    pub subset_anywhere: FxHashMap<T::Origin, BTreeSet<T::Origin>>,
+    pub var_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
+    pub var_drop_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
+    pub path_maybe_initialized_at: FxHashMap<T::Point, Vec<T::MovePath>>,
+    pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
 }
 
 /// Compares errors reported by Naive implementation with the errors
@@ -124,19 +117,8 @@ fn compare_errors<Loan: Atom, Point: Atom>(
     differ
 }
 
-impl<Origin, Loan, Point, Variable, MovePath> Output<Origin, Loan, Point, Variable, MovePath>
-where
-    Origin: Atom,
-    Loan: Atom,
-    Point: Atom,
-    Variable: Atom,
-    MovePath: Atom,
-{
-    pub fn compute(
-        all_facts: &AllFacts<Origin, Loan, Point, Variable, MovePath>,
-        algorithm: Algorithm,
-        dump_enabled: bool,
-    ) -> Self {
+impl<T: FactTypes> Output<T> {
+    pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
         match algorithm {
             Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
             Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
@@ -179,21 +161,24 @@ where
         }
     }
 
-    pub fn errors_at(&self, location: Point) -> &[Loan] {
+    pub fn errors_at(&self, location: T::Point) -> &[T::Loan] {
         match self.errors.get(&location) {
             Some(v) => v,
             None => &[],
         }
     }
 
-    pub fn borrows_in_scope_at(&self, location: Point) -> &[Loan] {
+    pub fn borrows_in_scope_at(&self, location: T::Point) -> &[T::Loan] {
         match self.borrow_live_at.get(&location) {
             Some(p) => p,
             None => &[],
         }
     }
 
-    pub fn restricts_at(&self, location: Point) -> Cow<'_, BTreeMap<Origin, BTreeSet<Loan>>> {
+    pub fn restricts_at(
+        &self,
+        location: T::Point,
+    ) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Loan>>> {
         assert!(self.dump_enabled);
         match self.restricts.get(&location) {
             Some(map) => Cow::Borrowed(map),
@@ -201,7 +186,7 @@ where
         }
     }
 
-    pub fn regions_live_at(&self, location: Point) -> &[Origin] {
+    pub fn regions_live_at(&self, location: T::Point) -> &[T::Origin] {
         assert!(self.dump_enabled);
         match self.region_live_at.get(&location) {
             Some(v) => v,
@@ -209,7 +194,10 @@ where
         }
     }
 
-    pub fn subsets_at(&self, location: Point) -> Cow<'_, BTreeMap<Origin, BTreeSet<Origin>>> {
+    pub fn subsets_at(
+        &self,
+        location: T::Point,
+    ) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Origin>>> {
         assert!(self.dump_enabled);
         match self.subset.get(&location) {
             Some(v) => Cow::Borrowed(v),
