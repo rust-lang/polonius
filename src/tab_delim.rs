@@ -57,31 +57,40 @@ fn load_tab_delimited_file<Row>(tables: &mut InternerTables, path: &Path) -> io:
 where
     Row: for<'input> FromTabDelimited<'input>,
 {
-    let file = File::open(path)?;
+    match File::open(path) {
+        Ok(file) => io::BufReader::new(file)
+            .lines()
+            .enumerate()
+            .map(|(index, line)| {
+                let line = line?;
+                let mut columns = line.split('\t');
+                let row = match FromTabDelimited::parse(tables, &mut columns) {
+                    None => {
+                        error!("error parsing line {} of `{}`", index + 1, path.display());
+                        process::exit(1);
+                    }
 
-    io::BufReader::new(file)
-        .lines()
-        .enumerate()
-        .map(|(index, line)| {
-            let line = line?;
-            let mut columns = line.split('\t');
-            let row = match FromTabDelimited::parse(tables, &mut columns) {
-                None => {
-                    error!("error parsing line {} of `{}`", index + 1, path.display());
+                    Some(v) => v,
+                };
+
+                if columns.next().is_some() {
+                    error!("extra data on line {} of `{}`", index + 1, path.display());
                     process::exit(1);
                 }
 
-                Some(v) => v,
-            };
+                Ok(row)
+            })
+            .collect(),
 
-            if columns.next().is_some() {
-                error!("extra data on line {} of `{}`", index + 1, path.display());
-                process::exit(1);
-            }
-
-            Ok(row)
-        })
-        .collect()
+        Err(e) => {
+            error!(
+                "Error opening file '{}': {}. Defaulting to empty relation",
+                path.display(),
+                e
+            );
+            Ok(Vec::new())
+        }
+    }
 }
 
 impl<'input, T> FromTabDelimited<'input> for T
