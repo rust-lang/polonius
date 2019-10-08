@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::collections::BTreeSet;
 use std::time::Instant;
 
 use crate::output::initialization;
@@ -49,7 +48,12 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>)
 
         // static inputs
         let region_live_at: Relation<(T::Origin, T::Point)> = region_live_at.into();
-        let invalidates = Relation::from_iter(all_facts.invalidates.iter().map(|&(b, p)| (p, b)));
+        let invalidates = Relation::from_iter(
+            all_facts
+                .invalidates
+                .iter()
+                .map(|&(loan, point)| (point, loan)),
+        );
 
         // .. some variables, ..
         let subset = iteration.variable::<(T::Origin, T::Origin)>("subset");
@@ -59,22 +63,41 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>)
 
         // load initial facts.
 
-        // subset(R1, R2) :- outlives(R1, R2, _P)
-        subset.extend(all_facts.outlives.iter().map(|&(r1, r2, _p)| (r1, r2)));
+        // subset(origin1, origin2) :- outlives(origin1, origin2, _point)
+        subset.extend(
+            all_facts
+                .outlives
+                .iter()
+                .map(|&(origin1, origin2, _point)| (origin1, origin2)),
+        );
 
-        // requires(R, B) :- borrow_region(R, B, _P).
-        requires.extend(all_facts.borrow_region.iter().map(|&(r, b, _p)| (r, b)));
+        // requires(origin, loan) :- borrow_region(origin, loan, _point).
+        requires.extend(
+            all_facts
+                .borrow_region
+                .iter()
+                .map(|&(origin, loan, _point)| (origin, loan)),
+        );
 
         // .. and then start iterating rules!
         while iteration.changed() {
-            // requires(R2, B) :- requires(R1, B), subset(R1, R2).
+            // requires(origin2, loan) :-
+            //   requires(origin1, loan),
+            //   subset(origin1, origin2).
             //
             // Note: Since `subset` is effectively a static input, this join can be ported to
             // a leapjoin. Doing so, however, was 7% slower on `clap`.
-            requires.from_join(&requires, &subset, |&_r1, &b, &r2| (r2, b));
+            requires.from_join(&requires, &subset, |&_origin1, &loan, &origin2| {
+                (origin2, loan)
+            });
 
-            // borrow_live_at(B, P) :- requires(R, B), region_live_at(R, P)
-            // potential_errors(B, P) :- invalidates(B, P), borrow_live_at(B, P).
+            // borrow_live_at(loan, point) :-
+            //   requires(origin, loan),
+            //   region_live_at(origin, point)
+            //
+            // potential_errors(loan, point) :-
+            //   invalidates(loan, point),
+            //   borrow_live_at(loan, point).
             //
             // Note: we don't need to materialize `borrow_live_at` here
             // so we can inline it in the `potential_errors` relation.
@@ -82,38 +105,38 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>)
             potential_errors.from_leapjoin(
                 &requires,
                 (
-                    region_live_at.extend_with(|&(r, _b)| r),
-                    invalidates.extend_with(|&(_r, b)| b),
+                    region_live_at.extend_with(|&(origin, _loan)| origin),
+                    invalidates.extend_with(|&(_origin, loan)| loan),
                 ),
-                |&(_r, b), &p| (b, p),
+                |&(_origin, loan), &point| (loan, point),
             );
         }
 
         if dump_enabled {
             let subset = subset.complete();
-            for (r1, r2) in &subset.elements {
+            for &(origin1, origin2) in subset.iter() {
                 result
                     .subset_anywhere
-                    .entry(*r1)
-                    .or_insert(BTreeSet::new())
-                    .insert(*r2);
+                    .entry(origin1)
+                    .or_default()
+                    .insert(origin2);
             }
 
             let requires = requires.complete();
-            for (origin, borrow) in &requires.elements {
+            for &(origin, loan) in requires.iter() {
                 result
                     .restricts_anywhere
-                    .entry(*origin)
-                    .or_insert(BTreeSet::new())
-                    .insert(*borrow);
+                    .entry(origin)
+                    .or_default()
+                    .insert(loan);
             }
 
-            for (origin, location) in &region_live_at.elements {
+            for &(origin, location) in region_live_at.iter() {
                 result
                     .region_live_at
-                    .entry(*location)
-                    .or_insert(vec![])
-                    .push(*origin);
+                    .entry(location)
+                    .or_default()
+                    .push(origin);
             }
         }
 
@@ -128,12 +151,8 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>)
         );
     }
 
-    for (borrow, location) in &potential_errors.elements {
-        result
-            .errors
-            .entry(*location)
-            .or_insert(Vec::new())
-            .push(*borrow);
+    for &(loan, location) in potential_errors.iter() {
+        result.errors.entry(location).or_default().push(loan);
     }
 
     result

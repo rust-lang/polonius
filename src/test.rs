@@ -136,8 +136,8 @@ fn no_subset_symmetries_exist() -> Result<(), Box<dyn Error>> {
 
     let subset_symmetries_exist = |output: &Output| {
         for (_, subsets) in &output.subset {
-            for (r1, rs) in subsets {
-                if rs.contains(&r1) {
+            for (origin, origins) in subsets {
+                if origins.contains(&origin) {
                     return true;
                 }
             }
@@ -321,7 +321,7 @@ fn smoke_test_success_2() {
 }
 
 #[test]
-// V used in P => V live upon entry into P
+// `var` used in `point` => `var` live upon entry into `point`
 fn var_live_in_single_block() {
     let program = r"
         universal_regions {  }
@@ -345,7 +345,7 @@ fn var_live_in_single_block() {
 }
 
 #[test]
-// P GOTO Q, V used in Q => V live in P
+// `point1` GOTO `point2`, `var` used in `point2` => `var` live in `point1`
 fn var_live_in_successor_propagates_to_predecessor() {
     let program = r"
         universal_regions {  }
@@ -381,7 +381,7 @@ fn var_live_in_successor_propagates_to_predecessor() {
 }
 
 #[test]
-// P GOTO Q, V used in Q, V defined in P => V not live in P
+// `point1` GOTO `point2`, `var` used in `point2`, `var` defined in `point1` => `var` not live in `point1`
 fn var_live_in_successor_killed_by_reassignment() {
     let program = r"
         universal_regions {  }

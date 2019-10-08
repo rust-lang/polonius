@@ -6,133 +6,131 @@ use facts::FactTypes;
 use datafrog::{Iteration, Relation, RelationLeaper};
 
 pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
-    child: Vec<(T::MovePath, T::MovePath)>,
-    path_belongs_to_var: Vec<(T::MovePath, T::Variable)>,
-    initialized_at: Vec<(T::MovePath, T::Point)>,
-    moved_out_at: Vec<(T::MovePath, T::Point)>,
-    path_accessed_at: Vec<(T::MovePath, T::Point)>,
+    child: Vec<(T::Path, T::Path)>,
+    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
+    initialized_at: Vec<(T::Path, T::Point)>,
+    moved_out_at: Vec<(T::Path, T::Point)>,
+    path_accessed_at: Vec<(T::Path, T::Point)>,
     cfg_edge: &[(T::Point, T::Point)],
     output: &mut Output<T>,
 ) -> Vec<(T::Variable, T::Point)> {
-    debug!("compute_initialization()");
     let computation_start = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
-    //let parent: Relation<(T::MovePath, T::MovePath)> = child.iter().map(|&(c, p)| (p, c)).collect();
-    let child: Relation<(T::MovePath, T::MovePath)> = child.into();
-    let path_belongs_to_var: Relation<(T::MovePath, T::Variable)> = path_belongs_to_var.into();
-    let initialized_at: Relation<(T::MovePath, T::Point)> = initialized_at.into();
-    let moved_out_at: Relation<(T::MovePath, T::Point)> = moved_out_at.into();
+    //let parent: Relation<(Path, Path)> = child.iter().map(|&(child_path, parent_path)| (parent_path, child_path)).collect();
+    let child: Relation<(T::Path, T::Path)> = child.into();
+    let path_belongs_to_var: Relation<(T::Path, T::Variable)> = path_belongs_to_var.into();
+    let initialized_at: Relation<(T::Path, T::Point)> = initialized_at.into();
+    let moved_out_at: Relation<(T::Path, T::Point)> = moved_out_at.into();
     let cfg_edge: Relation<(T::Point, T::Point)> = cfg_edge.iter().cloned().collect();
-    let _path_accessed_at: Relation<(T::MovePath, T::Point)> = path_accessed_at.into();
+    let _path_accessed_at: Relation<(T::Path, T::Point)> = path_accessed_at.into();
 
     // Variables
 
-    // var_maybe_initialized_on_exit(V, P): Upon leaving `P`, at least one part of the
-    // variable `V` might be initialized for some path through the CFG.
+    // var_maybe_initialized_on_exit(var, point): Upon leaving `point`, at least one part of the
+    // variable `var` might be initialized for some path through the CFG.
     let var_maybe_initialized_on_exit =
         iteration.variable::<(T::Variable, T::Point)>("var_maybe_initialized_on_exit");
 
-    // path_maybe_initialized_on_exit(M, P): Upon leaving `P`, the move path `M`
+    // path_maybe_initialized_on_exit(path, point): Upon leaving `point`, the move path `path`
     // might be *partially* initialized for some path through the CFG.
     let path_maybe_initialized_on_exit =
-        iteration.variable::<(T::MovePath, T::Point)>("path_maybe_initialized_on_exit");
+        iteration.variable::<(T::Path, T::Point)>("path_maybe_initialized_on_exit");
 
     // Initial propagation of static relations
 
-    // path_maybe_initialized_on_exit(Path, Point) :- initialized_at(Path,
-    // Point).
+    // path_maybe_initialized_on_exit(path, point) :- initialized_at(path, point).
     path_maybe_initialized_on_exit.insert(initialized_at);
 
     while iteration.changed() {
-        // path_maybe_initialized_on_exit(M, Q) :-
-        //     path_maybe_initialized_on_exit(M, P),
-        //     cfg_edge(P, Q),
-        //     !moved_out_at(M, Q).
+        // path_maybe_initialized_on_exit(path, point2) :-
+        //     path_maybe_initialized_on_exit(path, point1),
+        //     cfg_edge(point1, point2),
+        //     !moved_out_at(path, point2).
         path_maybe_initialized_on_exit.from_leapjoin(
             &path_maybe_initialized_on_exit,
             (
-                cfg_edge.extend_with(|&(_m, p)| p),
-                moved_out_at.extend_anti(|&(m, _p)| m),
+                cfg_edge.extend_with(|&(_path, point1)| point1),
+                moved_out_at.extend_anti(|&(path, _point1)| path),
             ),
-            |&(m, _p), &q| (m, q),
+            |&(path, _point1), &point2| (path, point2),
         );
 
-        // path_maybe_initialized_on_exit(Mother, P) :-
-        //     path_maybe_initialized_on_exit(Daughter, P),
+        // path_maybe_initialized_on_exit(Mother, point) :-
+        //     path_maybe_initialized_on_exit(Daughter, point),
         //     child(Daughter, Mother).
         path_maybe_initialized_on_exit.from_leapjoin(
             &path_maybe_initialized_on_exit,
-            child.extend_with(|&(daughter, _p)| daughter),
-            |&(_daughter, p), &mother| (mother, p),
+            child.extend_with(|&(daughter, _point)| daughter),
+            |&(_daughter, point), &mother| (mother, point),
         );
 
         // TODO: the following lines contain things left to implement for move
         // tracking:
 
-        // path_accessed :- path_accessed(M, P).
+        // path_accessed :- path_accessed(path, point).
         //
         // -- transitive access of all children
-        // path_accessed(Child, P) :-
-        //     path_accessed(Mother, P),
+        // path_accessed(Child, point) :-
+        //     path_accessed(Mother, point),
         //     parent(Mother, Child).
 
         // Propagate across CFG edges:
-        // path_maybe_uninit(M, Q) :-
-        //     path_maybe_uninit(M, P),
-        //     cfg_edge_(P, Q)
-        //     !initialized_at(P, Q).
+        // path_maybe_uninit(path, point2) :-
+        //     path_maybe_uninit(path, point1),
+        //     cfg_edge_(point1, point2)
+        //     !initialized_at(point1, point2).
 
         // Initial value (static).
-        // path_maybe_uninit(M, P) :- moved_out_at(M, P).
+        // path_maybe_uninit(path, point) :- moved_out_at(path, point).
 
         // NOTE: Double join!
-        // errors(M, P) :-
-        //     path_maybe_uninit(M, P),
-        //     path_accessed(M, P).
+        // errors(path, point) :-
+        //     path_maybe_uninit(path, point),
+        //     path_accessed(path, point).
 
         // END TODO
 
-        // var_maybe_initialized_on_exit(V, P) :-
-        //     path_belongs_to_var(M, V),
-        //     path_maybe_initialized_at(M, P).
+        // var_maybe_initialized_on_exit(var, point) :-
+        //     path_belongs_to_var(path, var),
+        //     path_maybe_initialized_at(path, point).
         var_maybe_initialized_on_exit.from_leapjoin(
             &path_maybe_initialized_on_exit,
-            path_belongs_to_var.extend_with(|&(m, _p)| m),
-            |&(_m, p), &v| (v, p),
+            path_belongs_to_var.extend_with(|&(path, _point)| path),
+            |&(_path, point), &var| (var, point),
         );
     }
 
     let var_maybe_initialized_on_exit = var_maybe_initialized_on_exit.complete();
 
     info!(
-        "compute_initialization() completed: {} tuples, {:?}",
+        "init_var_maybe_initialized_on_exit() completed: {} tuples, {:?}",
         var_maybe_initialized_on_exit.len(),
         computation_start.elapsed()
     );
 
     if output.dump_enabled {
         let path_maybe_initialized_on_exit = path_maybe_initialized_on_exit.complete();
-        for &(path, location) in &path_maybe_initialized_on_exit.elements {
+        for &(path, location) in path_maybe_initialized_on_exit.iter() {
             output
                 .path_maybe_initialized_at
                 .entry(location)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(path);
         }
 
-        for &(var, location) in &var_maybe_initialized_on_exit.elements {
+        for &(var, location) in var_maybe_initialized_on_exit.iter() {
             output
                 .var_maybe_initialized_on_exit
                 .entry(location)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(var);
         }
     }
 
     var_maybe_initialized_on_exit
         .iter()
-        .map(|&(v, p)| (v, p))
+        .map(|&(var, point)| (var, point))
         .collect()
 }
