@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 /// The "facts" which are the basis of the NLL borrow analysis.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AllFacts<T: FactTypes> {
     /// `borrow_region(origin, loan, point)` -- the `origin` may refer to data
     /// from `loan` starting at `point` (this is usually the
@@ -62,29 +62,6 @@ pub struct AllFacts<T: FactTypes> {
     /// `path_accessed_at(path, point)` when the `path` was accessed at point
     /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
     pub path_accessed_at: Vec<(T::Path, T::Point)>,
-}
-
-impl<T: FactTypes> Default for AllFacts<T> {
-    fn default() -> Self {
-        AllFacts {
-            borrow_region: Vec::default(),
-            universal_region: Vec::default(),
-            cfg_edge: Vec::default(),
-            killed: Vec::default(),
-            outlives: Vec::default(),
-            invalidates: Vec::default(),
-            var_used: Vec::default(),
-            var_defined: Vec::default(),
-            var_drop_used: Vec::default(),
-            var_uses_region: Vec::default(),
-            var_drops_region: Vec::default(),
-            child: Vec::default(),
-            path_belongs_to_var: Vec::default(),
-            initialized_at: Vec::default(),
-            moved_out_at: Vec::default(),
-            path_accessed_at: Vec::default(),
-        }
-    }
 }
 
 pub trait Atom:
