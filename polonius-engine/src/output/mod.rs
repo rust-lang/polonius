@@ -24,11 +24,22 @@ mod naive;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Algorithm {
+    /// Simple rules, but slower to execute
     Naive,
+
+    /// Optimized variant of the rules
     DatafrogOpt,
+
+    /// Fast to compute, but imprecise: there can be false-positives
+    /// but no false-negatives. Tailored for quick "early return" situations.
     LocationInsensitive,
-    /// Compare Naive and DatafrogOpt.
+
+    /// Compares the `Naive` and `DatafrogOpt` variants to ensure they indeed
+    /// compute the same errors.
     Compare,
+
+    /// Combination of the fast `LocationInsensitive` pre-pass, followed by
+    /// the more expensive `DatafrogOpt` variant.
     Hybrid,
 }
 
