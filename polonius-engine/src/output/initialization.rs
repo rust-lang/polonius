@@ -59,10 +59,10 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
         // path_maybe_initialized_on_exit(Mother, point) :-
         //     path_maybe_initialized_on_exit(Daughter, point),
         //     child(Daughter, Mother).
-        path_maybe_initialized_on_exit.from_leapjoin(
+        path_maybe_initialized_on_exit.from_join(
             &path_maybe_initialized_on_exit,
-            child.extend_with(|&(daughter, _point)| daughter),
-            |&(_daughter, point), &mother| (mother, point),
+            &child,
+            |&_daughter, &point, &mother| (mother, point),
         );
 
         // TODO: the following lines contain things left to implement for move
@@ -92,12 +92,12 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
         // END TODO
 
         // var_maybe_initialized_on_exit(var, point) :-
-        //     path_belongs_to_var(path, var),
-        //     path_maybe_initialized_at(path, point).
-        var_maybe_initialized_on_exit.from_leapjoin(
+        //     path_maybe_initialized_on_exit(path, point),
+        //     path_belongs_to_var(path, var).
+        var_maybe_initialized_on_exit.from_join(
             &path_maybe_initialized_on_exit,
-            path_belongs_to_var.extend_with(|&(path, _point)| path),
-            |&(_path, point), &var| (var, point),
+            &path_belongs_to_var,
+            |&_path, &point, &var| (var, point),
         );
     }
 
