@@ -212,13 +212,11 @@ pub(super) fn compute<T: FactTypes>(
         errors.complete()
     };
 
-    if result.dump_enabled {
-        info!(
-            "errors is complete: {} tuples, {:?}",
-            errors.len(),
-            timer.elapsed()
-        );
-    }
+    info!(
+        "errors is complete: {} tuples, {:?}",
+        errors.len(),
+        timer.elapsed()
+    );
 
     errors
 }

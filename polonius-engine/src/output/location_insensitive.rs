@@ -110,13 +110,11 @@ pub(super) fn compute<T: FactTypes>(
         potential_errors.complete()
     };
 
-    if result.dump_enabled {
-        info!(
-            "potential_errors is complete: {} tuples, {:?}",
-            potential_errors.len(),
-            timer.elapsed()
-        );
-    }
+    info!(
+        "potential_errors is complete: {} tuples, {:?}",
+        potential_errors.len(),
+        timer.elapsed()
+    );
 
     potential_errors
 }
