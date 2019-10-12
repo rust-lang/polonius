@@ -8,52 +8,27 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use datafrog::{Iteration, Relation, RelationLeaper};
 use std::time::Instant;
 
-use crate::output::initialization;
-use crate::output::liveness;
-use crate::output::Output;
+use crate::facts::FactTypes;
+use crate::output::{Context, Output};
 
-use datafrog::{Iteration, Relation, RelationLeaper};
-use facts::{AllFacts, FactTypes};
-
-pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>) -> Output<T> {
-    let mut result = Output::new(dump_enabled);
-    let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
-        all_facts.child.clone(),
-        all_facts.path_belongs_to_var.clone(),
-        all_facts.initialized_at.clone(),
-        all_facts.moved_out_at.clone(),
-        all_facts.path_accessed_at.clone(),
-        &all_facts.cfg_edge,
-        &mut result,
-    );
-    let region_live_at = liveness::init_region_live_at(
-        all_facts.var_used.clone(),
-        all_facts.var_drop_used.clone(),
-        all_facts.var_defined.clone(),
-        all_facts.var_uses_region.clone(),
-        all_facts.var_drops_region.clone(),
-        var_maybe_initialized_on_exit.clone(),
-        &all_facts.cfg_edge,
-        all_facts.universal_region.clone(),
-        &mut result,
-    );
-
-    let potential_errors_start = Instant::now();
+pub(super) fn compute<T: FactTypes>(
+    ctx: &Context<T>,
+    result: &mut Output<T>,
+) -> Relation<(T::Loan, T::Point)> {
+    let timer = Instant::now();
 
     let potential_errors = {
+        let all_facts = &ctx.all_facts;
+
+        // Static inputs
+        let region_live_at = &ctx.region_live_at;
+        let invalidates = &ctx.invalidates;
+
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
-
-        // static inputs
-        let region_live_at: Relation<(T::Origin, T::Point)> = region_live_at.into();
-        let invalidates = Relation::from_iter(
-            all_facts
-                .invalidates
-                .iter()
-                .map(|&(loan, point)| (point, loan)),
-        );
 
         // .. some variables, ..
         let subset = iteration.variable::<(T::Origin, T::Origin)>("subset");
@@ -112,7 +87,7 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>)
             );
         }
 
-        if dump_enabled {
+        if result.dump_enabled {
             let subset = subset.complete();
             for &(origin1, origin2) in subset.iter() {
                 result
@@ -130,30 +105,18 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: &AllFacts<T>)
                     .or_default()
                     .insert(loan);
             }
-
-            for &(origin, location) in region_live_at.iter() {
-                result
-                    .region_live_at
-                    .entry(location)
-                    .or_default()
-                    .push(origin);
-            }
         }
 
         potential_errors.complete()
     };
 
-    if dump_enabled {
+    if result.dump_enabled {
         info!(
             "potential_errors is complete: {} tuples, {:?}",
             potential_errors.len(),
-            potential_errors_start.elapsed()
+            timer.elapsed()
         );
     }
 
-    for &(loan, location) in potential_errors.iter() {
-        result.errors.entry(location).or_default().push(loan);
-    }
-
-    result
+    potential_errors
 }

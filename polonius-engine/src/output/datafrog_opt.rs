@@ -8,62 +8,34 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use datafrog::{Iteration, Relation, RelationLeaper};
 use std::time::Instant;
 
-use crate::output::initialization;
-use crate::output::liveness;
-use crate::output::Output;
+use crate::facts::FactTypes;
+use crate::output::{Context, Output};
 
-use datafrog::{Iteration, Relation, RelationLeaper};
-use facts::{AllFacts, FactTypes};
-
-pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
-    let mut result = Output::new(dump_enabled);
-
-    let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
-        all_facts.child,
-        all_facts.path_belongs_to_var,
-        all_facts.initialized_at,
-        all_facts.moved_out_at,
-        all_facts.path_accessed_at,
-        &all_facts.cfg_edge,
-        &mut result,
-    );
-
-    let region_live_at = liveness::init_region_live_at(
-        all_facts.var_used,
-        all_facts.var_drop_used,
-        all_facts.var_defined,
-        all_facts.var_uses_region,
-        all_facts.var_drops_region,
-        var_maybe_initialized_on_exit,
-        &all_facts.cfg_edge,
-        all_facts.universal_region,
-        &mut result,
-    );
-
+pub(super) fn compute<T: FactTypes>(
+    ctx: &Context<T>,
+    result: &mut Output<T>,
+) -> Relation<(T::Loan, T::Point)> {
     let timer = Instant::now();
 
     let errors = {
+        let all_facts = &ctx.all_facts;
+
+        // Static inputs
+        let cfg_edge_rel = &ctx.cfg_edge;
+        let killed_rel = &ctx.killed;
+        let region_live_at_rel = &ctx.region_live_at;
+
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
-
-        // static inputs
-        let cfg_edge_rel = Relation::from_iter(
-            all_facts
-                .cfg_edge
-                .iter()
-                .map(|&(point1, point2)| (point1, point2)),
-        );
-
-        let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.into();
 
         // `invalidates` facts, stored ready for joins
         let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
 
         // we need `region_live_at` in both variable and relation forms,
         // (respectively, for join and antijoin).
-        let region_live_at_rel: Relation<(T::Origin, T::Point)> = region_live_at.into();
         let region_live_at_var =
             iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
@@ -408,15 +380,7 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
             });
         }
 
-        if dump_enabled {
-            for &(origin, location) in region_live_at_rel.iter() {
-                result
-                    .region_live_at
-                    .entry(location)
-                    .or_default()
-                    .push(origin);
-            }
-
+        if result.dump_enabled {
             let subset_o1p = subset_o1p.complete();
             assert!(
                 subset_o1p
@@ -460,7 +424,7 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         errors.complete()
     };
 
-    if dump_enabled {
+    if result.dump_enabled {
         info!(
             "errors is complete: {} tuples, {:?}",
             errors.len(),
@@ -468,9 +432,5 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         );
     }
 
-    for &(loan, location) in errors.iter() {
-        result.errors.entry(location).or_default().push(loan);
-    }
-
-    result
+    errors
 }

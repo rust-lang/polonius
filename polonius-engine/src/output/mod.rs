@@ -8,17 +8,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use rustc_hash::FxHashMap;
+use datafrog::Relation;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
+use std::mem;
+
+use crate::facts::{AllFacts, Atom, FactTypes};
 
 mod datafrog_opt;
-mod hybrid;
 mod initialization;
 mod liveness;
 mod location_insensitive;
 mod naive;
-use facts::{AllFacts, Atom, FactTypes};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Algorithm {
@@ -117,18 +119,136 @@ fn compare_errors<Loan: Atom, Point: Atom>(
     differ
 }
 
+struct Context<T: FactTypes> {
+    all_facts: AllFacts<T>,
+
+    // `Relation`s used by multiple variants as static inputs
+    region_live_at: Relation<(T::Origin, T::Point)>,
+    invalidates: Relation<(T::Loan, T::Point)>,
+    cfg_edge: Relation<(T::Point, T::Point)>,
+    killed: Relation<(T::Loan, T::Point)>,
+
+    // Partial results possibly used by other variants as input
+    potential_errors: FxHashSet<T::Loan>,
+}
+
 impl<T: FactTypes> Output<T> {
     pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
-        match algorithm {
-            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
-            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
-            Algorithm::LocationInsensitive => {
-                location_insensitive::compute(dump_enabled, &all_facts)
+        // All variants require the same initial preparations, done in multiple
+        // successive steps:
+        // - compute initialization data
+        // - compute liveness
+        // - prepare static inputs as shared `Relation`s
+        // - in cases where `LocationInsensitive` variant is ran as a filtering pre-pass,
+        //   partial results can also be stored in the context, so that the following
+        //   variant can use it to prune its own input data
+
+        // TODO: remove the need for this clone in concert here and in rustc
+        let mut all_facts = all_facts.clone();
+
+        let mut result = Output::new(dump_enabled);
+
+        let cfg_edge = mem::replace(&mut all_facts.cfg_edge, Vec::new()).into();
+
+        // Initialization
+        let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
+            mem::replace(&mut all_facts.child, Vec::new()),
+            mem::replace(&mut all_facts.path_belongs_to_var, Vec::new()),
+            mem::replace(&mut all_facts.initialized_at, Vec::new()),
+            mem::replace(&mut all_facts.moved_out_at, Vec::new()),
+            mem::replace(&mut all_facts.path_accessed_at, Vec::new()),
+            &cfg_edge,
+            &mut result,
+        );
+
+        // Liveness
+        let region_live_at = liveness::init_region_live_at(
+            mem::replace(&mut all_facts.var_used, Vec::new()),
+            mem::replace(&mut all_facts.var_drop_used, Vec::new()),
+            mem::replace(&mut all_facts.var_defined, Vec::new()),
+            mem::replace(&mut all_facts.var_uses_region, Vec::new()),
+            mem::replace(&mut all_facts.var_drops_region, Vec::new()),
+            var_maybe_initialized_on_exit,
+            &cfg_edge,
+            mem::replace(&mut all_facts.universal_region, Vec::new()),
+            &mut result,
+        );
+
+        // Prepare data as datafrog relations, ready to join.
+        //
+        // Note: if rustc and polonius had more interaction, we could also delay or avoid
+        // generating some of the facts that are now always present here. For example,
+        // the `LocationInsensitive` variant doesn't use the `killed` or `invalidates`
+        // relations, so we could technically delay passing them from rustc, when
+        // using this or the `Hybrid` variant, to after the pre-pass has made sure
+        // we actually need to compute the full analysis. If these facts happened to
+        // be recorded in separate MIR walks, we might also avoid generating those facts.
+
+        let region_live_at = region_live_at.into();
+        let killed = mem::replace(&mut all_facts.killed, Vec::new()).into();
+
+        // TODO: flip the order of this relation's arguments in rustc
+        // from `invalidates(loan, point)` to `invalidates(point, loan)`.
+        // to avoid this allocation.
+        let invalidates = Relation::from_iter(
+            all_facts
+                .invalidates
+                .iter()
+                .map(|&(loan, point)| (point, loan)),
+        );
+
+        // Ask the variants to compute errors in their own way
+        let mut ctx = Context {
+            all_facts,
+            region_live_at,
+            cfg_edge,
+            invalidates,
+            killed,
+            potential_errors: FxHashSet::default(),
+        };
+
+        let errors = match algorithm {
+            Algorithm::LocationInsensitive => location_insensitive::compute(&ctx, &mut result),
+            Algorithm::Naive => naive::compute(&ctx, &mut result),
+            Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
+            Algorithm::Hybrid => {
+                // Execute the fast `LocationInsensitive` computation as a pre-pass:
+                // if it finds no possible errors, we don't need to do the more complex
+                // computations as they won't find errors either, and we can return early.
+                let potential_errors = location_insensitive::compute(&ctx, &mut result);
+                if potential_errors.is_empty() {
+                    potential_errors
+                } else {
+                    // Record these potential errors as they can be used to limit the next
+                    // variant's work to only these loans.
+                    ctx.potential_errors
+                        .extend(potential_errors.iter().map(|&(loan, _)| loan));
+
+                    datafrog_opt::compute(&ctx, &mut result)
+                }
             }
             Algorithm::Compare => {
-                let naive_output = naive::compute(dump_enabled, all_facts.clone());
-                let opt_output = datafrog_opt::compute(dump_enabled, all_facts.clone());
-                if compare_errors(&naive_output.errors, &opt_output.errors) {
+                // Ensure the `Naive` and `DatafrogOpt` errors are the same
+                let naive_errors = naive::compute(&ctx, &mut result);
+                let opt_errors = datafrog_opt::compute(&ctx, &mut result);
+
+                let mut naive_errors_by_point = FxHashMap::default();
+                for &(loan, point) in naive_errors.iter() {
+                    naive_errors_by_point
+                        .entry(point)
+                        .or_insert(Vec::new())
+                        .push(loan);
+                }
+
+                let mut opt_errors_by_point = FxHashMap::default();
+                for &(loan, point) in opt_errors.iter() {
+                    opt_errors_by_point
+                        .entry(point)
+                        .or_insert(Vec::new())
+                        .push(loan);
+                }
+
+                if compare_errors(&naive_errors_by_point, &opt_errors_by_point) {
                     panic!(concat!(
                         "The errors reported by the naive algorithm differ from ",
                         "the errors reported by the optimized algorithm. ",
@@ -137,10 +257,27 @@ impl<T: FactTypes> Output<T> {
                 } else {
                     debug!("Naive and optimized algorithms reported the same errors.");
                 }
-                opt_output
+
+                naive_errors
             }
-            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone()),
+        };
+
+        for &(loan, location) in errors.iter() {
+            result.errors.entry(location).or_default().push(loan);
         }
+
+        // Record more debugging info when necessary
+        if dump_enabled {
+            for &(origin, location) in ctx.region_live_at.iter() {
+                result
+                    .region_live_at
+                    .entry(location)
+                    .or_default()
+                    .push(origin);
+            }
+        }
+
+        result
     }
 
     fn new(dump_enabled: bool) -> Self {
