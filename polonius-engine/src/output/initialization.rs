@@ -14,7 +14,7 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
     cfg_edge: &Relation<(T::Point, T::Point)>,
     output: &mut Output<T>,
 ) -> Relation<(T::Variable, T::Point)> {
-    let computation_start = Instant::now();
+    let timer = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
@@ -106,7 +106,7 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
     info!(
         "init_var_maybe_initialized_on_exit() completed: {} tuples, {:?}",
         var_maybe_initialized_on_exit.len(),
-        computation_start.elapsed()
+        timer.elapsed()
     );
 
     if output.dump_enabled {

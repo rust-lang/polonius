@@ -28,7 +28,7 @@ pub(super) fn compute_live_regions<T: FactTypes>(
     var_maybe_initialized_on_exit_rel: Relation<(T::Variable, T::Point)>,
     output: &mut Output<T>,
 ) -> Vec<(T::Origin, T::Point)> {
-    let computation_start = Instant::now();
+    let timer = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
@@ -131,7 +131,7 @@ pub(super) fn compute_live_regions<T: FactTypes>(
     info!(
         "compute_live_regions() completed: {} tuples, {:?}",
         region_live_at.len(),
-        computation_start.elapsed(),
+        timer.elapsed(),
     );
 
     if output.dump_enabled {
@@ -153,10 +153,10 @@ pub(super) fn compute_live_regions<T: FactTypes>(
     region_live_at.elements
 }
 
-pub(super) fn make_universal_region_live<T: FactTypes>(
+pub(super) fn make_universal_regions_live<T: FactTypes>(
     region_live_at: &mut Vec<(T::Origin, T::Point)>,
     cfg_edge: &[(T::Point, T::Point)],
-    universal_region: Vec<T::Origin>,
+    universal_regions: Vec<T::Origin>,
 ) {
     debug!("make_universal_regions_live()");
 
@@ -166,9 +166,9 @@ pub(super) fn make_universal_region_live<T: FactTypes>(
         .chain(cfg_edge.iter().map(|&(_, point2)| point2))
         .collect();
 
-    region_live_at.reserve(universal_region.len() * all_points.len());
-    for &origin in &universal_region {
-        for &point in &all_points {
+    region_live_at.reserve(universal_regions.len() * all_points.len());
+    for origin in universal_regions {
+        for &point in all_points.iter() {
             region_live_at.push((origin, point));
         }
     }
@@ -182,7 +182,7 @@ pub(super) fn init_region_live_at<T: FactTypes>(
     var_drops_region: Vec<(T::Variable, T::Origin)>,
     var_maybe_initialized_on_exit: Relation<(T::Variable, T::Point)>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
-    universal_region: Vec<T::Origin>,
+    universal_regions: Vec<T::Origin>,
     output: &mut Output<T>,
 ) -> Vec<(T::Origin, T::Point)> {
     debug!("init_region_live_at()");
@@ -197,7 +197,7 @@ pub(super) fn init_region_live_at<T: FactTypes>(
         output,
     );
 
-    make_universal_region_live::<T>(&mut region_live_at, cfg_edge, universal_region);
+    make_universal_regions_live::<T>(&mut region_live_at, cfg_edge, universal_regions);
 
     region_live_at
 }
