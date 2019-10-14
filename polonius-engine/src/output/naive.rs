@@ -23,8 +23,6 @@ pub(super) fn compute<T: FactTypes>(
     let timer = Instant::now();
 
     let errors = {
-        let all_facts = &ctx.all_facts;
-
         // Static inputs
         let region_live_at_rel = &ctx.region_live_at;
         let cfg_edge_rel = &ctx.cfg_edge;
@@ -57,13 +55,12 @@ pub(super) fn compute<T: FactTypes>(
         let errors = iteration.variable("errors");
 
         // load initial facts.
-        subset.extend(all_facts.outlives.iter());
-        requires.extend(all_facts.borrow_region.iter());
+        subset.extend(ctx.outlives.iter());
+        requires.extend(ctx.borrow_region.iter());
         invalidates.extend(
-            all_facts
-                .invalidates
+            ctx.invalidates
                 .iter()
-                .map(|&(point, loan)| ((loan, point), ())),
+                .map(|&(loan, point)| ((loan, point), ())),
         );
         region_live_at_var.extend(
             region_live_at_rel

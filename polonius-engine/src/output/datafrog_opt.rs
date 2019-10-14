@@ -21,12 +21,10 @@ pub(super) fn compute<T: FactTypes>(
     let timer = Instant::now();
 
     let errors = {
-        let all_facts = &ctx.all_facts;
-
         // Static inputs
+        let region_live_at_rel = &ctx.region_live_at;
         let cfg_edge_rel = &ctx.cfg_edge;
         let killed_rel = &ctx.killed;
-        let region_live_at_rel = &ctx.region_live_at;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -130,16 +128,14 @@ pub(super) fn compute<T: FactTypes>(
 
         // Make "variable" versions of the relations, needed for joins.
         borrow_region_op.extend(
-            all_facts
-                .borrow_region
+            ctx.borrow_region
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
         );
         invalidates.extend(
-            all_facts
-                .invalidates
+            ctx.invalidates
                 .iter()
-                .map(|&(point, loan)| ((loan, point), ())),
+                .map(|&(loan, point)| ((loan, point), ())),
         );
         region_live_at_var.extend(
             region_live_at_rel
@@ -149,16 +145,14 @@ pub(super) fn compute<T: FactTypes>(
 
         // subset(origin1, origin2, point) :- outlives(origin1, origin2, point).
         subset_o1p.extend(
-            all_facts
-                .outlives
+            ctx.outlives
                 .iter()
                 .map(|&(origin1, origin2, point)| ((origin1, point), origin2)),
         );
 
         // requires(origin, loan, point) :- borrow_region(origin, loan, point).
         requires_op.extend(
-            all_facts
-                .borrow_region
+            ctx.borrow_region
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
         );

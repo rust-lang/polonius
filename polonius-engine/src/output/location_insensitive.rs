@@ -21,8 +21,6 @@ pub(super) fn compute<T: FactTypes>(
     let timer = Instant::now();
 
     let potential_errors = {
-        let all_facts = &ctx.all_facts;
-
         // Static inputs
         let region_live_at = &ctx.region_live_at;
         let invalidates = &ctx.invalidates;
@@ -40,16 +38,14 @@ pub(super) fn compute<T: FactTypes>(
 
         // subset(origin1, origin2) :- outlives(origin1, origin2, _point)
         subset.extend(
-            all_facts
-                .outlives
+            ctx.outlives
                 .iter()
                 .map(|&(origin1, origin2, _point)| (origin1, origin2)),
         );
 
         // requires(origin, loan) :- borrow_region(origin, loan, _point).
         requires.extend(
-            all_facts
-                .borrow_region
+            ctx.borrow_region
                 .iter()
                 .map(|&(origin, loan, _point)| (origin, loan)),
         );

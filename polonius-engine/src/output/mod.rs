@@ -12,7 +12,6 @@ use datafrog::Relation;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
-use std::mem;
 
 use crate::facts::{AllFacts, Atom, FactTypes};
 
@@ -94,60 +93,101 @@ pub struct Output<T: FactTypes> {
     pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
 }
 
-struct Context<T: FactTypes> {
-    all_facts: AllFacts<T>,
+/// Subset of `AllFacts` dedicated to initialization
+struct InitializationContext<T: FactTypes> {
+    child: Vec<(T::Path, T::Path)>,
+    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
+    initialized_at: Vec<(T::Path, T::Point)>,
+    moved_out_at: Vec<(T::Path, T::Point)>,
+    path_accessed_at: Vec<(T::Path, T::Point)>,
+}
 
-    // `Relation`s used by multiple variants as static inputs
+/// Subset of `AllFacts` dedicated to liveness
+struct LivenessContext<T: FactTypes> {
+    var_used: Vec<(T::Variable, T::Point)>,
+    var_defined: Vec<(T::Variable, T::Point)>,
+    var_drop_used: Vec<(T::Variable, T::Point)>,
+    var_uses_region: Vec<(T::Variable, T::Origin)>,
+    var_drops_region: Vec<(T::Variable, T::Origin)>,
+}
+
+/// Subset of `AllFacts` dedicated to borrow checking, and data ready to use by the variants
+struct Context<'ctx, T: FactTypes> {
+    // `Relation`s used as static inputs, by all variants
     region_live_at: Relation<(T::Origin, T::Point)>,
     invalidates: Relation<(T::Loan, T::Point)>,
-    cfg_edge: Relation<(T::Point, T::Point)>,
+
+    // static inputs used via `Variable`s, by all variants
+    outlives: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
+    borrow_region: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
+
+    // static inputs used by variants other than `LocationInsensitive`
     killed: Relation<(T::Loan, T::Point)>,
 
+    // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
+    // and liveness, so already computed by the time we get to borrowcking.
+    cfg_edge: Relation<(T::Point, T::Point)>,
+
     // Partial results possibly used by other variants as input
-    potential_errors: FxHashSet<T::Loan>,
+    potential_errors: Option<FxHashSet<T::Loan>>,
 }
 
 impl<T: FactTypes> Output<T> {
+    /// All variants require the same initial preparations, done in multiple
+    /// successive steps:
+    /// - compute initialization data
+    /// - compute liveness
+    /// - prepare static inputs as shared `Relation`s
+    /// - in cases where `LocationInsensitive` variant is ran as a filtering pre-pass,
+    ///   partial results can also be stored in the context, so that the following
+    ///   variant can use it to prune its own input data
     pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
-        // All variants require the same initial preparations, done in multiple
-        // successive steps:
-        // - compute initialization data
-        // - compute liveness
-        // - prepare static inputs as shared `Relation`s
-        // - in cases where `LocationInsensitive` variant is ran as a filtering pre-pass,
-        //   partial results can also be stored in the context, so that the following
-        //   variant can use it to prune its own input data
-
-        // TODO: remove the need for this clone in concert here and in rustc
-        let mut all_facts = all_facts.clone();
-
         let mut result = Output::new(dump_enabled);
 
-        let cfg_edge = mem::replace(&mut all_facts.cfg_edge, Vec::new()).into();
+        // TODO: remove all the cloning thereafter, but that needs to be done in concert with rustc
 
-        // Initialization
+        let cfg_edge = all_facts.cfg_edge.clone().into();
+
+        // 1) Initialization
+        let initialization_ctx = InitializationContext {
+            child: all_facts.child.clone(),
+            path_belongs_to_var: all_facts.path_belongs_to_var.clone(),
+            initialized_at: all_facts.initialized_at.clone(),
+            moved_out_at: all_facts.moved_out_at.clone(),
+            path_accessed_at: all_facts.path_accessed_at.clone(),
+        };
+
         let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
-            mem::replace(&mut all_facts.child, Vec::new()),
-            mem::replace(&mut all_facts.path_belongs_to_var, Vec::new()),
-            mem::replace(&mut all_facts.initialized_at, Vec::new()),
-            mem::replace(&mut all_facts.moved_out_at, Vec::new()),
-            mem::replace(&mut all_facts.path_accessed_at, Vec::new()),
+            initialization_ctx,
             &cfg_edge,
             &mut result,
         );
 
-        // Liveness
-        let region_live_at = liveness::init_region_live_at(
-            mem::replace(&mut all_facts.var_used, Vec::new()),
-            mem::replace(&mut all_facts.var_drop_used, Vec::new()),
-            mem::replace(&mut all_facts.var_defined, Vec::new()),
-            mem::replace(&mut all_facts.var_uses_region, Vec::new()),
-            mem::replace(&mut all_facts.var_drops_region, Vec::new()),
-            var_maybe_initialized_on_exit,
+        // 2) Liveness
+        let universal_regions = all_facts.universal_region.clone();
+
+        let liveness_ctx = LivenessContext {
+            var_used: all_facts.var_used.clone(),
+            var_defined: all_facts.var_defined.clone(),
+            var_drop_used: all_facts.var_drop_used.clone(),
+            var_uses_region: all_facts.var_uses_region.clone(),
+            var_drops_region: all_facts.var_drops_region.clone(),
+        };
+
+        let mut region_live_at = liveness::compute_live_regions(
+            liveness_ctx,
             &cfg_edge,
-            mem::replace(&mut all_facts.universal_region, Vec::new()),
+            var_maybe_initialized_on_exit,
             &mut result,
         );
+
+        liveness::make_universal_regions_live::<T>(
+            &mut region_live_at,
+            &cfg_edge,
+            universal_regions,
+        );
+
+        // 3) Borrow checking
 
         // Prepare data as datafrog relations, ready to join.
         //
@@ -160,26 +200,28 @@ impl<T: FactTypes> Output<T> {
         // be recorded in separate MIR walks, we might also avoid generating those facts.
 
         let region_live_at = region_live_at.into();
-        let killed = mem::replace(&mut all_facts.killed, Vec::new()).into();
 
-        // TODO: flip the order of this relation's arguments in rustc
-        // from `invalidates(loan, point)` to `invalidates(point, loan)`.
+        // TODO: also flip the order of this relation's arguments in rustc
+        // from `invalidates(point, loan)` to `invalidates(loan, point)`.
         // to avoid this allocation.
         let invalidates = Relation::from_iter(
             all_facts
                 .invalidates
                 .iter()
-                .map(|&(loan, point)| (point, loan)),
+                .map(|&(point, loan)| (loan, point)),
         );
+
+        let killed = all_facts.killed.clone().into();
 
         // Ask the variants to compute errors in their own way
         let mut ctx = Context {
-            all_facts,
             region_live_at,
-            cfg_edge,
             invalidates,
+            cfg_edge,
+            outlives: &all_facts.outlives,
+            borrow_region: &all_facts.borrow_region,
             killed,
-            potential_errors: FxHashSet::default(),
+            potential_errors: None,
         };
 
         let errors = match algorithm {
@@ -196,8 +238,8 @@ impl<T: FactTypes> Output<T> {
                 } else {
                     // Record these potential errors as they can be used to limit the next
                     // variant's work to only these loans.
-                    ctx.potential_errors
-                        .extend(potential_errors.iter().map(|&(loan, _)| loan));
+                    ctx.potential_errors =
+                        Some(potential_errors.iter().map(|&(loan, _)| loan).collect());
 
                     datafrog_opt::compute(&ctx, &mut result)
                 }

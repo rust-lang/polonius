@@ -1,16 +1,12 @@
 use std::time::Instant;
 
-use crate::output::Output;
-use facts::FactTypes;
+use crate::facts::FactTypes;
+use crate::output::{InitializationContext, Output};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
 pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
-    child: Vec<(T::Path, T::Path)>,
-    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
-    initialized_at: Vec<(T::Path, T::Point)>,
-    moved_out_at: Vec<(T::Path, T::Point)>,
-    path_accessed_at: Vec<(T::Path, T::Point)>,
+    ctx: InitializationContext<T>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
     output: &mut Output<T>,
 ) -> Relation<(T::Variable, T::Point)> {
@@ -19,11 +15,11 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
 
     // Relations
     //let parent: Relation<(Path, Path)> = child.iter().map(|&(child_path, parent_path)| (parent_path, child_path)).collect();
-    let child: Relation<(T::Path, T::Path)> = child.into();
-    let path_belongs_to_var: Relation<(T::Path, T::Variable)> = path_belongs_to_var.into();
-    let initialized_at: Relation<(T::Path, T::Point)> = initialized_at.into();
-    let moved_out_at: Relation<(T::Path, T::Point)> = moved_out_at.into();
-    let _path_accessed_at: Relation<(T::Path, T::Point)> = path_accessed_at.into();
+    let child: Relation<(T::Path, T::Path)> = ctx.child.into();
+    let path_belongs_to_var: Relation<(T::Path, T::Variable)> = ctx.path_belongs_to_var.into();
+    let initialized_at: Relation<(T::Path, T::Point)> = ctx.initialized_at.into();
+    let moved_out_at: Relation<(T::Path, T::Point)> = ctx.moved_out_at.into();
+    let _path_accessed_at: Relation<(T::Path, T::Point)> = ctx.path_accessed_at.into();
 
     // Variables
 

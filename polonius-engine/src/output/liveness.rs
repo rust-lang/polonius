@@ -13,17 +13,13 @@
 use std::collections::BTreeSet;
 use std::time::Instant;
 
-use crate::output::Output;
-use facts::FactTypes;
+use crate::facts::FactTypes;
+use crate::output::{LivenessContext, Output};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
 pub(super) fn compute_live_regions<T: FactTypes>(
-    var_used: Vec<(T::Variable, T::Point)>,
-    var_drop_used: Vec<(T::Variable, T::Point)>,
-    var_defined: Vec<(T::Variable, T::Point)>,
-    var_uses_region: Vec<(T::Variable, T::Origin)>,
-    var_drops_region: Vec<(T::Variable, T::Origin)>,
+    ctx: LivenessContext<T>,
     cfg_edge_rel: &Relation<(T::Point, T::Point)>,
     var_maybe_initialized_on_exit_rel: Relation<(T::Variable, T::Point)>,
     output: &mut Output<T>,
@@ -32,14 +28,15 @@ pub(super) fn compute_live_regions<T: FactTypes>(
     let mut iteration = Iteration::new();
 
     // Relations
-    let var_defined_rel: Relation<(T::Variable, T::Point)> = var_defined.into();
+    let var_defined_rel: Relation<(T::Variable, T::Point)> = ctx.var_defined.into();
     let cfg_edge_reverse_rel: Relation<(T::Point, T::Point)> = cfg_edge_rel
         .iter()
         .map(|&(point1, point2)| (point2, point1))
         .collect();
-    let var_uses_region_rel: Relation<(T::Variable, T::Origin)> = var_uses_region.into();
-    let var_drops_region_rel: Relation<(T::Variable, T::Origin)> = var_drops_region.into();
-    let var_drop_used_rel: Relation<((T::Variable, T::Point), ())> = var_drop_used
+    let var_uses_region_rel: Relation<(T::Variable, T::Origin)> = ctx.var_uses_region.into();
+    let var_drops_region_rel: Relation<(T::Variable, T::Origin)> = ctx.var_drops_region.into();
+    let var_drop_used_rel: Relation<((T::Variable, T::Point), ())> = ctx
+        .var_drop_used
         .into_iter()
         .map(|(var, point)| ((var, point), ()))
         .collect();
@@ -55,7 +52,7 @@ pub(super) fn compute_live_regions<T: FactTypes>(
     let region_live_at_var = iteration.variable::<(T::Origin, T::Point)>("region_live_at");
 
     // This propagates the relation `var_live(var, point) :- var_used(var, point)`:
-    var_live_var.insert(var_used.into());
+    var_live_var.insert(ctx.var_used.into());
 
     // var_maybe_initialized_on_entry(var, point2) :-
     //     var_maybe_initialized_on_exit(var, point1),
@@ -172,32 +169,4 @@ pub(super) fn make_universal_regions_live<T: FactTypes>(
             region_live_at.push((origin, point));
         }
     }
-}
-
-pub(super) fn init_region_live_at<T: FactTypes>(
-    var_used: Vec<(T::Variable, T::Point)>,
-    var_drop_used: Vec<(T::Variable, T::Point)>,
-    var_defined: Vec<(T::Variable, T::Point)>,
-    var_uses_region: Vec<(T::Variable, T::Origin)>,
-    var_drops_region: Vec<(T::Variable, T::Origin)>,
-    var_maybe_initialized_on_exit: Relation<(T::Variable, T::Point)>,
-    cfg_edge: &Relation<(T::Point, T::Point)>,
-    universal_regions: Vec<T::Origin>,
-    output: &mut Output<T>,
-) -> Vec<(T::Origin, T::Point)> {
-    debug!("init_region_live_at()");
-    let mut region_live_at = compute_live_regions(
-        var_used,
-        var_drop_used,
-        var_defined,
-        var_uses_region,
-        var_drops_region,
-        cfg_edge,
-        var_maybe_initialized_on_exit,
-        output,
-    );
-
-    make_universal_regions_live::<T>(&mut region_live_at, cfg_edge, universal_regions);
-
-    region_live_at
 }
