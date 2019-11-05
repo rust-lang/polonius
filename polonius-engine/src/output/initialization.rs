@@ -1,30 +1,25 @@
 use std::time::Instant;
 
-use crate::output::Output;
-use facts::FactTypes;
+use crate::facts::FactTypes;
+use crate::output::{InitializationContext, Output};
 
 use datafrog::{Iteration, Relation, RelationLeaper};
 
 pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
-    child: Vec<(T::Path, T::Path)>,
-    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
-    initialized_at: Vec<(T::Path, T::Point)>,
-    moved_out_at: Vec<(T::Path, T::Point)>,
-    path_accessed_at: Vec<(T::Path, T::Point)>,
-    cfg_edge: &[(T::Point, T::Point)],
+    ctx: InitializationContext<T>,
+    cfg_edge: &Relation<(T::Point, T::Point)>,
     output: &mut Output<T>,
-) -> Vec<(T::Variable, T::Point)> {
-    let computation_start = Instant::now();
+) -> Relation<(T::Variable, T::Point)> {
+    let timer = Instant::now();
     let mut iteration = Iteration::new();
 
     // Relations
     //let parent: Relation<(Path, Path)> = child.iter().map(|&(child_path, parent_path)| (parent_path, child_path)).collect();
-    let child: Relation<(T::Path, T::Path)> = child.into();
-    let path_belongs_to_var: Relation<(T::Path, T::Variable)> = path_belongs_to_var.into();
-    let initialized_at: Relation<(T::Path, T::Point)> = initialized_at.into();
-    let moved_out_at: Relation<(T::Path, T::Point)> = moved_out_at.into();
-    let cfg_edge: Relation<(T::Point, T::Point)> = cfg_edge.iter().cloned().collect();
-    let _path_accessed_at: Relation<(T::Path, T::Point)> = path_accessed_at.into();
+    let child: Relation<(T::Path, T::Path)> = ctx.child.into();
+    let path_belongs_to_var: Relation<(T::Path, T::Variable)> = ctx.path_belongs_to_var.into();
+    let initialized_at: Relation<(T::Path, T::Point)> = ctx.initialized_at.into();
+    let moved_out_at: Relation<(T::Path, T::Point)> = ctx.moved_out_at.into();
+    let _path_accessed_at: Relation<(T::Path, T::Point)> = ctx.path_accessed_at.into();
 
     // Variables
 
@@ -60,10 +55,10 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
         // path_maybe_initialized_on_exit(Mother, point) :-
         //     path_maybe_initialized_on_exit(Daughter, point),
         //     child(Daughter, Mother).
-        path_maybe_initialized_on_exit.from_leapjoin(
+        path_maybe_initialized_on_exit.from_join(
             &path_maybe_initialized_on_exit,
-            child.extend_with(|&(daughter, _point)| daughter),
-            |&(_daughter, point), &mother| (mother, point),
+            &child,
+            |&_daughter, &point, &mother| (mother, point),
         );
 
         // TODO: the following lines contain things left to implement for move
@@ -93,12 +88,12 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
         // END TODO
 
         // var_maybe_initialized_on_exit(var, point) :-
-        //     path_belongs_to_var(path, var),
-        //     path_maybe_initialized_at(path, point).
-        var_maybe_initialized_on_exit.from_leapjoin(
+        //     path_maybe_initialized_on_exit(path, point),
+        //     path_belongs_to_var(path, var).
+        var_maybe_initialized_on_exit.from_join(
             &path_maybe_initialized_on_exit,
-            path_belongs_to_var.extend_with(|&(path, _point)| path),
-            |&(_path, point), &var| (var, point),
+            &path_belongs_to_var,
+            |&_path, &point, &var| (var, point),
         );
     }
 
@@ -107,7 +102,7 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
     info!(
         "init_var_maybe_initialized_on_exit() completed: {} tuples, {:?}",
         var_maybe_initialized_on_exit.len(),
-        computation_start.elapsed()
+        timer.elapsed()
     );
 
     if output.dump_enabled {
@@ -130,7 +125,4 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
     }
 
     var_maybe_initialized_on_exit
-        .iter()
-        .map(|&(var, point)| (var, point))
-        .collect()
 }

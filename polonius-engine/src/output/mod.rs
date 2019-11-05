@@ -8,25 +8,37 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use rustc_hash::FxHashMap;
+use datafrog::Relation;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::facts::{AllFacts, Atom, FactTypes};
+
 mod datafrog_opt;
-mod hybrid;
 mod initialization;
 mod liveness;
 mod location_insensitive;
 mod naive;
-use facts::{AllFacts, Atom, FactTypes};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Algorithm {
+    /// Simple rules, but slower to execute
     Naive,
+
+    /// Optimized variant of the rules
     DatafrogOpt,
+
+    /// Fast to compute, but imprecise: there can be false-positives
+    /// but no false-negatives. Tailored for quick "early return" situations.
     LocationInsensitive,
-    /// Compare Naive and DatafrogOpt.
+
+    /// Compares the `Naive` and `DatafrogOpt` variants to ensure they indeed
+    /// compute the same errors.
     Compare,
+
+    /// Combination of the fast `LocationInsensitive` pre-pass, followed by
+    /// the more expensive `DatafrogOpt` variant.
     Hybrid,
 }
 
@@ -81,54 +93,179 @@ pub struct Output<T: FactTypes> {
     pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
 }
 
-/// Compares errors reported by Naive implementation with the errors
-/// reported by the optimized implementation.
-fn compare_errors<Loan: Atom, Point: Atom>(
-    all_naive_errors: &FxHashMap<Point, Vec<Loan>>,
-    all_opt_errors: &FxHashMap<Point, Vec<Loan>>,
-) -> bool {
-    let points = all_naive_errors.keys().chain(all_opt_errors.keys());
+/// Subset of `AllFacts` dedicated to initialization
+struct InitializationContext<T: FactTypes> {
+    child: Vec<(T::Path, T::Path)>,
+    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
+    initialized_at: Vec<(T::Path, T::Point)>,
+    moved_out_at: Vec<(T::Path, T::Point)>,
+    path_accessed_at: Vec<(T::Path, T::Point)>,
+}
 
-    let mut differ = false;
-    for point in points {
-        let mut naive_errors = all_naive_errors.get(&point).cloned().unwrap_or(Vec::new());
-        naive_errors.sort();
-        let mut opt_errors = all_opt_errors.get(&point).cloned().unwrap_or(Vec::new());
-        opt_errors.sort();
-        for err in naive_errors.iter() {
-            if !opt_errors.contains(err) {
-                error!(
-                    "Error {0:?} at {1:?} reported by naive, but not opt.",
-                    err, point
-                );
-                differ = true;
-            }
-        }
-        for err in opt_errors.iter() {
-            if !naive_errors.contains(err) {
-                error!(
-                    "Error {0:?} at {1:?} reported by opt, but not naive.",
-                    err, point
-                );
-                differ = true;
-            }
-        }
-    }
-    differ
+/// Subset of `AllFacts` dedicated to liveness
+struct LivenessContext<T: FactTypes> {
+    var_used: Vec<(T::Variable, T::Point)>,
+    var_defined: Vec<(T::Variable, T::Point)>,
+    var_drop_used: Vec<(T::Variable, T::Point)>,
+    var_uses_region: Vec<(T::Variable, T::Origin)>,
+    var_drops_region: Vec<(T::Variable, T::Origin)>,
+}
+
+/// Subset of `AllFacts` dedicated to borrow checking, and data ready to use by the variants
+struct Context<'ctx, T: FactTypes> {
+    // `Relation`s used as static inputs, by all variants
+    region_live_at: Relation<(T::Origin, T::Point)>,
+    invalidates: Relation<(T::Loan, T::Point)>,
+
+    // static inputs used via `Variable`s, by all variants
+    outlives: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
+    borrow_region: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
+
+    // static inputs used by variants other than `LocationInsensitive`
+    killed: Relation<(T::Loan, T::Point)>,
+
+    // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
+    // and liveness, so already computed by the time we get to borrowcking.
+    cfg_edge: Relation<(T::Point, T::Point)>,
+
+    // Partial results possibly used by other variants as input
+    potential_errors: Option<FxHashSet<T::Loan>>,
 }
 
 impl<T: FactTypes> Output<T> {
+    /// All variants require the same initial preparations, done in multiple
+    /// successive steps:
+    /// - compute initialization data
+    /// - compute liveness
+    /// - prepare static inputs as shared `Relation`s
+    /// - in cases where `LocationInsensitive` variant is ran as a filtering pre-pass,
+    ///   partial results can also be stored in the context, so that the following
+    ///   variant can use it to prune its own input data
     pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
-        match algorithm {
-            Algorithm::Naive => naive::compute(dump_enabled, all_facts.clone()),
-            Algorithm::DatafrogOpt => datafrog_opt::compute(dump_enabled, all_facts.clone()),
-            Algorithm::LocationInsensitive => {
-                location_insensitive::compute(dump_enabled, &all_facts)
+        let mut result = Output::new(dump_enabled);
+
+        // TODO: remove all the cloning thereafter, but that needs to be done in concert with rustc
+
+        let cfg_edge = all_facts.cfg_edge.clone().into();
+
+        // 1) Initialization
+        let initialization_ctx = InitializationContext {
+            child: all_facts.child.clone(),
+            path_belongs_to_var: all_facts.path_belongs_to_var.clone(),
+            initialized_at: all_facts.initialized_at.clone(),
+            moved_out_at: all_facts.moved_out_at.clone(),
+            path_accessed_at: all_facts.path_accessed_at.clone(),
+        };
+
+        let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
+            initialization_ctx,
+            &cfg_edge,
+            &mut result,
+        );
+
+        // 2) Liveness
+        let universal_regions = all_facts.universal_region.clone();
+
+        let liveness_ctx = LivenessContext {
+            var_used: all_facts.var_used.clone(),
+            var_defined: all_facts.var_defined.clone(),
+            var_drop_used: all_facts.var_drop_used.clone(),
+            var_uses_region: all_facts.var_uses_region.clone(),
+            var_drops_region: all_facts.var_drops_region.clone(),
+        };
+
+        let mut region_live_at = liveness::compute_live_regions(
+            liveness_ctx,
+            &cfg_edge,
+            var_maybe_initialized_on_exit,
+            &mut result,
+        );
+
+        liveness::make_universal_regions_live::<T>(
+            &mut region_live_at,
+            &cfg_edge,
+            universal_regions,
+        );
+
+        // 3) Borrow checking
+
+        // Prepare data as datafrog relations, ready to join.
+        //
+        // Note: if rustc and polonius had more interaction, we could also delay or avoid
+        // generating some of the facts that are now always present here. For example,
+        // the `LocationInsensitive` variant doesn't use the `killed` or `invalidates`
+        // relations, so we could technically delay passing them from rustc, when
+        // using this or the `Hybrid` variant, to after the pre-pass has made sure
+        // we actually need to compute the full analysis. If these facts happened to
+        // be recorded in separate MIR walks, we might also avoid generating those facts.
+
+        let region_live_at = region_live_at.into();
+
+        // TODO: also flip the order of this relation's arguments in rustc
+        // from `invalidates(point, loan)` to `invalidates(loan, point)`.
+        // to avoid this allocation.
+        let invalidates = Relation::from_iter(
+            all_facts
+                .invalidates
+                .iter()
+                .map(|&(point, loan)| (loan, point)),
+        );
+
+        let killed = all_facts.killed.clone().into();
+
+        // Ask the variants to compute errors in their own way
+        let mut ctx = Context {
+            region_live_at,
+            invalidates,
+            cfg_edge,
+            outlives: &all_facts.outlives,
+            borrow_region: &all_facts.borrow_region,
+            killed,
+            potential_errors: None,
+        };
+
+        let errors = match algorithm {
+            Algorithm::LocationInsensitive => location_insensitive::compute(&ctx, &mut result),
+            Algorithm::Naive => naive::compute(&ctx, &mut result),
+            Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
+            Algorithm::Hybrid => {
+                // Execute the fast `LocationInsensitive` computation as a pre-pass:
+                // if it finds no possible errors, we don't need to do the more complex
+                // computations as they won't find errors either, and we can return early.
+                let potential_errors = location_insensitive::compute(&ctx, &mut result);
+                if potential_errors.is_empty() {
+                    potential_errors
+                } else {
+                    // Record these potential errors as they can be used to limit the next
+                    // variant's work to only these loans.
+                    ctx.potential_errors =
+                        Some(potential_errors.iter().map(|&(loan, _)| loan).collect());
+
+                    datafrog_opt::compute(&ctx, &mut result)
+                }
             }
             Algorithm::Compare => {
-                let naive_output = naive::compute(dump_enabled, all_facts.clone());
-                let opt_output = datafrog_opt::compute(dump_enabled, all_facts.clone());
-                if compare_errors(&naive_output.errors, &opt_output.errors) {
+                // Ensure the `Naive` and `DatafrogOpt` errors are the same
+                let naive_errors = naive::compute(&ctx, &mut result);
+                let opt_errors = datafrog_opt::compute(&ctx, &mut result);
+
+                let mut naive_errors_by_point = FxHashMap::default();
+                for &(loan, point) in naive_errors.iter() {
+                    naive_errors_by_point
+                        .entry(point)
+                        .or_insert(Vec::new())
+                        .push(loan);
+                }
+
+                let mut opt_errors_by_point = FxHashMap::default();
+                for &(loan, point) in opt_errors.iter() {
+                    opt_errors_by_point
+                        .entry(point)
+                        .or_insert(Vec::new())
+                        .push(loan);
+                }
+
+                if compare_errors(&naive_errors_by_point, &opt_errors_by_point) {
                     panic!(concat!(
                         "The errors reported by the naive algorithm differ from ",
                         "the errors reported by the optimized algorithm. ",
@@ -137,10 +274,27 @@ impl<T: FactTypes> Output<T> {
                 } else {
                     debug!("Naive and optimized algorithms reported the same errors.");
                 }
-                opt_output
+
+                naive_errors
             }
-            Algorithm::Hybrid => hybrid::compute(dump_enabled, all_facts.clone()),
+        };
+
+        for &(loan, location) in errors.iter() {
+            result.errors.entry(location).or_default().push(loan);
         }
+
+        // Record more debugging info when necessary
+        if dump_enabled {
+            for &(origin, location) in ctx.region_live_at.iter() {
+                result
+                    .region_live_at
+                    .entry(location)
+                    .or_default()
+                    .push(origin);
+            }
+        }
+
+        result
     }
 
     fn new(dump_enabled: bool) -> Self {
@@ -204,6 +358,46 @@ impl<T: FactTypes> Output<T> {
             None => Cow::Owned(BTreeMap::default()),
         }
     }
+}
+
+/// Compares errors reported by Naive implementation with the errors
+/// reported by the optimized implementation.
+fn compare_errors<Loan: Atom, Point: Atom>(
+    all_naive_errors: &FxHashMap<Point, Vec<Loan>>,
+    all_opt_errors: &FxHashMap<Point, Vec<Loan>>,
+) -> bool {
+    let points = all_naive_errors.keys().chain(all_opt_errors.keys());
+
+    let mut differ = false;
+    for point in points {
+        let mut naive_errors = all_naive_errors.get(&point).cloned().unwrap_or_default();
+        naive_errors.sort();
+
+        let mut opt_errors = all_opt_errors.get(&point).cloned().unwrap_or_default();
+        opt_errors.sort();
+
+        for err in naive_errors.iter() {
+            if !opt_errors.contains(err) {
+                error!(
+                    "Error {0:?} at {1:?} reported by naive, but not opt.",
+                    err, point
+                );
+                differ = true;
+            }
+        }
+
+        for err in opt_errors.iter() {
+            if !naive_errors.contains(err) {
+                error!(
+                    "Error {0:?} at {1:?} reported by opt, but not naive.",
+                    err, point
+                );
+                differ = true;
+            }
+        }
+    }
+
+    differ
 }
 
 #[cfg(test)]

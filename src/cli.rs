@@ -1,17 +1,19 @@
-use crate::dump;
-use crate::dump::Output;
-use crate::facts::AllFacts;
-use crate::intern;
-use crate::tab_delim;
-use log::error;
+use log::{error, Level, LevelFilter, Metadata, Record, SetLoggerError};
 use pico_args as pico;
 use polonius_engine::Algorithm;
+use std::env;
 use std::error;
 use std::fmt;
 use std::path::Path;
 use std::process::exit;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
+
+use crate::dump;
+use crate::dump::Output;
+use crate::facts::AllFacts;
+use crate::intern;
+use crate::tab_delim;
 
 const PKG_NAME: &'static str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -184,6 +186,11 @@ For more information try --help"#
         exit(1);
     }
 
+    // 4) setup logging at the default `Info` level when necessary
+    if env::var("RUST_LOG").is_ok() {
+        start_logging().expect("Initializing logger failed");
+    }
+
     Ok(options)
 }
 
@@ -216,4 +223,26 @@ fn readable_pico_error(error: pico::Error) -> Error {
         }
         Error::NonUtf8Argument => "not a valid utf8 value".to_string(),
     })
+}
+
+struct Logger;
+
+impl log::Log for Logger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("{} {} - {}", record.level(), record.target(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+static LOGGER: Logger = Logger;
+
+fn start_logging() -> Result<(), SetLoggerError> {
+    log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Info))
 }

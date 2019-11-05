@@ -10,50 +10,26 @@
 
 //! A version of the Naive datalog analysis using Datafrog.
 
+use datafrog::{Iteration, Relation, RelationLeaper};
 use std::time::Instant;
 
-use crate::output::initialization;
-use crate::output::liveness;
-use crate::output::Output;
-use facts::{AllFacts, FactTypes};
+use crate::facts::FactTypes;
+use crate::output::{Context, Output};
 
-use datafrog::{Iteration, Relation, RelationLeaper};
-
-pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) -> Output<T> {
-    let mut result = Output::new(dump_enabled);
-
-    let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
-        all_facts.child,
-        all_facts.path_belongs_to_var,
-        all_facts.initialized_at,
-        all_facts.moved_out_at,
-        all_facts.path_accessed_at,
-        &all_facts.cfg_edge,
-        &mut result,
-    );
-
-    let region_live_at = liveness::init_region_live_at(
-        all_facts.var_used,
-        all_facts.var_drop_used,
-        all_facts.var_defined,
-        all_facts.var_uses_region,
-        all_facts.var_drops_region,
-        var_maybe_initialized_on_exit,
-        &all_facts.cfg_edge,
-        all_facts.universal_region,
-        &mut result,
-    );
-
-    let computation_start = Instant::now();
+pub(super) fn compute<T: FactTypes>(
+    ctx: &Context<T>,
+    result: &mut Output<T>,
+) -> Relation<(T::Loan, T::Point)> {
+    let timer = Instant::now();
 
     let errors = {
+        // Static inputs
+        let region_live_at_rel = &ctx.region_live_at;
+        let cfg_edge_rel = &ctx.cfg_edge;
+        let killed_rel = &ctx.killed;
+
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
-
-        // static inputs
-        let cfg_edge_rel: Relation<(T::Point, T::Point)> = all_facts.cfg_edge.into();
-        let killed_rel: Relation<(T::Loan, T::Point)> = all_facts.killed.into();
-        let region_live_at_rel: Relation<(T::Origin, T::Point)> = region_live_at.into();
 
         // .. some variables, ..
         let subset = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset");
@@ -79,13 +55,12 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         let errors = iteration.variable("errors");
 
         // load initial facts.
-        subset.insert(all_facts.outlives.into());
-        requires.insert(all_facts.borrow_region.into());
+        subset.extend(ctx.outlives.iter());
+        requires.extend(ctx.borrow_region.iter());
         invalidates.extend(
-            all_facts
-                .invalidates
+            ctx.invalidates
                 .iter()
-                .map(|&(point, loan)| ((loan, point), ())),
+                .map(|&(loan, point)| ((loan, point), ())),
         );
         region_live_at_var.extend(
             region_live_at_rel
@@ -190,7 +165,7 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
             });
         }
 
-        if dump_enabled {
+        if result.dump_enabled {
             let subset = subset.complete();
             assert!(
                 subset
@@ -221,14 +196,6 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
                     .insert(loan);
             }
 
-            for &(origin, location) in region_live_at_rel.iter() {
-                result
-                    .region_live_at
-                    .entry(location)
-                    .or_default()
-                    .push(origin);
-            }
-
             let borrow_live_at = borrow_live_at.complete();
             for &((loan, location), _) in borrow_live_at.iter() {
                 result
@@ -242,17 +209,11 @@ pub(super) fn compute<T: FactTypes>(dump_enabled: bool, all_facts: AllFacts<T>) 
         errors.complete()
     };
 
-    if dump_enabled {
-        info!(
-            "errors is complete: {} tuples, {:?}",
-            errors.len(),
-            computation_start.elapsed()
-        );
-    }
+    info!(
+        "errors is complete: {} tuples, {:?}",
+        errors.len(),
+        timer.elapsed()
+    );
 
-    for &(loan, location) in errors.iter() {
-        result.errors.entry(location).or_default().push(loan);
-    }
-
-    result
+    errors
 }
