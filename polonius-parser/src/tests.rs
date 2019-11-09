@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::ir::{Effect, Fact};
+use crate::ir::{Effect, Fact, KnownSubset, PlaceholderLoan};
 use crate::parse_input;
 
 #[test]
@@ -296,5 +296,61 @@ fn var_drops_region() {
     assert_eq!(
         input.var_drops_region,
         [("V1".to_string(), "'a".to_string())]
+    );
+}
+
+#[test]
+fn known_subsets() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+        known_subsets { 'a: 'b, 'b: 'c }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
+    assert_eq!(
+        input.known_subsets,
+        vec![
+            KnownSubset {
+                a: "'a".to_string(),
+                b: "'b".to_string()
+            },
+            KnownSubset {
+                a: "'b".to_string(),
+                b: "'c".to_string()
+            }
+        ]
+    );
+}
+
+#[test]
+fn placeholder_loans() {
+    let program = r"
+        universal_regions { 'a, 'b, 'c }
+        placeholder_loans { 'a: L1, 'b: L2, 'c: L3 }
+    ";
+    let input = parse_input(program);
+    assert!(input.is_ok());
+
+    let input = input.unwrap();
+    assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
+    assert_eq!(
+        input.placeholder_loans,
+        vec![
+            PlaceholderLoan {
+                origin: "'a".to_string(),
+                loan: "L1".to_string()
+            },
+            PlaceholderLoan {
+                origin: "'b".to_string(),
+                loan: "L2".to_string()
+            },
+            PlaceholderLoan {
+                origin: "'c".to_string(),
+                loan: "L3".to_string()
+            }
+        ]
     );
 }
