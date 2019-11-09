@@ -286,7 +286,7 @@ mod tests {
         let universal_regions: Vec<_> = facts
             .universal_region
             .iter()
-            .map(|origin| tables.origins.untern(*origin).to_string())
+            .map(|origin| tables.origins.untern(*origin))
             .collect();
         assert_eq!(universal_regions, ["'a", "'b", "'c"]);
 
