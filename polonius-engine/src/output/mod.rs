@@ -91,6 +91,7 @@ pub struct Output<T: FactTypes> {
     pub var_drop_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
     pub path_maybe_initialized_at: FxHashMap<T::Point, Vec<T::Path>>,
     pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
+    pub known_subset: FxHashMap<T::Origin, BTreeSet<T::Origin>>,
 }
 
 /// Subset of `AllFacts` dedicated to initialization
@@ -310,6 +311,7 @@ impl<T: FactTypes> Output<T> {
             path_maybe_initialized_at: FxHashMap::default(),
             var_maybe_initialized_on_exit: FxHashMap::default(),
             dump_enabled,
+            known_subset: FxHashMap::default(),
         }
     }
 

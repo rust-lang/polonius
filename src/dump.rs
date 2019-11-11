@@ -77,6 +77,11 @@ pub(crate) fn dump_output(
             intern,
             &output.var_maybe_initialized_on_exit,
         )?;
+        dump_rows(
+            &mut writer_for(output_dir, "known_subset")?,
+            intern,
+            &output.known_subset,
+        )?;
     }
     return Ok(());
 
