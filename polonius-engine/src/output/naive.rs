@@ -19,14 +19,20 @@ use crate::output::{Context, Output};
 pub(super) fn compute<T: FactTypes>(
     ctx: &Context<T>,
     result: &mut Output<T>,
-) -> Relation<(T::Loan, T::Point)> {
+) -> (
+    Relation<(T::Loan, T::Point)>,
+    Relation<(T::Origin, T::Origin, T::Point)>,
+) {
     let timer = Instant::now();
 
-    let errors = {
+    let (errors, subset_errors) = {
         // Static inputs
         let region_live_at_rel = &ctx.region_live_at;
         let cfg_edge_rel = &ctx.cfg_edge;
         let killed_rel = &ctx.killed;
+        let known_subset = &ctx.known_subset;
+        let universal_region = &ctx.universal_region;
+        let placeholder_loan = &ctx.placeholder_loan;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -51,8 +57,11 @@ pub(super) fn compute<T: FactTypes>(
         let region_live_at_var =
             iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
-        // output
+        // output relations: illegal accesses errors, and illegal subset relations errors
         let errors = iteration.variable("errors");
+
+        let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
+        let subset_errors_step_1 = iteration.variable("subset_errors_step_9_1");
 
         // load initial facts.
         subset.extend(ctx.outlives.iter());
@@ -66,6 +75,23 @@ pub(super) fn compute<T: FactTypes>(
             region_live_at_rel
                 .iter()
                 .map(|&(origin, point)| ((origin, point), ())),
+        );
+
+        // WIP: we might need to pass the CFG root separately as part of the input ?
+        // - for in-memory facts coming from rustc or unit tests, we can probably assume it's in the
+        //   first tuple of the `cfg_edge` relation (since it will be the start point of
+        //   `bb0`'s first MIR statement).
+        // - for polonius test .facts files, however, the `cfg_edge` relation will be sorted according to the
+        //   interned point values, and the first edge might not contain the root `Start(bb0[0])` point.
+        //   For these cases, maybe the `polonius`-bin would need to pass the interned value of this point
+        //   as the CFG root.
+        let cfg_root = cfg_edge_rel[0].0;
+
+        // seed placeholder loans into `requires` at the root of the CFG
+        requires.extend(
+            placeholder_loan
+                .iter()
+                .map(|&(loan, origin)| (origin, loan, cfg_root)),
         );
 
         // .. and then start iterating rules!
@@ -163,8 +189,32 @@ pub(super) fn compute<T: FactTypes>(
             errors.from_join(&invalidates, &borrow_live_at, |&(loan, point), _, _| {
                 (loan, point)
             });
+
+            // subset_errors(origin1, origin2, point) :-
+            //   requires(origin2, loan1, point),
+            //   universal_region(origin2),
+            //   placeholder_loan(origin1, loan1),
+            //   !known_subset(origin1, origin2).
+            subset_errors_step_1.from_leapjoin(
+                &requires,
+                (
+                    universal_region.filter_with(|&(origin2, _loan1, _point)| (origin2, ())),
+                    placeholder_loan.extend_with(|&(_origin2, loan1, _point)| loan1),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&(origin2, _loan1, _point), &origin1| {
+                        origin2 != origin1
+                    }),
+                ),
+                |&(origin2, _loan1, point), &origin1| ((origin1, origin2), point),
+            );
+            subset_errors.from_antijoin(
+                &subset_errors_step_1,
+                &known_subset,
+                |&(origin1, origin2), &point| (origin1, origin2, point),
+            );
         }
 
+        // Handle verbose output data
         if result.dump_enabled {
             let subset = subset.complete();
             assert!(
@@ -206,14 +256,15 @@ pub(super) fn compute<T: FactTypes>(
             }
         }
 
-        errors.complete()
+        (errors.complete(), subset_errors.complete())
     };
 
     info!(
-        "errors is complete: {} tuples, {:?}",
+        "analysis done: {} `errors` tuples, {} `subset_errors` tuples, {:?}",
         errors.len(),
+        subset_errors.len(),
         timer.elapsed()
     );
 
-    errors
+    (errors, subset_errors)
 }

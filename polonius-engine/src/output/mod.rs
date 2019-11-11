@@ -125,6 +125,9 @@ struct Context<'ctx, T: FactTypes> {
 
     // static inputs used by variants other than `LocationInsensitive`
     killed: Relation<(T::Loan, T::Point)>,
+    universal_region: Relation<(T::Origin, ())>,
+    known_subset: Relation<(T::Origin, T::Origin)>,
+    placeholder_loan: Relation<(T::Loan, T::Origin)>,
 
     // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
     // and liveness, so already computed by the time we get to borrowcking.
@@ -211,7 +214,23 @@ impl<T: FactTypes> Output<T> {
                 .map(|&(point, loan)| (loan, point)),
         );
 
+        let universal_region: Relation<_> = Relation::from_iter(
+            all_facts
+                .universal_region
+                .iter()
+                .map(|&origin| (origin, ())),
+        );
+
         let killed = all_facts.killed.clone().into();
+        let known_subset = all_facts.known_subset.clone().into();
+
+        // TODO: flip the relation's arguments order in the input facts ?
+        let placeholder_loan = Relation::from_iter(
+            all_facts
+                .placeholder_loan
+                .iter()
+                .map(|&(origin, loan)| (loan, origin)),
+        );
 
         // Ask the variants to compute errors in their own way
         let mut ctx = Context {
@@ -222,13 +241,33 @@ impl<T: FactTypes> Output<T> {
             borrow_region: &all_facts.borrow_region,
             killed,
             potential_errors: None,
+            universal_region,
+            known_subset,
+            placeholder_loan,
         };
 
         let errors = match algorithm {
             Algorithm::LocationInsensitive => location_insensitive::compute(&ctx, &mut result),
-            Algorithm::Naive => naive::compute(&ctx, &mut result),
+            Algorithm::Naive => {
+                let (errors, subset_errors) = naive::compute(&ctx, &mut result);
+
+                // Record illegal subset errors
+                for &(origin1, origin2, location) in subset_errors.iter() {
+                    result
+                        .subset_errors
+                        .entry(location)
+                        .or_default()
+                        .insert((origin1, origin2));
+                }
+
+                errors
+            }
             Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
             Algorithm::Hybrid => {
+                // WIP: the `LocationInsensitive` variant doesn't compute any illegal subset
+                // relation errors. So using it as a quick pre-filter for illegal accesses
+                // errors will also end up skipping checking for subset errors.
+
                 // Execute the fast `LocationInsensitive` computation as a pre-pass:
                 // if it finds no possible errors, we don't need to do the more complex
                 // computations as they won't find errors either, and we can return early.
@@ -246,8 +285,10 @@ impl<T: FactTypes> Output<T> {
             }
             Algorithm::Compare => {
                 // Ensure the `Naive` and `DatafrogOpt` errors are the same
-                let naive_errors = naive::compute(&ctx, &mut result);
+                let (naive_errors, _) = naive::compute(&ctx, &mut result);
                 let opt_errors = datafrog_opt::compute(&ctx, &mut result);
+
+                // TODO: compare illegal subset relations errors as well here ?
 
                 let mut naive_errors_by_point = FxHashMap::default();
                 for &(loan, point) in naive_errors.iter() {
@@ -279,11 +320,12 @@ impl<T: FactTypes> Output<T> {
             }
         };
 
+        // Record illegal access errors
         for &(loan, location) in errors.iter() {
             result.errors.entry(location).or_default().push(loan);
         }
 
-        // Record more debugging info when necessary
+        // Record more debugging info when asked to do so
         if dump_enabled {
             for &(origin, location) in ctx.region_live_at.iter() {
                 result
