@@ -334,6 +334,14 @@ impl<T: FactTypes> Output<T> {
                     .or_default()
                     .push(origin);
             }
+
+            for &(origin1, origin2) in ctx.known_subset.iter() {
+                result
+                    .known_subset
+                    .entry(origin1)
+                    .or_default()
+                    .insert(origin2);
+            }
         }
 
         result
