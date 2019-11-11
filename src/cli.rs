@@ -124,7 +124,7 @@ pub fn options_from_args() -> Result<Options, Error> {
             .collect();
 
         println!(
-                r#"{name} {version}
+            r#"{name} {version}
 {description}
 
 USAGE:
@@ -146,11 +146,11 @@ OPTIONS:
 
 ARGS:
     <fact_dirs>..."#,
-                name = PKG_NAME,
-                version = PKG_VERSION,
-                description = PKG_DESCRIPTION,
-                variants = variants.join(", ")
-            );
+            name = PKG_NAME,
+            version = PKG_VERSION,
+            description = PKG_DESCRIPTION,
+            variants = variants.join(", ")
+        );
         exit(0);
     }
 
