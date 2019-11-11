@@ -164,8 +164,6 @@ impl<T: FactTypes> Output<T> {
         );
 
         // 2) Liveness
-        let universal_regions = all_facts.universal_region.clone();
-
         let liveness_ctx = LivenessContext {
             var_used: all_facts.var_used.clone(),
             var_defined: all_facts.var_defined.clone(),
@@ -184,7 +182,7 @@ impl<T: FactTypes> Output<T> {
         liveness::make_universal_regions_live::<T>(
             &mut region_live_at,
             &cfg_edge,
-            universal_regions,
+            &all_facts.universal_region,
         );
 
         // 3) Borrow checking

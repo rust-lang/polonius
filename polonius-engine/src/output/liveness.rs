@@ -153,7 +153,7 @@ pub(super) fn compute_live_regions<T: FactTypes>(
 pub(super) fn make_universal_regions_live<T: FactTypes>(
     region_live_at: &mut Vec<(T::Origin, T::Point)>,
     cfg_edge: &[(T::Point, T::Point)],
-    universal_regions: Vec<T::Origin>,
+    universal_regions: &[T::Origin],
 ) {
     debug!("make_universal_regions_live()");
 
@@ -164,7 +164,7 @@ pub(super) fn make_universal_regions_live<T: FactTypes>(
         .collect();
 
     region_live_at.reserve(universal_regions.len() * all_points.len());
-    for origin in universal_regions {
+    for &origin in universal_regions.iter() {
         for &point in all_points.iter() {
             region_live_at.push((origin, point));
         }
