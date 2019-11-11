@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::dump::Output;
-use crate::facts::{AllFacts, Loan, Point};
+use crate::facts::{AllFacts, Loan, Origin, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
@@ -500,4 +500,70 @@ fn var_drop_used_simple() {
         live_at_defined.and_then(|var| Some(tables.variables.untern_vec(var))),
         tables.points.untern(first_defined)
     );
+}
+
+/// This test ensures one of the two placeholder origins will flow into the
+/// other, but without declaring this subset as a `known_subset`, which is
+/// an illegal subset relation error.
+#[test]
+fn illegal_subset_error() {
+    let program = r"
+        universal_regions { 'a, 'b }
+        placeholder_loans { 'a: L1, 'b: L2 }
+        
+        block B0 {
+            // creates a transitive `'b: 'a` subset
+            borrow_region_at('x, L3),
+              outlives('b: 'x),
+              outlives('x: 'a);
+        }
+    ";
+
+    let mut tables = intern::InternerTables::new();
+    let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+
+    assert_eq!(facts.universal_region.len(), 2);
+    assert_eq!(facts.placeholder_loan.len(), 2);
+
+    // no known subsets are defined in the program...
+    assert_eq!(facts.known_subset.len(), 0);
+
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+
+    // ...so there should be an error here about the missing `'b: 'a` subset
+    assert_eq!(result.subset_errors.len(), 1);
+
+    let point = Point::from(1);
+    let subset_error = result.subset_errors.get(&point).unwrap();
+
+    let origin_a = Origin::from(0);
+    let origin_b = Origin::from(1);
+    assert!(subset_error.contains(&(origin_b, origin_a)));
+}
+
+/// This is the same test as the `illegal_subset_error` one, but specifies the `'b: 'a` subset
+/// relation as being "known", making this program valid.
+#[test]
+fn known_placeholder_origin_subset() {
+    let program = r"
+        universal_regions { 'a, 'b }
+        placeholder_loans { 'a: L1, 'b: L2 }
+        known_subsets { 'b: 'a }
+
+        block B0 {
+            borrow_region_at('x, L3),
+              outlives('b: 'x),
+              outlives('x: 'a);
+        }
+    ";
+
+    let mut tables = intern::InternerTables::new();
+    let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+
+    assert_eq!(facts.universal_region.len(), 2);
+    assert_eq!(facts.placeholder_loan.len(), 2);
+    assert_eq!(facts.known_subset.len(), 1);
+
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert_eq!(result.subset_errors.len(), 0);
 }
