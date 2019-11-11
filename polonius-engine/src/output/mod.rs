@@ -76,6 +76,7 @@ impl ::std::str::FromStr for Algorithm {
 #[derive(Clone, Debug)]
 pub struct Output<T: FactTypes> {
     pub errors: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub subset_errors: FxHashMap<T::Point, BTreeSet<(T::Origin, T::Origin)>>,
 
     pub dump_enabled: bool,
 
@@ -312,6 +313,7 @@ impl<T: FactTypes> Output<T> {
             var_maybe_initialized_on_exit: FxHashMap::default(),
             dump_enabled,
             known_subset: FxHashMap::default(),
+            subset_errors: FxHashMap::default(),
         }
     }
 
