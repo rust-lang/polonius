@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::dump::Output;
-use crate::facts::{AllFacts, Loan, Origin, Point};
+use crate::facts::{AllFacts, Loan, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
@@ -532,11 +532,11 @@ fn illegal_subset_error() {
     // ...so there should be an error here about the missing `'b: 'a` subset
     assert_eq!(result.subset_errors.len(), 1);
 
-    let point = Point::from(1);
+    let point = tables.points.intern("\"Mid(B0[0])\"");
     let subset_error = result.subset_errors.get(&point).unwrap();
 
-    let origin_a = Origin::from(0);
-    let origin_b = Origin::from(1);
+    let origin_a = tables.origins.intern("'a");
+    let origin_b = tables.origins.intern("'b");
     assert!(subset_error.contains(&(origin_b, origin_a)));
 }
 
