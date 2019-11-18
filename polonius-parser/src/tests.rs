@@ -329,7 +329,7 @@ fn known_subsets() {
 fn placeholders() {
     let program = r"
         universal_regions { 'a, 'b, 'c }
-        placeholders { 'a: L1, 'b: L2, 'c: L3 }
+        placeholders { 'a, 'b, 'c }
     ";
     let input = parse_input(program);
     assert!(input.is_ok());
@@ -341,15 +341,15 @@ fn placeholders() {
         vec![
             Placeholder {
                 origin: "'a".to_string(),
-                loan: "L1".to_string()
+                loan: "'a".to_string()
             },
             Placeholder {
                 origin: "'b".to_string(),
-                loan: "L2".to_string()
+                loan: "'b".to_string()
             },
             Placeholder {
                 origin: "'c".to_string(),
-                loan: "L3".to_string()
+                loan: "'c".to_string()
             }
         ]
     );

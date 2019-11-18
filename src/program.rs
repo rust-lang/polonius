@@ -104,14 +104,12 @@ pub(crate) fn parse_from_program(
     );
 
     // facts: placeholder(Origin, Loan)
-    facts
-        .placeholder
-        .extend(input.placeholders.iter().map(
-            |Placeholder {
-                 ref origin,
-                 ref loan,
-             }| { (tables.origins.intern(origin), tables.loans.intern(loan)) },
-        ));
+    facts.placeholder.extend(input.placeholders.iter().map(
+        |Placeholder {
+             ref origin,
+             ref loan,
+         }| { (tables.origins.intern(origin), tables.loans.intern(loan)) },
+    ));
 
     for block in &input.blocks {
         let block_name = &block.name;

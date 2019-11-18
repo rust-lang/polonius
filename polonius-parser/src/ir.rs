@@ -11,15 +11,25 @@ pub struct Input {
 impl Input {
     pub fn new(
         universal_regions: Vec<String>,
-        placeholders: Option<Vec<Placeholder>>,
+        placeholders: Option<Vec<String>>,
         known_subsets: Option<Vec<KnownSubset>>,
         var_uses_region: Option<Vec<(String, String)>>,
         var_drops_region: Option<Vec<(String, String)>>,
         blocks: Vec<Block>,
     ) -> Input {
+        // set-up placeholders as origins with a placeholder loan of the same name
+        let placeholders: Vec<_> = placeholders
+            .unwrap_or_default()
+            .iter()
+            .map(|origin| Placeholder {
+                origin: origin.clone(),
+                loan: origin.clone(),
+            })
+            .collect();
+
         Input {
             universal_regions,
-            placeholders: placeholders.unwrap_or_default(),
+            placeholders,
             known_subsets: known_subsets.unwrap_or_default(),
             var_uses_region: var_uses_region.unwrap_or_default(),
             var_drops_region: var_drops_region.unwrap_or_default(),

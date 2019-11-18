@@ -509,7 +509,7 @@ fn var_drop_used_simple() {
 fn illegal_subset_error() {
     let program = r"
         universal_regions { 'a, 'b }
-        placeholders { 'a: L1, 'b: L2 }
+        placeholders { 'a, 'b }
         
         block B0 {
             // creates a transitive `'b: 'a` subset
@@ -547,7 +547,7 @@ fn illegal_subset_error() {
 fn known_placeholder_origin_subset() {
     let program = r"
         universal_regions { 'a, 'b }
-        placeholders { 'a: L1, 'b: L2 }
+        placeholders { 'a, 'b }
         known_subsets { 'b: 'a }
 
         block B0 {
