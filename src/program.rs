@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use polonius_parser::{
-    ir::{Effect, Fact, KnownSubset, PlaceholderLoan},
+    ir::{Effect, Fact, KnownSubset, Placeholder},
     parse_input,
 };
 
@@ -30,7 +30,7 @@ struct Facts {
     moved_out_at: BTreeSet<(Path, Point)>,
     path_accessed_at: BTreeSet<(Path, Point)>,
     known_subset: BTreeSet<(Origin, Origin)>,
-    placeholder_loan: BTreeSet<(Origin, Loan)>,
+    placeholder: BTreeSet<(Origin, Loan)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -53,7 +53,7 @@ impl From<Facts> for AllFacts {
             moved_out_at: facts.moved_out_at.into_iter().collect(),
             path_accessed_at: facts.path_accessed_at.into_iter().collect(),
             known_subset: facts.known_subset.into_iter().collect(),
-            placeholder: facts.placeholder_loan.into_iter().collect(),
+            placeholder: facts.placeholder.into_iter().collect(),
         }
     }
 }
@@ -103,11 +103,11 @@ pub(crate) fn parse_from_program(
             }),
     );
 
-    // facts: placeholder_loan(Origin, Loan)
+    // facts: placeholder(Origin, Loan)
     facts
-        .placeholder_loan
-        .extend(input.placeholder_loans.iter().map(
-            |PlaceholderLoan {
+        .placeholder
+        .extend(input.placeholders.iter().map(
+            |Placeholder {
                  ref origin,
                  ref loan,
              }| { (tables.origins.intern(origin), tables.loans.intern(loan)) },

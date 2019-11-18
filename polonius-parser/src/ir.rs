@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct Input {
     pub universal_regions: Vec<String>,
-    pub placeholder_loans: Vec<PlaceholderLoan>,
+    pub placeholders: Vec<Placeholder>,
     pub known_subsets: Vec<KnownSubset>,
     pub blocks: Vec<Block>,
     pub var_uses_region: Vec<(String, String)>,
@@ -11,7 +11,7 @@ pub struct Input {
 impl Input {
     pub fn new(
         universal_regions: Vec<String>,
-        placeholder_loans: Option<Vec<PlaceholderLoan>>,
+        placeholders: Option<Vec<Placeholder>>,
         known_subsets: Option<Vec<KnownSubset>>,
         var_uses_region: Option<Vec<(String, String)>>,
         var_drops_region: Option<Vec<(String, String)>>,
@@ -19,7 +19,7 @@ impl Input {
     ) -> Input {
         Input {
             universal_regions,
-            placeholder_loans: placeholder_loans.unwrap_or_default(),
+            placeholders: placeholders.unwrap_or_default(),
             known_subsets: known_subsets.unwrap_or_default(),
             var_uses_region: var_uses_region.unwrap_or_default(),
             var_drops_region: var_drops_region.unwrap_or_default(),
@@ -68,7 +68,7 @@ pub struct KnownSubset {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PlaceholderLoan {
+pub struct Placeholder {
     pub origin: String,
     pub loan: String,
 }

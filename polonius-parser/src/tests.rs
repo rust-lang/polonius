@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::ir::{Effect, Fact, KnownSubset, PlaceholderLoan};
+use crate::ir::{Effect, Fact, KnownSubset, Placeholder};
 use crate::parse_input;
 
 #[test]
@@ -326,10 +326,10 @@ fn known_subsets() {
 }
 
 #[test]
-fn placeholder_loans() {
+fn placeholders() {
     let program = r"
         universal_regions { 'a, 'b, 'c }
-        placeholder_loans { 'a: L1, 'b: L2, 'c: L3 }
+        placeholders { 'a: L1, 'b: L2, 'c: L3 }
     ";
     let input = parse_input(program);
     assert!(input.is_ok());
@@ -337,17 +337,17 @@ fn placeholder_loans() {
     let input = input.unwrap();
     assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
     assert_eq!(
-        input.placeholder_loans,
+        input.placeholders,
         vec![
-            PlaceholderLoan {
+            Placeholder {
                 origin: "'a".to_string(),
                 loan: "L1".to_string()
             },
-            PlaceholderLoan {
+            Placeholder {
                 origin: "'b".to_string(),
                 loan: "L2".to_string()
             },
-            PlaceholderLoan {
+            Placeholder {
                 origin: "'c".to_string(),
                 loan: "L3".to_string()
             }
