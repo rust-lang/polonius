@@ -523,7 +523,7 @@ fn illegal_subset_error() {
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
     assert_eq!(facts.universal_region.len(), 2);
-    assert_eq!(facts.placeholder_loan.len(), 2);
+    assert_eq!(facts.placeholder.len(), 2);
 
     // no known subsets are defined in the program...
     assert_eq!(facts.known_subset.len(), 0);
@@ -561,7 +561,7 @@ fn known_placeholder_origin_subset() {
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
     assert_eq!(facts.universal_region.len(), 2);
-    assert_eq!(facts.placeholder_loan.len(), 2);
+    assert_eq!(facts.placeholder.len(), 2);
     assert_eq!(facts.known_subset.len(), 1);
 
     let result = Output::compute(&facts, Algorithm::Naive, true);

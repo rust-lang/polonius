@@ -67,8 +67,9 @@ pub struct AllFacts<T: FactTypes> {
     /// of placeholder `origin2`.
     pub known_subset: Vec<(T::Origin, T::Origin)>,
 
-    /// The unique placeholder loan associated to each "placeholder origin".
-    pub placeholder_loan: Vec<(T::Origin, T::Loan)>,
+    /// `placeholder(origin, loan)` describes a placeholder `origin`, with its associated
+    ///  placeholder `loan`.
+    pub placeholder: Vec<(T::Origin, T::Loan)>,
 }
 
 impl<T: FactTypes> Default for AllFacts<T> {
@@ -91,7 +92,7 @@ impl<T: FactTypes> Default for AllFacts<T> {
             moved_out_at: Vec::default(),
             path_accessed_at: Vec::default(),
             known_subset: Vec::default(),
-            placeholder_loan: Vec::default(),
+            placeholder: Vec::default(),
         }
     }
 }

@@ -50,7 +50,7 @@ pub(crate) fn load_tab_delimited_facts(
             moved_out_at,
             path_accessed_at,
             known_subset,
-            placeholder_loan,
+            placeholder,
         }
     }
 }

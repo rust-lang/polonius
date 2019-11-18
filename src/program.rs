@@ -53,7 +53,7 @@ impl From<Facts> for AllFacts {
             moved_out_at: facts.moved_out_at.into_iter().collect(),
             path_accessed_at: facts.path_accessed_at.into_iter().collect(),
             known_subset: facts.known_subset.into_iter().collect(),
-            placeholder_loan: facts.placeholder_loan.into_iter().collect(),
+            placeholder: facts.placeholder_loan.into_iter().collect(),
         }
     }
 }
