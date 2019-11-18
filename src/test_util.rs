@@ -1,6 +1,11 @@
 #![cfg(test)]
 
+use polonius_engine::{Algorithm, AllFacts, Output};
 use std::fmt::Debug;
+
+use crate::facts::LocalFacts;
+use crate::intern::InternerTables;
+use crate::program::parse_from_program;
 
 /// Test that two values are equal, with a better error than `assert_eq`
 pub fn assert_equal<A>(expected_value: &A, actual_value: &A)
@@ -43,4 +48,49 @@ where
     }
 
     panic!("debug comparison failed");
+}
+
+/// Builder for fact checking assertions
+pub(crate) struct FactChecker {
+    pub facts: AllFacts<LocalFacts>,
+    pub output: Output<LocalFacts>,
+    pub tables: InternerTables,
+}
+
+/// Will create a `FactChecker` fact-checking builder, containing methods for checking
+/// the atoms contained in the `Output` relations.
+pub(crate) fn check_program(
+    program: &str,
+    algorithm: Algorithm,
+    dump_enabled: bool,
+) -> FactChecker {
+    let mut tables = InternerTables::new();
+    let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+
+    let output = Output::compute(&facts, algorithm, dump_enabled);
+    FactChecker {
+        facts,
+        output,
+        tables,
+    }
+}
+
+impl FactChecker {
+    /// Asserts that there is a `subset_error` `origin1: origin2` at the specified `point`.
+    pub fn subset_error_exists(&mut self, origin1: &str, origin2: &str, point: &str) -> bool {
+        let point = self.tables.points.intern(point);
+        let subset_errors = self
+            .output
+            .subset_errors
+            .get(&point)
+            .expect("No subset errors found at this point");
+
+        let origin1 = self.tables.origins.intern(origin1);
+        let origin2 = self.tables.origins.intern(origin2);
+        subset_errors.contains(&(origin1, origin2))
+    }
+
+    pub fn subset_errors_count(&self) -> usize {
+        self.output.subset_errors.len()
+    }
 }

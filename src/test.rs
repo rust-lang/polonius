@@ -5,7 +5,7 @@ use crate::facts::{AllFacts, Loan, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
-use crate::test_util::assert_equal;
+use crate::test_util::{assert_equal, check_program};
 use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
 use std::error::Error;
@@ -518,26 +518,17 @@ fn illegal_subset_error() {
         }
     ";
 
-    let mut tables = intern::InternerTables::new();
-    let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+    let mut checker = check_program(program, Algorithm::Naive, true);
 
-    assert_eq!(facts.universal_region.len(), 2);
-    assert_eq!(facts.placeholder.len(), 2);
+    assert_eq!(checker.facts.universal_region.len(), 2);
+    assert_eq!(checker.facts.placeholder.len(), 2);
 
     // no known subsets are defined in the program...
-    assert_eq!(facts.known_subset.len(), 0);
-
-    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert_eq!(checker.facts.known_subset.len(), 0);
 
     // ...so there should be an error here about the missing `'b: 'a` subset
-    assert_eq!(result.subset_errors.len(), 1);
-
-    let point = tables.points.intern("\"Mid(B0[0])\"");
-    let subset_error = result.subset_errors.get(&point).unwrap();
-
-    let origin_a = tables.origins.intern("'a");
-    let origin_b = tables.origins.intern("'b");
-    assert!(subset_error.contains(&(origin_b, origin_a)));
+    assert_eq!(checker.subset_errors_count(), 1);
+    assert!(checker.subset_error_exists("'b", "'a", "\"Mid(B0[0])\""));
 }
 
 /// This is the same test as the `illegal_subset_error` one, but specifies the `'b: 'a` subset
@@ -555,13 +546,11 @@ fn known_placeholder_origin_subset() {
         }
     ";
 
-    let mut tables = intern::InternerTables::new();
-    let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
+    let checker = check_program(program, Algorithm::Naive, true);
 
-    assert_eq!(facts.universal_region.len(), 2);
-    assert_eq!(facts.placeholder.len(), 2);
-    assert_eq!(facts.known_subset.len(), 1);
+    assert_eq!(checker.facts.universal_region.len(), 2);
+    assert_eq!(checker.facts.placeholder.len(), 2);
+    assert_eq!(checker.facts.known_subset.len(), 1);
 
-    let result = Output::compute(&facts, Algorithm::Naive, true);
-    assert_eq!(result.subset_errors.len(), 0);
+    assert_eq!(checker.subset_errors_count(), 0);
 }
