@@ -169,7 +169,7 @@ fn send_is_not_static_std_sync() {
     // Reduced from rustc test: ui/span/send-is-not-static-std-sync.rs
     // (in the functions: `mutex` and `rwlock`)
     let program = r"
-        universal_regions { }
+        placeholders { }
         block B0 {
             borrow_region_at('a, L0), outlives('a: 'b), region_live_at('b);
         }
@@ -187,7 +187,7 @@ fn escape_upvar_nested() {
     // This reduction is also present in other tests:
     // - ui/nll/closure-requirements/escape-upvar-ref.rs, in the `test-\{\{closure\}\}/` function
     let program = r"
-        universal_regions { }
+        placeholders { }
         block B0 {
             borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c), region_live_at('c);
         }
@@ -206,7 +206,7 @@ fn issue_31567() {
     // This reduction is also present in other tests:
     // - ui/issue-48803.rs, in the `flatten` function
     let program = r"
-        universal_regions { }
+        placeholders { }
         block B0 {
             borrow_region_at('a, L0),
             outlives('a: 'b),
@@ -236,7 +236,7 @@ fn borrowed_local_error() {
     // - ui/span/dropck_direct_cycle_with_drop.rs, in the `{{impl}}[1]-drop-{{closure}}` function
     // - ui/span/wf-method-late-bound-regions.rs, in the `{{impl}}-xmute` function
     let program = r"
-        universal_regions { 'c }
+        placeholders { 'c }
         block B0 {
             borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c);
         }
@@ -324,7 +324,7 @@ fn smoke_test_success_2() {
 // `var` used in `point` => `var` live upon entry into `point`
 fn var_live_in_single_block() {
     let program = r"
-        universal_regions {  }
+        placeholders { }
 
         block B0 {
             var_used(V1);
@@ -348,7 +348,7 @@ fn var_live_in_single_block() {
 // `point1` GOTO `point2`, `var` used in `point2` => `var` live in `point1`
 fn var_live_in_successor_propagates_to_predecessor() {
     let program = r"
-        universal_regions {  }
+        placeholders { }
 
         block B0 {
             invalidates(L0); // generate a point
@@ -384,7 +384,7 @@ fn var_live_in_successor_propagates_to_predecessor() {
 // `point1` GOTO `point2`, `var` used in `point2`, `var` defined in `point1` => `var` not live in `point1`
 fn var_live_in_successor_killed_by_reassignment() {
     let program = r"
-        universal_regions {  }
+        placeholders { }
 
         block B0 {
             invalidates(L0); // generate a point
@@ -445,7 +445,7 @@ fn var_live_in_successor_killed_by_reassignment() {
 #[test]
 fn var_drop_used_simple() {
     let program = r"
-        universal_regions {  }
+        placeholders { }
 
         block B0 {
             invalidates(L0); // generate a point
@@ -508,7 +508,6 @@ fn var_drop_used_simple() {
 #[test]
 fn illegal_subset_error() {
     let program = r"
-        universal_regions { 'a, 'b }
         placeholders { 'a, 'b }
         
         block B0 {
@@ -546,7 +545,6 @@ fn illegal_subset_error() {
 #[test]
 fn known_placeholder_origin_subset() {
     let program = r"
-        universal_regions { 'a, 'b }
         placeholders { 'a, 'b }
         known_subsets { 'b: 'a }
 

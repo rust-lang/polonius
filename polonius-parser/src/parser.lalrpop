@@ -3,7 +3,7 @@ use ir::*;
 grammar;
 
 pub Input: Input = {
-    Comment* <universal_regions:UniversalRegions> <placeholders:Placeholders?> <known_subsets:KnownSubsets?> <var_uses_region:VarUsesRegion?> <var_drops_region:VarDropsRegion?> Comment* <blocks:BlockDefn*> => Input::new(<>)
+    Comment* <placeholders:Placeholders> <known_subsets:KnownSubsets?> <var_uses_region:VarUsesRegion?> <var_drops_region:VarDropsRegion?> Comment* <blocks:BlockDefn*> => Input::new(<>)
 };
 
 Comment: () = {
@@ -17,8 +17,6 @@ VarRegionMapping: (String, String) = {
 
 VarUsesRegion = "var_uses_region" "{" <VarRegionMappings> "}";
 VarDropsRegion = "var_drops_region" "{" <VarRegionMappings> "}";
-
-UniversalRegions = "universal_regions" "{" <Comma<Origin>> "}";
 
 Placeholders = "placeholders" "{" <Comma<Origin>> "}";
 

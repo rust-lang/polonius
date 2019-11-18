@@ -4,21 +4,37 @@ use crate::ir::{Effect, Fact, KnownSubset, Placeholder};
 use crate::parse_input;
 
 #[test]
-fn universal_regions() {
+fn placeholders() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
     ";
     let input = parse_input(program);
     assert!(input.is_ok());
 
     let input = input.unwrap();
-    assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
+    assert_eq!(
+        input.placeholders,
+        vec![
+            Placeholder {
+                origin: "'a".to_string(),
+                loan: "'a".to_string()
+            },
+            Placeholder {
+                origin: "'b".to_string(),
+                loan: "'b".to_string()
+            },
+            Placeholder {
+                origin: "'c".to_string(),
+                loan: "'c".to_string()
+            }
+        ]
+    );
 }
 
 #[test]
 fn blocks() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         block B0 {
         }
         block B1 {
@@ -37,7 +53,7 @@ fn blocks() {
 #[test]
 fn goto() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         block B0 {
             goto B1;
         }
@@ -54,7 +70,7 @@ fn goto() {
 #[test]
 fn effects() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         block B0 {
             use('a), outlives('a: 'b), borrow_region_at('b, L1);
             kill(L2);
@@ -115,7 +131,7 @@ fn effects() {
 #[test]
 fn effects_start() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         block B0 {
             invalidates(L0), region_live_at('a) / use('a);
             invalidates(L1);
@@ -181,7 +197,7 @@ fn effects_start() {
 fn complete_example() {
     let program = r"
         // program description
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
 
         // block description
         block B0 {
@@ -207,7 +223,7 @@ fn complete_example() {
 #[test]
 fn variable_used() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
 
         block B0 {
             var_used(V0);
@@ -232,7 +248,7 @@ fn variable_used() {
 #[test]
 fn variable_defined() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
 
         block B0 {
             var_defined(V1);
@@ -257,7 +273,7 @@ fn variable_defined() {
 #[test]
 fn var_uses_region() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         var_uses_region { (V1, 'a), (V2, 'b) }
         var_drops_region {  }
 
@@ -281,7 +297,7 @@ fn var_uses_region() {
 #[test]
 fn var_drops_region() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         var_uses_region {  }
         var_drops_region { (V1, 'a) }
 
@@ -302,40 +318,13 @@ fn var_drops_region() {
 #[test]
 fn known_subsets() {
     let program = r"
-        universal_regions { 'a, 'b, 'c }
+        placeholders { 'a, 'b, 'c }
         known_subsets { 'a: 'b, 'b: 'c }
     ";
     let input = parse_input(program);
     assert!(input.is_ok());
 
     let input = input.unwrap();
-    assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
-    assert_eq!(
-        input.known_subsets,
-        vec![
-            KnownSubset {
-                a: "'a".to_string(),
-                b: "'b".to_string()
-            },
-            KnownSubset {
-                a: "'b".to_string(),
-                b: "'c".to_string()
-            }
-        ]
-    );
-}
-
-#[test]
-fn placeholders() {
-    let program = r"
-        universal_regions { 'a, 'b, 'c }
-        placeholders { 'a, 'b, 'c }
-    ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
-    assert_eq!(input.universal_regions, ["'a", "'b", "'c"]);
     assert_eq!(
         input.placeholders,
         vec![
@@ -350,6 +339,19 @@ fn placeholders() {
             Placeholder {
                 origin: "'c".to_string(),
                 loan: "'c".to_string()
+            }
+        ]
+    );
+    assert_eq!(
+        input.known_subsets,
+        vec![
+            KnownSubset {
+                a: "'a".to_string(),
+                b: "'b".to_string()
+            },
+            KnownSubset {
+                a: "'b".to_string(),
+                b: "'c".to_string()
             }
         ]
     );

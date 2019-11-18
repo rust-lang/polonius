@@ -1,6 +1,5 @@
 #[derive(Debug)]
 pub struct Input {
-    pub universal_regions: Vec<String>,
     pub placeholders: Vec<Placeholder>,
     pub known_subsets: Vec<KnownSubset>,
     pub blocks: Vec<Block>,
@@ -10,8 +9,7 @@ pub struct Input {
 
 impl Input {
     pub fn new(
-        universal_regions: Vec<String>,
-        placeholders: Option<Vec<String>>,
+        placeholders: Vec<String>,
         known_subsets: Option<Vec<KnownSubset>>,
         var_uses_region: Option<Vec<(String, String)>>,
         var_drops_region: Option<Vec<(String, String)>>,
@@ -19,16 +17,14 @@ impl Input {
     ) -> Input {
         // set-up placeholders as origins with a placeholder loan of the same name
         let placeholders: Vec<_> = placeholders
-            .unwrap_or_default()
-            .iter()
+            .into_iter()
             .map(|origin| Placeholder {
-                origin: origin.clone(),
                 loan: origin.clone(),
+                origin,
             })
             .collect();
 
         Input {
-            universal_regions,
             placeholders,
             known_subsets: known_subsets.unwrap_or_default(),
             var_uses_region: var_uses_region.unwrap_or_default(),
