@@ -512,7 +512,7 @@ fn illegal_subset_error() {
         
         block B0 {
             // creates a transitive `'b: 'a` subset
-            borrow_region_at('x, L3),
+            borrow_region_at('x, L0),
               outlives('b: 'x),
               outlives('x: 'a);
         }
@@ -540,7 +540,7 @@ fn known_placeholder_origin_subset() {
         known_subsets { 'b: 'a }
 
         block B0 {
-            borrow_region_at('x, L3),
+            borrow_region_at('x, L0),
               outlives('b: 'x),
               outlives('x: 'a);
         }
