@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::dump::Output;
-use crate::facts::{AllFacts, Loan, Point};
+use crate::facts::{AllFacts, Loan, Origin, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
@@ -612,4 +612,56 @@ fn transitive_illegal_subset_error() {
     // there should be an error here about the missing `'a: 'c` subset
     assert_eq!(checker.subset_errors_count(), 1);
     assert!(checker.subset_error_exists("'a", "'c", "\"Mid(B0[1])\""));
+}
+
+#[test]
+fn successes_in_subset_relations_dataset() {
+    let successes = ["valid_subset", "implied_bounds_subset"];
+
+    // these tests have no illegal access errors or subset errors
+    for test_fn in &successes {
+        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("inputs")
+            .join("subset-relations")
+            .join("nll-facts")
+            .join(test_fn);
+        let tables = &mut intern::InternerTables::new();
+        let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+        let result = Output::compute(&facts, Algorithm::Naive, true);
+        assert!(result.errors.is_empty());
+        assert!(result.subset_errors.is_empty());
+    }
+}
+
+#[test]
+fn errors_in_subset_relations_dataset() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("subset-relations")
+        .join("nll-facts")
+        .join("missing_subset");
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    // this function has no illegal access errors, but one subset error, over 3 points
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(result.errors.is_empty());
+    assert_eq!(result.subset_errors.len(), 3);
+
+    let points = ["\"Mid(bb0[0])\"", "\"Start(bb0[1])\"", "\"Mid(bb0[1])\""];
+    for point in &points {
+        let point = tables.points.intern(point);
+        let subset_error = result.subset_errors.get(&point).unwrap();
+
+        // in this dataset, `'a` is interned as `'1`
+        let origin_a = Origin::from(1);
+
+        // `'b` is interned as `'2`
+        let origin_b = Origin::from(2);
+
+        // and there should be a `'b: 'a` known subset to make the function valid, so
+        // that is the subset error we should find
+        assert!(subset_error.contains(&(origin_b, origin_a)));
+    }
 }
