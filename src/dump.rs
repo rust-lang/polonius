@@ -84,9 +84,9 @@ pub(crate) fn dump_output(
             &output.var_maybe_initialized_on_exit,
         )?;
         dump_rows(
-            &mut writer_for(output_dir, "known_subset")?,
+            &mut writer_for(output_dir, "known_contains")?,
             intern,
-            &output.known_subset,
+            &output.known_contains,
         )?;
     }
     return Ok(());

@@ -29,9 +29,10 @@ pub(super) fn compute<T: FactTypes>(
         // Static inputs
         let region_live_at_rel = &ctx.region_live_at;
         let cfg_edge_rel = &ctx.cfg_edge;
+        let cfg_node = ctx.cfg_node;
         let killed_rel = &ctx.killed;
-        let known_subset = &ctx.known_subset;
-        let universal_region = &ctx.universal_region;
+        let known_contains = &ctx.known_contains;
+        let placeholder_origin = &ctx.placeholder_origin;
         let placeholder_loan = &ctx.placeholder_loan;
 
         // Create a new iteration context, ...
@@ -59,9 +60,7 @@ pub(super) fn compute<T: FactTypes>(
 
         // output relations: illegal accesses errors, and illegal subset relations errors
         let errors = iteration.variable("errors");
-
         let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
-        let subset_errors_step_1 = iteration.variable("subset_errors_step_9_1");
 
         // load initial facts.
         subset.extend(ctx.outlives.iter());
@@ -77,22 +76,19 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin, point)| ((origin, point), ())),
         );
 
-        // WIP: we might need to pass the CFG root separately as part of the input ?
-        // - for in-memory facts coming from rustc or unit tests, we can probably assume it's in the
-        //   first tuple of the `cfg_edge` relation (since it will be the start point of
-        //   `bb0`'s first MIR statement).
-        // - for polonius test .facts files, however, the `cfg_edge` relation will be sorted according to the
-        //   interned point values, and the first edge might not contain the root `Start(bb0[0])` point.
-        //   For these cases, maybe the `polonius`-bin would need to pass the interned value of this point
-        //   as the CFG root.
-        let cfg_root = cfg_edge_rel[0].0;
+        // Placeholder loans are contained by their placeholder origin at all points of the CFG.
+        //
+        // contains(Origin, Loan, Node) :-
+        //   cfg_node(Node),
+        //   placeholder(Origin, Loan).
+        let mut placeholder_loans = Vec::with_capacity(placeholder_loan.len() * cfg_node.len());
+        for &(loan, origin) in placeholder_loan.iter() {
+            for &node in cfg_node.iter() {
+                placeholder_loans.push((origin, loan, node));
+            }
+        }
 
-        // seed placeholder loans into `requires` at the root of the CFG
-        requires.extend(
-            placeholder_loan
-                .iter()
-                .map(|&(loan, origin)| (origin, loan, cfg_root)),
-        );
+        requires.extend(placeholder_loans);
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -190,27 +186,23 @@ pub(super) fn compute<T: FactTypes>(
                 (loan, point)
             });
 
-            // subset_errors(origin1, origin2, point) :-
-            //   requires(origin2, loan1, point),
-            //   universal_region(origin2),
-            //   placeholder_loan(origin1, loan1),
-            //   !known_subset(origin1, origin2).
-            subset_errors_step_1.from_leapjoin(
+            // subset_errors(Origin1, Origin2, Point) :-
+            //   requires(Origin2, Loan1, Point),
+            //   placeholder(Origin2, _),
+            //   placeholder(Origin1, Loan1),
+            //   !known_contains(Origin2, Loan1).
+            subset_errors.from_leapjoin(
                 &requires,
                 (
-                    universal_region.filter_with(|&(origin2, _loan1, _point)| (origin2, ())),
+                    placeholder_origin.filter_with(|&(origin2, _loan1, _point)| (origin2, ())),
                     placeholder_loan.extend_with(|&(_origin2, loan1, _point)| loan1),
+                    known_contains.filter_anti(|&(origin2, loan1, _point)| (origin2, loan1)),
                     // remove symmetries:
                     datafrog::ValueFilter::from(|&(origin2, _loan1, _point), &origin1| {
                         origin2 != origin1
                     }),
                 ),
-                |&(origin2, _loan1, point), &origin1| ((origin1, origin2), point),
-            );
-            subset_errors.from_antijoin(
-                &subset_errors_step_1,
-                &known_subset,
-                |&(origin1, origin2), &point| (origin1, origin2, point),
+                |&(origin2, _loan1, point), &origin1| (origin1, origin2, point),
             );
         }
 

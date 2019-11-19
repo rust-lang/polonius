@@ -152,20 +152,14 @@ pub(super) fn compute_live_regions<T: FactTypes>(
 
 pub(super) fn make_universal_regions_live<T: FactTypes>(
     region_live_at: &mut Vec<(T::Origin, T::Point)>,
-    cfg_edge: &[(T::Point, T::Point)],
+    cfg_node: &BTreeSet<T::Point>,
     universal_regions: &[T::Origin],
 ) {
     debug!("make_universal_regions_live()");
 
-    let all_points: BTreeSet<T::Point> = cfg_edge
-        .iter()
-        .map(|&(point1, _)| point1)
-        .chain(cfg_edge.iter().map(|&(_, point2)| point2))
-        .collect();
-
-    region_live_at.reserve(universal_regions.len() * all_points.len());
+    region_live_at.reserve(universal_regions.len() * cfg_node.len());
     for &origin in universal_regions.iter() {
-        for &point in all_points.iter() {
+        for &point in cfg_node.iter() {
             region_live_at.push((origin, point));
         }
     }

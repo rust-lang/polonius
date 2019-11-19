@@ -554,3 +554,61 @@ fn known_placeholder_origin_subset() {
 
     assert_eq!(checker.subset_errors_count(), 0);
 }
+
+/// This test ensures `known_subset`s are handled transitively: a known subset `'a: 'c` should be
+/// known via transitivity, making this program valid.
+#[test]
+fn transitive_known_subset() {
+    let program = r"
+        placeholders { 'a, 'b, 'c }
+        known_subsets { 'a: 'b, 'b: 'c }
+        
+        block B0 {
+            borrow_region_at('x, L0),
+              outlives('a: 'x),
+              outlives('x: 'c);
+        }
+    ";
+
+    let checker = check_program(program, Algorithm::Naive, true);
+
+    assert_eq!(checker.facts.universal_region.len(), 3);
+    assert_eq!(checker.facts.placeholder.len(), 3);
+
+    // the 2 `known_subset`s here mean 3 `known_contains`, transitively
+    assert_eq!(checker.facts.known_subset.len(), 2);
+    assert_eq!(checker.output.known_contains.len(), 3);
+
+    assert_eq!(checker.subset_errors_count(), 0);
+}
+
+/// Even if `'a: 'b` is known, `'a`'s placeholder loan can flow into `'b''s supersets,
+/// and this relation must be known for the program to be valid.
+#[test]
+fn transitive_illegal_subset_error() {
+    let program = r"
+        placeholders { 'a, 'b, 'c }
+        known_subsets { 'a: 'b }
+        
+        block B0 {
+            // this transitive `'a: 'b` subset is already known
+            borrow_region_at('x, L0),
+              outlives('a: 'x),
+              outlives('x: 'b);
+            // creates an unknown transitive `'a: 'c` subset
+            borrow_region_at('y, L1),
+              outlives('b: 'y),
+              outlives('y: 'c);
+        }
+    ";
+
+    let mut checker = check_program(program, Algorithm::Naive, true);
+
+    assert_eq!(checker.facts.universal_region.len(), 3);
+    assert_eq!(checker.facts.placeholder.len(), 3);
+    assert_eq!(checker.facts.known_subset.len(), 1);
+
+    // there should be an error here about the missing `'a: 'c` subset
+    assert_eq!(checker.subset_errors_count(), 1);
+    assert!(checker.subset_error_exists("'a", "'c", "\"Mid(B0[1])\""));
+}

@@ -92,7 +92,7 @@ pub struct Output<T: FactTypes> {
     pub var_drop_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
     pub path_maybe_initialized_at: FxHashMap<T::Point, Vec<T::Path>>,
     pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
-    pub known_subset: FxHashMap<T::Origin, BTreeSet<T::Origin>>,
+    pub known_contains: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
 }
 
 /// Subset of `AllFacts` dedicated to initialization
@@ -124,9 +124,10 @@ struct Context<'ctx, T: FactTypes> {
     borrow_region: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
 
     // static inputs used by variants other than `LocationInsensitive`
+    cfg_node: &'ctx BTreeSet<T::Point>,
     killed: Relation<(T::Loan, T::Point)>,
-    universal_region: Relation<(T::Origin, ())>,
-    known_subset: Relation<(T::Origin, T::Origin)>,
+    known_contains: Relation<(T::Origin, T::Loan)>,
+    placeholder_origin: Relation<(T::Origin, ())>,
     placeholder_loan: Relation<(T::Loan, T::Origin)>,
 
     // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
@@ -184,9 +185,15 @@ impl<T: FactTypes> Output<T> {
             &mut result,
         );
 
+        let cfg_node = cfg_edge
+            .iter()
+            .map(|&(point1, _)| point1)
+            .chain(cfg_edge.iter().map(|&(_, point2)| point2))
+            .collect();
+
         liveness::make_universal_regions_live::<T>(
             &mut region_live_at,
-            &cfg_edge,
+            &cfg_node,
             &all_facts.universal_region,
         );
 
@@ -214,15 +221,23 @@ impl<T: FactTypes> Output<T> {
                 .map(|&(point, loan)| (loan, point)),
         );
 
-        let universal_region: Relation<_> = Relation::from_iter(
+        let killed = all_facts.killed.clone().into();
+
+        // `known_subset` is a list of all the `'a: 'b` subset relations the user gave:
+        // it's not required to be transitive. `known_contains` is its transitive closure: a list
+        // of all the known placeholder loans that each of these placeholder origins contains.
+        // Given the `known_subset`s `'a: 'b` and `'b: 'c`: in the `known_contains` relation, `'a`
+        // will also contain `'c`'s placeholder loan.
+        let known_subset = all_facts.known_subset.clone().into();
+        let known_contains =
+            Output::<T>::compute_known_contains(&known_subset, &all_facts.placeholder);
+
+        let placeholder_origin: Relation<_> = Relation::from_iter(
             all_facts
                 .universal_region
                 .iter()
                 .map(|&origin| (origin, ())),
         );
-
-        let killed = all_facts.killed.clone().into();
-        let known_subset = all_facts.known_subset.clone().into();
 
         // TODO: flip the relation's arguments order in the input facts ?
         let placeholder_loan = Relation::from_iter(
@@ -237,13 +252,14 @@ impl<T: FactTypes> Output<T> {
             region_live_at,
             invalidates,
             cfg_edge,
+            cfg_node: &cfg_node,
             outlives: &all_facts.outlives,
             borrow_region: &all_facts.borrow_region,
             killed,
-            potential_errors: None,
-            universal_region,
-            known_subset,
+            known_contains,
+            placeholder_origin,
             placeholder_loan,
+            potential_errors: None,
         };
 
         let errors = match algorithm {
@@ -335,35 +351,62 @@ impl<T: FactTypes> Output<T> {
                     .push(origin);
             }
 
-            for &(origin1, origin2) in ctx.known_subset.iter() {
+            for &(origin, loan) in ctx.known_contains.iter() {
                 result
-                    .known_subset
-                    .entry(origin1)
+                    .known_contains
+                    .entry(origin)
                     .or_default()
-                    .insert(origin2);
+                    .insert(loan);
             }
         }
 
         result
     }
 
+    /// Computes the transitive closure of the `known_subset` relation, so that we have
+    /// the full list of placeholder loans contained by the placeholder origins.
+    fn compute_known_contains(
+        known_subset: &Relation<(T::Origin, T::Origin)>,
+        placeholder: &Vec<(T::Origin, T::Loan)>,
+    ) -> Relation<(T::Origin, T::Loan)> {
+        let mut iteration = datafrog::Iteration::new();
+        let known_contains = iteration.variable("known_contains");
+
+        // known_contains(Origin1, Loan1) :-
+        //   placeholder(Origin1, Loan1).
+        known_contains.extend(placeholder.iter());
+
+        while iteration.changed() {
+            // known_contains(Origin2, Loan1) :-
+            //   known_contains(Origin1, Loan1),
+            //   known_subset(Origin1, Origin2).
+            known_contains.from_join(
+                &known_contains,
+                known_subset,
+                |&_origin1, &loan1, &origin2| (origin2, loan1),
+            );
+        }
+
+        known_contains.complete()
+    }
+
     fn new(dump_enabled: bool) -> Self {
         Output {
+            errors: FxHashMap::default(),
+            subset_errors: FxHashMap::default(),
+            dump_enabled,
             borrow_live_at: FxHashMap::default(),
             restricts: FxHashMap::default(),
             restricts_anywhere: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
             invalidates: FxHashMap::default(),
-            errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
             var_live_at: FxHashMap::default(),
             var_drop_live_at: FxHashMap::default(),
             path_maybe_initialized_at: FxHashMap::default(),
             var_maybe_initialized_on_exit: FxHashMap::default(),
-            dump_enabled,
-            known_subset: FxHashMap::default(),
-            subset_errors: FxHashMap::default(),
+            known_contains: FxHashMap::default(),
         }
     }
 
