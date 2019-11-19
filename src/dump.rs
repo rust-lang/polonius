@@ -20,11 +20,17 @@ pub(crate) fn dump_output(
     output_dir: &Option<PathBuf>,
     intern: &InternerTables,
 ) -> io::Result<()> {
-    dump_rows(
-        &mut writer_for(output_dir, "errors")?,
-        intern,
-        &output.errors,
-    )?;
+    macro_rules! dump_output_fields {
+        ( $($field:ident),+ ) => {
+            $(dump_rows(
+                &mut writer_for(output_dir, stringify!($field))?,
+                intern,
+                &output.$field,
+            )?;)+
+        };
+    }
+
+    dump_output_fields![errors, move_errors];
 
     dump_rows(
         &mut writer_for(output_dir, "subset_errors")?,
@@ -33,61 +39,19 @@ pub(crate) fn dump_output(
     )?;
 
     if output.dump_enabled {
-        dump_rows(
-            &mut writer_for(output_dir, "restricts")?,
-            intern,
-            &output.restricts,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "restricts_anywhere")?,
-            intern,
-            &output.restricts_anywhere,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "region_live_at")?,
-            intern,
-            &output.region_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "invalidates")?,
-            intern,
-            &output.invalidates,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "borrow_live_at")?,
-            intern,
-            &output.borrow_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "subset_anywhere")?,
-            intern,
-            &output.subset_anywhere,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "var_live_at")?,
-            intern,
-            &output.var_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "var_drop_live_at")?,
-            intern,
-            &output.var_drop_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "path_maybe_initialized_at")?,
-            intern,
-            &output.path_maybe_initialized_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "var_maybe_initialized_on_exit")?,
-            intern,
-            &output.var_maybe_initialized_on_exit,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "known_contains")?,
-            intern,
-            &output.known_contains,
-        )?;
+        dump_output_fields![
+            restricts,
+            restricts_anywhere,
+            region_live_at,
+            invalidates,
+            borrow_live_at,
+            subset_anywhere,
+            var_live_at,
+            var_drop_live_at,
+            path_maybe_initialized_at,
+            var_maybe_initialized_on_exit,
+            known_contains
+        ];
     }
     return Ok(());
 
@@ -513,6 +477,13 @@ fn build_outputs_by_point_for_visualization(
             output.path_maybe_initialized_at.iter(),
             |(point, path)| (*point, path.clone()),
             "path_maybe_initialized_at".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            output.move_errors.iter(),
+            |(point, path)| (*point, path.clone()),
+            "move_errors".to_string(),
             1,
             intern,
         ),

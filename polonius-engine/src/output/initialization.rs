@@ -298,7 +298,10 @@ pub(super) fn compute_initialization<T: FactTypes>(
     ctx: InitializationContext<T>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
     output: &mut Output<T>,
-) -> (Relation<(T::Variable, T::Point)>, Relation<(T::Path, T::Point)>) {
+) -> (
+    Relation<(T::Variable, T::Point)>,
+    Relation<(T::Path, T::Point)>,
+) {
     let timer = Instant::now();
 
     let TransitivePaths {
