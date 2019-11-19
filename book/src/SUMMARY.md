@@ -7,4 +7,5 @@
 - [Rules](./rules.md)
   - [Atoms](./rules/atoms.md)
   - [Initialization](./rules/initialization.md)
+- [Testing Polonius](./testing.md)
 - [See also](./see_also.md)
