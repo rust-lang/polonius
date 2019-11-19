@@ -77,6 +77,7 @@ impl ::std::str::FromStr for Algorithm {
 pub struct Output<T: FactTypes> {
     pub errors: FxHashMap<T::Point, Vec<T::Loan>>,
     pub subset_errors: FxHashMap<T::Point, BTreeSet<(T::Origin, T::Origin)>>,
+    pub move_errors: FxHashMap<T::Point, Vec<T::Path>>,
 
     pub dump_enabled: bool,
 
@@ -163,11 +164,12 @@ impl<T: FactTypes> Output<T> {
             path_accessed_at: all_facts.path_accessed_at.clone(),
         };
 
-        let var_maybe_initialized_on_exit = initialization::init_var_maybe_initialized_on_exit(
-            initialization_ctx,
-            &cfg_edge,
-            &mut result,
-        );
+        let (var_maybe_initialized_on_exit, move_errors) =
+            initialization::compute_initialization(initialization_ctx, &cfg_edge, &mut result);
+
+        for &(path, location) in move_errors.iter() {
+            result.move_errors.entry(location).or_default().push(path);
+        }
 
         // 2) Liveness
         let liveness_ctx = LivenessContext {
@@ -399,6 +401,8 @@ impl<T: FactTypes> Output<T> {
             restricts_anywhere: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
             invalidates: FxHashMap::default(),
+            errors: FxHashMap::default(),
+            move_errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
             var_live_at: FxHashMap::default(),

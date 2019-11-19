@@ -12,7 +12,18 @@ struct TransitivePaths<T: FactTypes> {
     accessed_at: Relation<(T::Path, T::Point)>,
 }
 
-// This is the output of the intermediate partial drop elaboration.
+// This is the output of the intermediate partial initialization computation. It
+// over-approximates (computes an upper bound on) the initialization status of
+// paths and variables. Additionally, it also does the same for if a variable
+// may have been moved.
+//
+// For example:
+// ```rust
+// let x = (1, 2); // x, x.1, x.2 maybe initialized
+// if random() { move x.0 };
+// // x.0 maybe moved, x, x.1, x.2 maybe initialized.
+// ````
+// Note that var_maybe... only tracks moves of *entire variables*, i.e. root paths.
 struct InitializationStatus<T: FactTypes> {
     var_maybe_initialized_on_exit: Relation<(T::Variable, T::Point)>,
     path_maybe_initialized_on_exit: Relation<(T::Path, T::Point)>,
@@ -230,11 +241,64 @@ fn compute_known_initialized_paths<T: FactTypes>(
     path_definitely_initialized_at_var.complete()
 }
 
-pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
+// Step 4: Compute erroneous path accesses
+fn compute_move_errors<T: FactTypes>(
+    accessed_at: Relation<(T::Path, T::Point)>,
+    path_definitely_initialized_at: Relation<(T::Path, T::Point)>,
+) -> Relation<(T::Path, T::Point)> {
+    // FIXME: these variables are artificial and requires no iteration. They
+    // are just here due to Datafrog limitations.
+    let mut iteration = Iteration::new();
+
+    // move_error(Path, Point): There is an access to `Path` at `Point`, but
+    // `Path` is potentially moved (or never initialised).
+    let move_error_var = iteration.variable::<(T::Path, T::Point)>("move_error");
+    let accessed_at_var = iteration.variable::<((T::Path, T::Point), ())>("accessed_at");
+
+    accessed_at_var.insert(
+        accessed_at
+            .elements
+            .iter()
+            .map(|&(path, point)| ((path, point), ()))
+            .collect(),
+    );
+
+    while iteration.changed() {
+        // NOTE: Double join!
+        // move_error(path, point) :-
+        //     path_accessed_at(path, point),
+        //     !path_definitely_initialized_at(path, point).
+        move_error_var.from_antijoin(
+            &accessed_at_var,
+            &path_definitely_initialized_at,
+            |&(path, point), &()| (path, point),
+        );
+    }
+    move_error_var.complete()
+}
+
+// Compute two things:
+//
+// - an over-approximation of the initialization of variables. This is used in
+//   the region_live_at computations to determine when a drop may happen; a
+//   definitely moved variable would not be actually dropped.
+// - move errors.
+//
+// The process is split into four stages:
+//
+// 1. Compute the transitive closure of path accesses. That is, accessing `f.a`
+//   would access `f.a.b`, etc.
+// 2. Use this to compute both a lower and an upper bound on the paths that may
+//   have been moved at any given point.
+// 3. Use those to derive a set of paths that are known to be initialized:
+//   `definitely_initialized = maybe_initialized - maybe_moved`.
+// 4. Use *those* to determine move errors; i.e. accesses - known initialized
+//   paths.
+pub(super) fn compute_initialization<T: FactTypes>(
     ctx: InitializationContext<T>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
     output: &mut Output<T>,
-) -> Relation<(T::Variable, T::Point)> {
+) -> (Relation<(T::Variable, T::Point)>, Relation<(T::Path, T::Point)>) {
     let timer = Instant::now();
 
     let TransitivePaths {
@@ -269,39 +333,7 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
         timer.elapsed()
     );
 
-    // Step 4: Compute erroneous path accesses:
-    let move_errors = {
-        // FIXME: these variables are artificial and requires no iteration. They
-        // are just here due to Datafrog limitations.
-        let mut iteration = Iteration::new();
-
-        // move_error(Path, Point): There is an access to `Path` at `Point`, but
-        // `Path` is potentially moved (or never initialised).
-        let move_error_var = iteration.variable::<(T::Path, T::Point)>("move_error");
-        let accessed_at_var = iteration.variable::<((T::Path, T::Point), ())>("accessed_at");
-
-        accessed_at_var.insert(
-            accessed_at
-                .elements
-                .iter()
-                .map(|&(path, point)| ((path, point), ()))
-                .collect(),
-        );
-
-        while iteration.changed() {
-            // NOTE: Double join!
-            // move_error(path, point) :-
-            //     path_accessed_at(path, point),
-            //     !path_definitely_initialized_at(path, point).
-            move_error_var.from_antijoin(
-                &accessed_at_var,
-                &path_definitely_initialized_at,
-                |&(path, point), &()| (path, point),
-            );
-        }
-        move_error_var.complete()
-    };
-
+    let move_errors = compute_move_errors::<T>(accessed_at, path_definitely_initialized_at);
     info!(
         "initialization phase 4 completed: {} move errors in {:?}",
         move_errors.elements.len(),
@@ -326,5 +358,5 @@ pub(super) fn init_var_maybe_initialized_on_exit<T: FactTypes>(
         }
     }
 
-    var_maybe_initialized_on_exit
+    (var_maybe_initialized_on_exit, move_errors)
 }
