@@ -17,7 +17,7 @@ use crate::facts::FactTypes;
 use crate::output::{Context, Output};
 
 pub(super) fn compute<T: FactTypes>(
-    ctx: &Context<T>,
+    ctx: &Context<'_, T>,
     result: &mut Output<T>,
 ) -> (
     Relation<(T::Loan, T::Point)>,
