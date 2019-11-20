@@ -50,10 +50,10 @@ Fact : Fact = {
   "borrow_region_at" "(" <origin:Origin> "," <loan:Loan> ")" => Fact::BorrowRegionAt { <> },
   "invalidates" "(" <loan:Loan> ")" => Fact::Invalidates { <> },
   "kill" "(" <loan:Loan> ")" => Fact::Kill { <> },
-  "var_used" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
-  "var_defined" "(" <variable:Variable> ")" => Fact::DefineVariable { <> },
-  "region_live_at" "(" <origin:Origin> ")" => Fact::RegionLiveAt { <> },
-  "var_drop_used" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
+  "var_used_at" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
+  "var_defined_at" "(" <variable:Variable> ")" => Fact::DefineVariable { <> },
+  "origin_live_on_entry" "(" <origin:Origin> ")" => Fact::OriginLiveOnEntry { <> },
+  "var_dropped_at" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
 };
 
 Use : Effect = "use" "(" <origins:Comma<Origin>> ")" => Effect::Use { <> };

@@ -85,39 +85,39 @@ pub struct Output<T: FactTypes> {
     pub borrow_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
     pub restricts: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
     pub restricts_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
-    pub region_live_at: FxHashMap<T::Point, Vec<T::Origin>>,
+    pub origin_live_on_entry: FxHashMap<T::Point, Vec<T::Origin>>,
     pub invalidates: FxHashMap<T::Point, Vec<T::Loan>>,
     pub subset: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Origin>>>,
     pub subset_anywhere: FxHashMap<T::Origin, BTreeSet<T::Origin>>,
-    pub var_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
-    pub var_drop_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
-    pub path_maybe_initialized_at: FxHashMap<T::Point, Vec<T::Path>>,
+    pub var_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
+    pub var_drop_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
+    pub path_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Path>>,
     pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
     pub known_contains: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
 }
 
 /// Subset of `AllFacts` dedicated to initialization
 struct InitializationContext<T: FactTypes> {
-    child: Vec<(T::Path, T::Path)>,
-    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
-    initialized_at: Vec<(T::Path, T::Point)>,
-    moved_out_at: Vec<(T::Path, T::Point)>,
-    path_accessed_at: Vec<(T::Path, T::Point)>,
+    child_path: Vec<(T::Path, T::Path)>,
+    path_is_var: Vec<(T::Path, T::Variable)>,
+    path_assigned_at_base: Vec<(T::Path, T::Point)>,
+    path_moved_at_base: Vec<(T::Path, T::Point)>,
+    path_accessed_at_base: Vec<(T::Path, T::Point)>,
 }
 
 /// Subset of `AllFacts` dedicated to liveness
 struct LivenessContext<T: FactTypes> {
-    var_used: Vec<(T::Variable, T::Point)>,
-    var_defined: Vec<(T::Variable, T::Point)>,
-    var_drop_used: Vec<(T::Variable, T::Point)>,
-    var_uses_region: Vec<(T::Variable, T::Origin)>,
-    var_drops_region: Vec<(T::Variable, T::Origin)>,
+    var_used_at: Vec<(T::Variable, T::Point)>,
+    var_defined_at: Vec<(T::Variable, T::Point)>,
+    var_dropped_at: Vec<(T::Variable, T::Point)>,
+    use_of_var_derefs_origin: Vec<(T::Variable, T::Origin)>,
+    drop_of_var_derefs_origin: Vec<(T::Variable, T::Origin)>,
 }
 
 /// Subset of `AllFacts` dedicated to borrow checking, and data ready to use by the variants
 struct Context<'ctx, T: FactTypes> {
     // `Relation`s used as static inputs, by all variants
-    region_live_at: Relation<(T::Origin, T::Point)>,
+    origin_live_on_entry: Relation<(T::Origin, T::Point)>,
     invalidates: Relation<(T::Loan, T::Point)>,
 
     // static inputs used via `Variable`s, by all variants
@@ -157,11 +157,11 @@ impl<T: FactTypes> Output<T> {
 
         // 1) Initialization
         let initialization_ctx = InitializationContext {
-            child: all_facts.child.clone(),
-            path_belongs_to_var: all_facts.path_belongs_to_var.clone(),
-            initialized_at: all_facts.initialized_at.clone(),
-            moved_out_at: all_facts.moved_out_at.clone(),
-            path_accessed_at: all_facts.path_accessed_at.clone(),
+            child_path: all_facts.child_path.clone(),
+            path_is_var: all_facts.path_is_var.clone(),
+            path_assigned_at_base: all_facts.path_assigned_at_base.clone(),
+            path_moved_at_base: all_facts.path_moved_at_base.clone(),
+            path_accessed_at_base: all_facts.path_accessed_at_base.clone(),
         };
 
         let (var_maybe_initialized_on_exit, move_errors) =
@@ -173,14 +173,14 @@ impl<T: FactTypes> Output<T> {
 
         // 2) Liveness
         let liveness_ctx = LivenessContext {
-            var_used: all_facts.var_used.clone(),
-            var_defined: all_facts.var_defined.clone(),
-            var_drop_used: all_facts.var_drop_used.clone(),
-            var_uses_region: all_facts.var_uses_region.clone(),
-            var_drops_region: all_facts.var_drops_region.clone(),
+            var_used_at: all_facts.var_used_at.clone(),
+            var_defined_at: all_facts.var_defined_at.clone(),
+            var_dropped_at: all_facts.var_dropped_at.clone(),
+            use_of_var_derefs_origin: all_facts.use_of_var_derefs_origin.clone(),
+            drop_of_var_derefs_origin: all_facts.drop_of_var_derefs_origin.clone(),
         };
 
-        let mut region_live_at = liveness::compute_live_regions(
+        let mut origin_live_on_entry = liveness::compute_live_origins(
             liveness_ctx,
             &cfg_edge,
             var_maybe_initialized_on_exit,
@@ -194,8 +194,8 @@ impl<T: FactTypes> Output<T> {
             .collect();
 
         liveness::make_universal_regions_live::<T>(
-            &mut region_live_at,
-            &cfg_node,
+            &mut origin_live_on_entry,
+            &cfg_edge,
             &all_facts.universal_region,
         );
 
@@ -211,7 +211,7 @@ impl<T: FactTypes> Output<T> {
         // we actually need to compute the full analysis. If these facts happened to
         // be recorded in separate MIR walks, we might also avoid generating those facts.
 
-        let region_live_at = region_live_at.into();
+        let origin_live_on_entry = origin_live_on_entry.into();
 
         // TODO: also flip the order of this relation's arguments in rustc
         // from `invalidates(point, loan)` to `invalidates(loan, point)`.
@@ -250,7 +250,7 @@ impl<T: FactTypes> Output<T> {
 
         // Ask the variants to compute errors in their own way
         let mut ctx = Context {
-            region_live_at,
+            origin_live_on_entry,
             invalidates,
             cfg_edge,
             cfg_node: &cfg_node,
@@ -344,9 +344,9 @@ impl<T: FactTypes> Output<T> {
 
         // Record more debugging info when asked to do so
         if dump_enabled {
-            for &(origin, location) in ctx.region_live_at.iter() {
+            for &(origin, location) in ctx.origin_live_on_entry.iter() {
                 result
-                    .region_live_at
+                    .origin_live_on_entry
                     .entry(location)
                     .or_default()
                     .push(origin);
@@ -399,15 +399,15 @@ impl<T: FactTypes> Output<T> {
             borrow_live_at: FxHashMap::default(),
             restricts: FxHashMap::default(),
             restricts_anywhere: FxHashMap::default(),
-            region_live_at: FxHashMap::default(),
+            origin_live_on_entry: FxHashMap::default(),
             invalidates: FxHashMap::default(),
             errors: FxHashMap::default(),
             move_errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
-            var_live_at: FxHashMap::default(),
-            var_drop_live_at: FxHashMap::default(),
-            path_maybe_initialized_at: FxHashMap::default(),
+            var_live_on_entry: FxHashMap::default(),
+            var_drop_live_on_entry: FxHashMap::default(),
+            path_maybe_initialized_on_exit: FxHashMap::default(),
             var_maybe_initialized_on_exit: FxHashMap::default(),
             known_contains: FxHashMap::default(),
         }
@@ -440,7 +440,7 @@ impl<T: FactTypes> Output<T> {
 
     pub fn regions_live_at(&self, location: T::Point) -> &[T::Origin] {
         assert!(self.dump_enabled);
-        match self.region_live_at.get(&location) {
+        match self.origin_live_on_entry.get(&location) {
             Some(v) => v,
             None => &[],
         }

@@ -133,7 +133,7 @@ fn effects_start() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         block B0 {
-            invalidates(L0), region_live_at('a) / use('a);
+            invalidates(L0), origin_live_on_entry('a) / use('a);
             invalidates(L1);
             invalidates(L0), invalidates(L1) / use('c);
         }

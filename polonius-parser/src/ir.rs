@@ -3,16 +3,16 @@ pub struct Input {
     pub placeholders: Vec<Placeholder>,
     pub known_subsets: Vec<KnownSubset>,
     pub blocks: Vec<Block>,
-    pub var_uses_region: Vec<(String, String)>,
-    pub var_drops_region: Vec<(String, String)>,
+    pub use_of_var_derefs_origin: Vec<(String, String)>,
+    pub drop_of_var_derefs_origin: Vec<(String, String)>,
 }
 
 impl Input {
     pub fn new(
         placeholders: Vec<String>,
         known_subsets: Option<Vec<KnownSubset>>,
-        var_uses_region: Option<Vec<(String, String)>>,
-        var_drops_region: Option<Vec<(String, String)>>,
+        use_of_var_derefs_origin: Option<Vec<(String, String)>>,
+        drop_of_var_derefs_origin: Option<Vec<(String, String)>>,
         blocks: Vec<Block>,
     ) -> Input {
         // set-up placeholders as origins with a placeholder loan of the same name
@@ -27,8 +27,8 @@ impl Input {
         Input {
             placeholders,
             known_subsets: known_subsets.unwrap_or_default(),
-            var_uses_region: var_uses_region.unwrap_or_default(),
-            var_drops_region: var_drops_region.unwrap_or_default(),
+            use_of_var_derefs_origin: use_of_var_derefs_origin.unwrap_or_default(),
+            drop_of_var_derefs_origin: drop_of_var_derefs_origin.unwrap_or_default(),
             blocks,
         }
     }
@@ -62,7 +62,7 @@ pub enum Fact {
     BorrowRegionAt { origin: String, loan: String },
     Invalidates { loan: String },
     Kill { loan: String },
-    RegionLiveAt { origin: String },
+    OriginLiveOnEntry { origin: String },
     DefineVariable { variable: String },
     UseVariable { variable: String },
 }
@@ -86,7 +86,7 @@ impl Statement {
         let effects_start = effects
             .iter()
             .filter(|effect| match effect {
-                Effect::Fact(Fact::RegionLiveAt { .. }) => true,
+                Effect::Fact(Fact::OriginLiveOnEntry { .. }) => true,
                 _ => false,
             })
             .cloned()

@@ -7,27 +7,15 @@ use datafrog::{Iteration, Relation, RelationLeaper};
 
 // This represents the output of an intermediate elaboration step (step 1).
 struct TransitivePaths<T: FactTypes> {
-    moved_out_at: Relation<(T::Path, T::Point)>,
-    initialized_at: Relation<(T::Path, T::Point)>,
-    accessed_at: Relation<(T::Path, T::Point)>,
+    path_moved_at: Relation<(T::Path, T::Point)>,
+    path_assigned_at: Relation<(T::Path, T::Point)>,
+    path_accessed_at: Relation<(T::Path, T::Point)>,
+    //path_begins_with_var: Relation<(T::Path, T::Variable)>,
 }
 
-// This is the output of the intermediate partial initialization computation. It
-// over-approximates (computes an upper bound on) the initialization status of
-// paths and variables. Additionally, it also does the same for if a variable
-// may have been moved.
-//
-// For example:
-// ```rust
-// let x = (1, 2); // x, x.1, x.2 maybe initialized
-// if random() { move x.0 };
-// // x.0 maybe moved, x, x.1, x.2 maybe initialized.
-// ````
-// Note that var_maybe... only tracks moves of *entire variables*, i.e. root paths.
 struct InitializationStatus<T: FactTypes> {
     var_maybe_initialized_on_exit: Relation<(T::Variable, T::Point)>,
-    path_maybe_initialized_on_exit: Relation<(T::Path, T::Point)>,
-    path_maybe_moved_at: Relation<(T::Path, T::Point)>,
+    move_error: Relation<(T::Path, T::Point)>,
 }
 
 // Step 1: compute transitive closures of path operations. This would elaborate,
@@ -35,96 +23,97 @@ struct InitializationStatus<T: FactTypes> {
 // - access to a path
 // - initialization of a path
 // - moves of a path
+// FIXME: transitive rooting in a variable (path_begins_with_var)
 // Note that this step may not be entirely necessary!
 fn compute_transitive_paths<T: FactTypes>(
-    child: Vec<(T::Path, T::Path)>,
-    initialized_at: Vec<(T::Path, T::Point)>,
-    moved_out_at: Vec<(T::Path, T::Point)>,
-    path_accessed_at: Vec<(T::Path, T::Point)>,
+    child_path: Vec<(T::Path, T::Path)>,
+    path_assigned_at_base: Vec<(T::Path, T::Point)>,
+    path_moved_at_base: Vec<(T::Path, T::Point)>,
+    path_accessed_at_base: Vec<(T::Path, T::Point)>,
 ) -> TransitivePaths<T> {
     let mut iteration = Iteration::new();
-    let child: Relation<(T::Path, T::Path)> = child.into();
+    let child_path: Relation<(T::Path, T::Path)> = child_path.into();
 
-    let ancestor_var = iteration.variable::<(T::Path, T::Path)>("ancestor");
+    let ancestor_path = iteration.variable::<(T::Path, T::Path)>("ancestor");
 
     // These are the actual targets:
-    let moved_out_at_var = iteration.variable::<(T::Path, T::Point)>("moved_out_at");
-    let initialized_at_var = iteration.variable::<(T::Path, T::Point)>("initialized_at");
-    let accessed_at_var = iteration.variable::<(T::Path, T::Point)>("accessed_at");
+    let path_moved_at = iteration.variable::<(T::Path, T::Point)>("path_moved_at");
+    let path_assigned_at = iteration.variable::<(T::Path, T::Point)>("path_initialized_at");
+    let path_accessed_at = iteration.variable::<(T::Path, T::Point)>("path_accessed_at");
 
-    // ancestor(Mother, Daughter) :- child(Daughter, Mother).
-    ancestor_var.insert(
-        child
+    // ancestor_path(Parent, Child) :- child_path(Child, Parent).
+    ancestor_path.insert(
+        child_path
             .iter()
             .map(|&(child_path, parent_path)| (parent_path, child_path))
             .collect(),
     );
 
-    // moved_out_at(Path, Point) :- moved_out_at(path, point).
-    moved_out_at_var.insert(moved_out_at.into());
+    // path_moved_at(Path, Point) :- path_moved_at_base(path, point).
+    path_moved_at.insert(path_moved_at_base.into());
 
-    // initialized_at(Path, Point) :- initialized_at(path, Point).
-    initialized_at_var.insert(initialized_at.into());
+    // path_assigned_at(Path, Point) :- path_assigned_at_base(path, Point).
+    path_assigned_at.insert(path_assigned_at_base.into());
 
-    // accessed_at(Path, Point) :- path_accessed_at(path, Point).
-    accessed_at_var.insert(path_accessed_at.into());
+    // path_accessed_at(Path, Point) :- path_accessed_at_base(path, Point).
+    path_accessed_at.insert(path_accessed_at_base.into());
 
     while iteration.changed() {
-        // ancestor(Grandmother, Daughter) :-
-        //    ancestor(Mother, Daughter),
-        //    child(Mother, Grandmother).
-        ancestor_var.from_join(
-            &ancestor_var,
-            &child,
+        // ancestor(Grandparent, Child) :-
+        //    ancestor(Parent, Child),
+        //    child(Parent, Grandparent).
+        ancestor_path.from_join(
+            &ancestor_path,
+            &child_path,
             |&_mother, &daughter, &grandmother| (grandmother, daughter),
         );
 
         // moving a path moves its children
-        // moved_out_at(Child, Point) :-
-        //     moved_out_at(Parent, Point),
-        //     ancestor(Parent, Child).
-        moved_out_at_var.from_join(&moved_out_at_var, &ancestor_var, |&_parent, &p, &child| {
+        // path_moved_at(Child, Point) :-
+        //     path_moved_at(Parent, Point),
+        //     ancestor_path(Parent, Child).
+        path_moved_at.from_join(&path_moved_at, &ancestor_path, |&_parent, &p, &child| {
             (child, p)
         });
 
         // initialising x at p initialises all x:s children
-        // initialized_at(Child, point) :-
-        //     initialized_at(Parent, point),
-        //     ancestor(Parent, Child).
-        initialized_at_var.from_join(
-            &initialized_at_var,
-            &ancestor_var,
-            |&_parent, &p, &child| (child, p),
-        );
+        // path_assigned_at(Child, point) :-
+        //     path_assigned_at(Parent, point),
+        //     ancestor_path(Parent, Child).
+        path_assigned_at.from_join(&path_assigned_at, &ancestor_path, |&_parent, &p, &child| {
+            (child, p)
+        });
 
         // accessing x at p accesses all x:s children at p (actually,
         // accesses should be maximally precise and this shouldn't happen?)
-        // accessed_at(Child, point) :-
-        //   accessed_at(Parent, point),
-        //   ancestor(Parent, Child).
-        accessed_at_var.from_join(&accessed_at_var, &ancestor_var, |&_parent, &p, &child| {
+        // path_accessed_at(Child, point) :-
+        //   path_accessed_at(Parent, point),
+        //   ancestor_path(Parent, Child).
+        path_accessed_at.from_join(&path_accessed_at, &ancestor_path, |&_parent, &p, &child| {
             (child, p)
         });
     }
 
     TransitivePaths {
-        initialized_at: initialized_at_var.complete(),
-        moved_out_at: moved_out_at_var.complete(),
-        accessed_at: accessed_at_var.complete(),
+        path_assigned_at: path_assigned_at.complete(),
+        path_moved_at: path_moved_at.complete(),
+        path_accessed_at: path_accessed_at.complete(),
     }
 }
 
 // Step 2: Compute path initialization and deinitialization across the CFG.
-fn compute_initialization_status<T: FactTypes>(
-    path_belongs_to_var: Vec<(T::Path, T::Variable)>,
-    moved_out_at: Relation<(T::Path, T::Point)>,
-    initialized_at: Relation<(T::Path, T::Point)>,
+fn compute_move_errors<T: FactTypes>(
+    path_is_var: Vec<(T::Path, T::Variable)>,
+    path_moved_at: Relation<(T::Path, T::Point)>,
+    path_assigned_at: Relation<(T::Path, T::Point)>,
+    path_accessed_at: Relation<(T::Path, T::Point)>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
+    output: &mut Output<T>,
 ) -> InitializationStatus<T> {
     let mut iteration = Iteration::new();
 
     // Relations
-    let path_belongs_to_var: Relation<(T::Path, T::Variable)> = path_belongs_to_var.into();
+    let path_is_var: Relation<(T::Path, T::Variable)> = path_is_var.into();
 
     // Variables
 
@@ -132,27 +121,32 @@ fn compute_initialization_status<T: FactTypes>(
     // initialized for some path through the CFG, that is there has been an
     // initialization of var, and var has not been moved in all paths through
     // the CFG.
-    let var_maybe_initialized_on_exit_var =
+    let var_maybe_initialized_on_exit =
         iteration.variable::<(T::Variable, T::Point)>("var_maybe_initialized_on_exit");
 
     // path_maybe_initialized_on_exit(path, point): Upon leaving `point`, the
     // move path `path` is initialized for some path through the CFG.
-    let path_maybe_initialized_on_exit_var =
+    let path_maybe_initialized_on_exit =
         iteration.variable::<(T::Path, T::Point)>("path_maybe_initialized_on_exit");
 
-    // path_maybe_moved_at(Path, Point): There exists at least one path through
-    // the CFG to Point such that `Path` has been moved out by the time we
-    // arrive at `Point` without it being re-initialized for sure.
-    let path_maybe_moved_at_var = iteration.variable::<(T::Path, T::Point)>("path_maybe_moved_at");
+    // path_maybe_uninitialized_on_exit(Path, Point): There exists at least one
+    // path through the CFG to Point such that `Path` has been moved out by the
+    // time we arrive at `Point` without it being re-initialized for sure.
+    let path_maybe_uninitialized_on_exit =
+        iteration.variable::<(T::Path, T::Point)>("path_maybe_deinitialized_on_exit");
+
+    // move_error(Path, Point): There is an access to `Path` at `Point`, but
+    // `Path` is potentially moved (or never initialised).
+    let move_error = iteration.variable::<(T::Path, T::Point)>("move_error");
 
     // Initial propagation of static relations
 
-    // path_maybe_initialized_on_exit(path, point) :- initialized_at(path, point).
-    path_maybe_initialized_on_exit_var.insert(initialized_at.clone());
+    // path_maybe_initialized_on_exit(path, point) :- path_assigned_at(path, point).
+    path_maybe_initialized_on_exit.insert(path_assigned_at.clone());
 
-    // path_maybe_moved_at(path, point) :- moved_out_at(path, point).
-    path_maybe_moved_at_var.insert(
-        moved_out_at
+    // path_maybe_uninitialized_on_exit(path, point) :- path_moved_at(path, point).
+    path_maybe_uninitialized_on_exit.insert(
+        path_moved_at
             .iter()
             .map(|&(path, point)| (path, point))
             .collect(),
@@ -162,138 +156,80 @@ fn compute_initialization_status<T: FactTypes>(
         // path_maybe_initialized_on_exit(path, point2) :-
         //     path_maybe_initialized_on_exit(path, point1),
         //     cfg_edge(point1, point2),
-        //     !moved_out_at(path, point2).
-        path_maybe_initialized_on_exit_var.from_leapjoin(
-            &path_maybe_initialized_on_exit_var,
+        //     !path_moved_at(path, point2).
+        path_maybe_initialized_on_exit.from_leapjoin(
+            &path_maybe_initialized_on_exit,
             (
                 cfg_edge.extend_with(|&(_path, point1)| point1),
-                moved_out_at.extend_anti(|&(path, _point1)| path),
+                path_moved_at.extend_anti(|&(path, _point1)| path),
             ),
             |&(path, _point1), &point2| (path, point2),
         );
 
-        // path_maybe_moved_at(path, point2) :-
-        //     path_maybe_moved_at(path, point1),
+        // path_maybe_uninitialized_on_exit(path, point2) :-
+        //     path_maybe_uninitialized_exit(path, point1),
         //     cfg_edge_(point1, point2)
-        //     !initialized_at(point1, point2).
-        path_maybe_moved_at_var.from_leapjoin(
-            &path_maybe_moved_at_var,
+        //     !path_assigned_at(point1, point2).
+        path_maybe_uninitialized_on_exit.from_leapjoin(
+            &path_maybe_uninitialized_on_exit,
             (
                 cfg_edge.extend_with(|&(_path, point1)| point1),
-                initialized_at.extend_anti(|&(path, _point1)| path),
+                path_assigned_at.extend_anti(|&(path, _point1)| path),
             ),
             |&(path, _point1), &point2| (path, point2),
         );
 
         // var_maybe_initialized_on_exit(var, point) :-
-        //     path_belongs_to_var(path, var),
-        //     path_maybe_initialized_at(path, point).
-        var_maybe_initialized_on_exit_var.from_leapjoin(
-            &path_maybe_initialized_on_exit_var,
-            path_belongs_to_var.extend_with(|&(path, _point)| path),
+        //     path_is_var(path, var),
+        //     path_maybe_initialized_on_exit(path, point).
+        var_maybe_initialized_on_exit.from_leapjoin(
+            &path_maybe_initialized_on_exit,
+            path_is_var.extend_with(|&(path, _point)| path),
             |&(_path, point), &var| (var, point),
         );
+
+        // move_error(Path, TargetNode) :-
+        //   path_maybe_uninitialized_on_exit(Path, SourceNode),
+        //   cfg_edge(SourceNode, TargetNode),
+        //   path_accessed_at(Path, TargetNode).
+        move_error.from_leapjoin(
+            &path_maybe_uninitialized_on_exit,
+            (
+                cfg_edge.extend_with(|&(_path, source_node)| source_node),
+                path_accessed_at.extend_with(|&(path, _source_node)| path),
+            ),
+            |&(path, _source_node), &target_node| (path, target_node),
+        );
+    }
+
+    for &(path, location) in path_maybe_initialized_on_exit.complete().iter() {
+        output
+            .path_maybe_initialized_on_exit
+            .entry(location)
+            .or_default()
+            .push(path);
     }
 
     InitializationStatus {
-        var_maybe_initialized_on_exit: var_maybe_initialized_on_exit_var.complete(),
-        path_maybe_initialized_on_exit: path_maybe_initialized_on_exit_var.complete(),
-        path_maybe_moved_at: path_maybe_moved_at_var.complete(),
+        var_maybe_initialized_on_exit: var_maybe_initialized_on_exit.complete(),
+        move_error: move_error.complete(),
     }
-}
-
-// Step 3: Calculate provably initialised paths. This computes the following
-// relation:
-//
-// path_definitely_initialized_at(Path, Point): Any path through the CFG to
-// `Point` has `Path` initialized.
-fn compute_known_initialized_paths<T: FactTypes>(
-    path_maybe_initialized_on_exit: &Relation<(T::Path, T::Point)>,
-    path_maybe_moved_at: Relation<(T::Path, T::Point)>,
-) -> Relation<(T::Path, T::Point)> {
-    // FIXME: these variables are artificial and requires no iteration. They
-    // are just here due to Datafrog limitations.
-    let mut iteration = Iteration::new();
-    let path_definitely_initialized_at_var =
-        iteration.variable::<(T::Path, T::Point)>("path_definitely_initialized_at");
-    let path_maybe_initialized_on_exit_var =
-        iteration.variable::<((T::Path, T::Point), ())>("path_maybe_initialized_on_exit");
-
-    path_maybe_initialized_on_exit_var.insert(
-        path_maybe_initialized_on_exit
-            .elements
-            .iter()
-            .map(|&(path, point)| ((path, point), ()))
-            .collect(),
-    );
-
-    while iteration.changed() {
-        // path_definitely_initialized_at(Path, Point) :-
-        //   path_maybe_initialized_on_exit(Path, Point),
-        //   !path_maybe_moved_at(Path, Point).
-        path_definitely_initialized_at_var.from_antijoin(
-            &path_maybe_initialized_on_exit_var,
-            &path_maybe_moved_at,
-            |&(path, point), &()| (path, point),
-        );
-    }
-
-    path_definitely_initialized_at_var.complete()
-}
-
-// Step 4: Compute erroneous path accesses
-fn compute_move_errors<T: FactTypes>(
-    accessed_at: Relation<(T::Path, T::Point)>,
-    path_definitely_initialized_at: Relation<(T::Path, T::Point)>,
-) -> Relation<(T::Path, T::Point)> {
-    // FIXME: these variables are artificial and requires no iteration. They
-    // are just here due to Datafrog limitations.
-    let mut iteration = Iteration::new();
-
-    // move_error(Path, Point): There is an access to `Path` at `Point`, but
-    // `Path` is potentially moved (or never initialised).
-    let move_error_var = iteration.variable::<(T::Path, T::Point)>("move_error");
-    let accessed_at_var = iteration.variable::<((T::Path, T::Point), ())>("accessed_at");
-
-    accessed_at_var.insert(
-        accessed_at
-            .elements
-            .iter()
-            .map(|&(path, point)| ((path, point), ()))
-            .collect(),
-    );
-
-    while iteration.changed() {
-        // NOTE: Double join!
-        // move_error(path, point) :-
-        //     path_accessed_at(path, point),
-        //     !path_definitely_initialized_at(path, point).
-        move_error_var.from_antijoin(
-            &accessed_at_var,
-            &path_definitely_initialized_at,
-            |&(path, point), &()| (path, point),
-        );
-    }
-    move_error_var.complete()
 }
 
 // Compute two things:
 //
 // - an over-approximation of the initialization of variables. This is used in
-//   the region_live_at computations to determine when a drop may happen; a
+//   the origin_live_on_entry computations to determine when a drop may happen; a
 //   definitely moved variable would not be actually dropped.
 // - move errors.
 //
-// The process is split into four stages:
+// The process is split into two stages:
 //
 // 1. Compute the transitive closure of path accesses. That is, accessing `f.a`
 //   would access `f.a.b`, etc.
-// 2. Use this to compute both a lower and an upper bound on the paths that may
-//   have been moved at any given point.
-// 3. Use those to derive a set of paths that are known to be initialized:
-//   `definitely_initialized = maybe_initialized - maybe_moved`.
-// 4. Use *those* to determine move errors; i.e. accesses - known initialized
-//   paths.
+// 2. Use this to compute both paths that may be initialized and paths that may
+//   have been deinitialized, which in turn can be used to find move errors (an
+//   access to a path that may be deinitialized).
 pub(super) fn compute_initialization<T: FactTypes>(
     ctx: InitializationContext<T>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
@@ -305,53 +241,35 @@ pub(super) fn compute_initialization<T: FactTypes>(
     let timer = Instant::now();
 
     let TransitivePaths {
-        moved_out_at,
-        initialized_at,
-        accessed_at,
+        path_moved_at,
+        path_assigned_at,
+        path_accessed_at,
     } = compute_transitive_paths::<T>(
-        ctx.child,
-        ctx.initialized_at,
-        ctx.moved_out_at,
-        ctx.path_accessed_at,
+        ctx.child_path,
+        ctx.path_assigned_at_base,
+        ctx.path_moved_at_base,
+        ctx.path_accessed_at_base,
     );
     info!("initialization phase 1 completed: {:?}", timer.elapsed());
 
     let InitializationStatus {
         var_maybe_initialized_on_exit,
-        path_maybe_initialized_on_exit,
-        path_maybe_moved_at,
-    } = compute_initialization_status::<T>(
-        ctx.path_belongs_to_var,
-        moved_out_at,
-        initialized_at,
+        move_error,
+    } = compute_move_errors::<T>(
+        ctx.path_is_var,
+        path_moved_at,
+        path_assigned_at,
+        path_accessed_at,
         cfg_edge,
+        output,
     );
-    info!("initialization phase 2 completed: {:?}", timer.elapsed());
-
-    let path_definitely_initialized_at =
-        compute_known_initialized_paths::<T>(&path_maybe_initialized_on_exit, path_maybe_moved_at);
     info!(
-        "initialization phase 3 completed: {} tuples in {:?}",
-        path_definitely_initialized_at.elements.len(),
-        timer.elapsed()
-    );
-
-    let move_errors = compute_move_errors::<T>(accessed_at, path_definitely_initialized_at);
-    info!(
-        "initialization phase 4 completed: {} move errors in {:?}",
-        move_errors.elements.len(),
+        "initialization phase 2: {} move errors in {:?}",
+        move_error.elements.len(),
         timer.elapsed()
     );
 
     if output.dump_enabled {
-        for &(path, location) in path_maybe_initialized_on_exit.iter() {
-            output
-                .path_maybe_initialized_at
-                .entry(location)
-                .or_default()
-                .push(path);
-        }
-
         for &(var, location) in var_maybe_initialized_on_exit.iter() {
             output
                 .var_maybe_initialized_on_exit
@@ -361,5 +279,5 @@ pub(super) fn compute_initialization<T: FactTypes>(
         }
     }
 
-    (var_maybe_initialized_on_exit, move_errors)
+    (var_maybe_initialized_on_exit, move_error)
 }

@@ -4,6 +4,10 @@
 
 #![feature(nll)]
 
+fn random() -> bool {
+    unimplemented!()
+}
+
 pub fn return_ref_to_local() -> &'static i32 {
     let x = 0;
     &x //~ ERROR
@@ -44,6 +48,33 @@ fn well_formed_function_inputs() {
     let tmp = foo(&r);
     s; //~ ERROR
     tmp;
+}
+
+fn basic_move_error() {
+    let x = "hello".to_string();
+    let mut y = vec![];
+
+    y.push(x);
+
+    println!("{}", x); //~ ERROR
+}
+
+fn move_reinitialize_ok() {
+    let mut x = "hello".to_string();
+    let mut y = vec![];
+
+    y.push(x);
+
+    x = "goodbye".to_string();
+
+    println!("{}", x); //~ OK
+}
+
+pub fn conditional_init() {
+    let a;
+    if random() { a = 44; }
+    println!("{}", a);
+
 }
 
 fn main() {}
