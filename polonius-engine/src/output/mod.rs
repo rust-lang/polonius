@@ -92,8 +92,8 @@ pub struct Output<T: FactTypes> {
     pub var_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
     pub var_drop_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
     pub path_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Path>>,
-    pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
     pub known_contains: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
+    pub var_maybe_partly_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
 }
 
 /// Subset of `AllFacts` dedicated to initialization
@@ -164,7 +164,7 @@ impl<T: FactTypes> Output<T> {
             path_accessed_at_base: all_facts.path_accessed_at_base.clone(),
         };
 
-        let (var_maybe_initialized_on_exit, move_errors) =
+        let (var_maybe_partly_initialized_on_exit, move_errors) =
             initialization::compute_initialization(initialization_ctx, &cfg_edge, &mut result);
 
         for &(path, location) in move_errors.iter() {
@@ -183,7 +183,7 @@ impl<T: FactTypes> Output<T> {
         let mut origin_live_on_entry = liveness::compute_live_origins(
             liveness_ctx,
             &cfg_edge,
-            var_maybe_initialized_on_exit,
+            var_maybe_partly_initialized_on_exit,
             &mut result,
         );
 
@@ -401,14 +401,12 @@ impl<T: FactTypes> Output<T> {
             restricts_anywhere: FxHashMap::default(),
             origin_live_on_entry: FxHashMap::default(),
             invalidates: FxHashMap::default(),
-            errors: FxHashMap::default(),
             move_errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
             var_live_on_entry: FxHashMap::default(),
             var_drop_live_on_entry: FxHashMap::default(),
             path_maybe_initialized_on_exit: FxHashMap::default(),
-            var_maybe_initialized_on_exit: FxHashMap::default(),
             known_contains: FxHashMap::default(),
         }
     }

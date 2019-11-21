@@ -21,7 +21,7 @@ use datafrog::{Iteration, Relation, RelationLeaper};
 pub(super) fn compute_live_origins<T: FactTypes>(
     ctx: LivenessContext<T>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
-    var_maybe_initialized_on_exit: Relation<(T::Variable, T::Point)>,
+    var_maybe_partly_initialized_on_exit: Relation<(T::Variable, T::Point)>,
     output: &mut Output<T>,
 ) -> Vec<(T::Origin, T::Point)> {
     let timer = Instant::now();
@@ -57,21 +57,21 @@ pub(super) fn compute_live_origins<T: FactTypes>(
     // This propagates the relation `var_live_on_entry(var, point) :- var_used_at(var, point)`:
     var_live_on_entry.insert(ctx.var_used_at.into());
 
-    // var_maybe_initialized_on_entry(var, point2) :-
-    //     var_maybe_initialized_on_exit(var, point1),
+    // var_maybe_partly_initialized_on_entry(var, point2) :-
+    //     var_maybe_partly_initialized_on_exit(var, point1),
     //     cfg_edge(point1, point2).
-    let var_maybe_initialized_on_entry = Relation::from_leapjoin(
-        &var_maybe_initialized_on_exit,
+    let var_maybe_partly_initialized_on_entry = Relation::from_leapjoin(
+        &var_maybe_partly_initialized_on_exit,
         cfg_edge.extend_with(|&(_var, point1)| point1),
         |&(var, _point1), &point2| ((var, point2), ()),
     );
 
     // var_drop_live_at(var, point) :-
     //     var_dropped_at(var, point),
-    //     var_maybe_initialzed_on_entry(var, point).
+    //     var_maybe_partly_initialzed_on_entry(var, point).
     var_drop_live_on_entry.insert(Relation::from_join(
         &var_dropped_at,
-        &var_maybe_initialized_on_entry,
+        &var_maybe_partly_initialized_on_entry,
         |&(var, point), _, _| (var, point),
     ));
 
@@ -117,7 +117,7 @@ pub(super) fn compute_live_origins<T: FactTypes>(
             (
                 var_defined_at.extend_anti(|&(var, _target_node)| var),
                 cfg_edge_reverse.extend_with(|&(_var, target_node)| target_node),
-                var_maybe_initialized_on_exit.extend_with(|&(var, _target_node)| var),
+                var_maybe_partly_initialized_on_exit.extend_with(|&(var, _target_node)| var),
             ),
             |&(var, _targetnode), &source_node| (var, source_node),
         );

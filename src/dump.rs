@@ -50,7 +50,7 @@ pub(crate) fn dump_output(
             var_live_on_entry,
             var_drop_live_on_entry,
             path_maybe_initialized_on_exit,
-            var_maybe_initialized_on_exit
+            var_maybe_partly_initialized_on_exit
         ];
     }
     return Ok(());
@@ -467,9 +467,9 @@ fn build_outputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            output.var_maybe_initialized_on_exit.iter(),
+            output.var_maybe_partly_initialized_on_exit.iter(),
             |(point, var)| (*point, var.clone()),
-            "var_maybe_initialized_on_exit".to_string(),
+            "var_maybe_partly_initialized_on_exit".to_string(),
             1,
             intern,
         ),
