@@ -18,6 +18,11 @@ struct InitializationStatus<T: FactTypes> {
     move_error: Relation<(T::Path, T::Point)>,
 }
 
+pub(super) struct InitializationResult<T: FactTypes>(
+    pub(super) Relation<(T::Variable, T::Point)>,
+    pub(super) Relation<(T::Path, T::Point)>,
+);
+
 // Step 1: compute transitive closures of path operations. This would elaborate,
 // for example, an access to x into an access to x.f, x.f.0, etc. We do this for:
 // - access to a path
@@ -44,7 +49,7 @@ fn compute_transitive_paths<T: FactTypes>(
     let path_begins_with_var = iteration.variable::<(T::Path, T::Variable)>("path_begins_with_var");
 
     // ancestor_path(Parent, Child) :- child_path(Child, Parent).
-    ancestor_path.insert(child_path.into_iter().collect());
+    ancestor_path.insert(child_path.iter().collect());
 
     // path_moved_at(Path, Point) :- path_moved_at_base(path, point).
     path_moved_at.insert(path_moved_at_base.into());
@@ -234,14 +239,11 @@ fn compute_move_errors<T: FactTypes>(
 // 2. Use this to compute both paths that may be initialized and paths that may
 //   have been deinitialized, which in turn can be used to find move errors (an
 //   access to a path that may be deinitialized).
-pub(super) fn compute_initialization<T: FactTypes>(
+pub(super) fn compute<T: FactTypes>(
     ctx: InitializationContext<T>,
     cfg_edge: &Relation<(T::Point, T::Point)>,
     output: &mut Output<T>,
-) -> (
-    Relation<(T::Variable, T::Point)>,
-    Relation<(T::Path, T::Point)>,
-) {
+) -> InitializationResult<T> {
     let timer = Instant::now();
 
     let transitive_paths = compute_transitive_paths::<T>(
@@ -273,5 +275,5 @@ pub(super) fn compute_initialization<T: FactTypes>(
         }
     }
 
-    (var_maybe_partly_initialized_on_exit, move_error)
+    InitializationResult(var_maybe_partly_initialized_on_exit, move_error)
 }

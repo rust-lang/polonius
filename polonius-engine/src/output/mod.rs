@@ -164,8 +164,10 @@ impl<T: FactTypes> Output<T> {
             path_accessed_at_base: all_facts.path_accessed_at_base.clone(),
         };
 
-        let (var_maybe_partly_initialized_on_exit, move_errors) =
-            initialization::compute_initialization(initialization_ctx, &cfg_edge, &mut result);
+        let initialization::InitializationResult::<T>(
+            var_maybe_partly_initialized_on_exit,
+            move_errors,
+        ) = initialization::compute(initialization_ctx, &cfg_edge, &mut result);
 
         for &(path, location) in move_errors.iter() {
             result.move_errors.entry(location).or_default().push(path);
@@ -311,7 +313,7 @@ impl<T: FactTypes> Output<T> {
                 for &(loan, point) in naive_errors.iter() {
                     naive_errors_by_point
                         .entry(point)
-                        .or_insert(Vec::new())
+                        .or_insert_with(Vec::new)
                         .push(loan);
                 }
 
@@ -319,7 +321,7 @@ impl<T: FactTypes> Output<T> {
                 for &(loan, point) in opt_errors.iter() {
                     opt_errors_by_point
                         .entry(point)
-                        .or_insert(Vec::new())
+                        .or_insert_with(Vec::new)
                         .push(loan);
                 }
 
