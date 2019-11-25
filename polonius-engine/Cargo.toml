@@ -1,6 +1,6 @@
 [package]
 name = "polonius-engine"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["The Rust Project Developers", "Polonius Developers"]
 description = "Core definition for the Rust borrow checker"
 license = "Apache-2.0/MIT"
