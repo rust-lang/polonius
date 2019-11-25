@@ -239,7 +239,6 @@ impl<T: FactTypes> Output<T> {
                 .map(|&origin| (origin, ())),
         );
 
-        // TODO: flip the relation's arguments order in the input facts ?
         let placeholder_loan = Relation::from_iter(
             all_facts
                 .placeholder
