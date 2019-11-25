@@ -1,12 +1,11 @@
 # polonius
 
-## v????
-
+## v0.6.0
+- update to the latest `polonius-engine`
+- update the test parser to add the new facts related to subset errors
+- update, deduplicate, and remove some dependencies
 - remove `--ignore-region-live-at`, as the `region_live_at` is now gone
   from the inputs and is always calculated!
-
-## v0.6.0
-
 - add a CLI option `--ignore-region-live-at` which ignores those facts and
   recompute them using Polonius even if provided.
 - missing `region_live_at.facts` is no longer an error.
@@ -34,6 +33,15 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 
 # polonius-engine
 
+## v0.11.0
+
+- adopt a new terminology for the Atoms, and begin documenting everything in a book
+- use a new API to refer to the Atom types via associated types
+- compute new errors: illegal subset relation errors, where for example
+  a `fn foo<'a, 'b>` might require `'a: 'b` annotations to be valid.
+- more work towards supporting initialization facts and errors
+- more work towards defining different phases where each can have its
+  own input facts or produce errors
 
 ## v0.10.0
 
