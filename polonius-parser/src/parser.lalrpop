@@ -3,7 +3,7 @@ use ir::*;
 grammar;
 
 pub Input: Input = {
-    Comment* <universal_regions:UniversalRegions>  <var_uses_region:VarUsesRegion?>  <var_drops_region:VarDropsRegion?> Comment* <blocks:BlockDefn*> => Input::new(<>)
+    Comment* <placeholders:Placeholders> <known_subsets:KnownSubsets?> <var_uses_region:VarUsesRegion?> <var_drops_region:VarDropsRegion?> Comment* <blocks:BlockDefn*> => Input::new(<>)
 };
 
 Comment: () = {
@@ -17,7 +17,14 @@ VarRegionMapping: (String, String) = {
 
 VarUsesRegion = "var_uses_region" "{" <VarRegionMappings> "}";
 VarDropsRegion = "var_drops_region" "{" <VarRegionMappings> "}";
-UniversalRegions = "universal_regions" "{" <Comma<Origin>> "}";
+
+Placeholders = "placeholders" "{" <Comma<Origin>> "}";
+
+KnownSubsets = "known_subsets" "{" <Comma<KnownSubset>> "}";
+KnownSubset : KnownSubset = {
+    <a:Origin> ":" <b:Origin> => KnownSubset { <> },
+};
+
 BlockDefn : Block = {
     "block" <name:Block> "{" <statements:Statement*> Comment* <goto:Goto> "}" => Block { <> },
 };
@@ -29,7 +36,7 @@ Goto: Vec<String> = {
 
 Statement : Statement = {
     Comment* <Effects> ";" => Statement::new(<>),
-    Comment* <start_effects:Effects> "/" <effects:Effects> ";" => Statement::with_start_effects(<>),
+    Comment* <effects_start:Effects> "/" <effects:Effects> ";" => Statement { <> },
 };
 
 Effects = Comma<Effect>;

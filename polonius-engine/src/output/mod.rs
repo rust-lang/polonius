@@ -76,6 +76,7 @@ impl ::std::str::FromStr for Algorithm {
 #[derive(Clone, Debug)]
 pub struct Output<T: FactTypes> {
     pub errors: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub subset_errors: FxHashMap<T::Point, BTreeSet<(T::Origin, T::Origin)>>,
 
     pub dump_enabled: bool,
 
@@ -91,6 +92,7 @@ pub struct Output<T: FactTypes> {
     pub var_drop_live_at: FxHashMap<T::Point, Vec<T::Variable>>,
     pub path_maybe_initialized_at: FxHashMap<T::Point, Vec<T::Path>>,
     pub var_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
+    pub known_contains: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
 }
 
 /// Subset of `AllFacts` dedicated to initialization
@@ -122,7 +124,11 @@ struct Context<'ctx, T: FactTypes> {
     borrow_region: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
 
     // static inputs used by variants other than `LocationInsensitive`
+    cfg_node: &'ctx BTreeSet<T::Point>,
     killed: Relation<(T::Loan, T::Point)>,
+    known_contains: Relation<(T::Origin, T::Loan)>,
+    placeholder_origin: Relation<(T::Origin, ())>,
+    placeholder_loan: Relation<(T::Loan, T::Origin)>,
 
     // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
     // and liveness, so already computed by the time we get to borrowcking.
@@ -164,8 +170,6 @@ impl<T: FactTypes> Output<T> {
         );
 
         // 2) Liveness
-        let universal_regions = all_facts.universal_region.clone();
-
         let liveness_ctx = LivenessContext {
             var_used: all_facts.var_used.clone(),
             var_defined: all_facts.var_defined.clone(),
@@ -181,10 +185,16 @@ impl<T: FactTypes> Output<T> {
             &mut result,
         );
 
+        let cfg_node = cfg_edge
+            .iter()
+            .map(|&(point1, _)| point1)
+            .chain(cfg_edge.iter().map(|&(_, point2)| point2))
+            .collect();
+
         liveness::make_universal_regions_live::<T>(
             &mut region_live_at,
-            &cfg_edge,
-            universal_regions,
+            &cfg_node,
+            &all_facts.universal_region,
         );
 
         // 3) Borrow checking
@@ -213,22 +223,66 @@ impl<T: FactTypes> Output<T> {
 
         let killed = all_facts.killed.clone().into();
 
+        // `known_subset` is a list of all the `'a: 'b` subset relations the user gave:
+        // it's not required to be transitive. `known_contains` is its transitive closure: a list
+        // of all the known placeholder loans that each of these placeholder origins contains.
+        // Given the `known_subset`s `'a: 'b` and `'b: 'c`: in the `known_contains` relation, `'a`
+        // will also contain `'c`'s placeholder loan.
+        let known_subset = all_facts.known_subset.clone().into();
+        let known_contains =
+            Output::<T>::compute_known_contains(&known_subset, &all_facts.placeholder);
+
+        let placeholder_origin: Relation<_> = Relation::from_iter(
+            all_facts
+                .universal_region
+                .iter()
+                .map(|&origin| (origin, ())),
+        );
+
+        let placeholder_loan = Relation::from_iter(
+            all_facts
+                .placeholder
+                .iter()
+                .map(|&(origin, loan)| (loan, origin)),
+        );
+
         // Ask the variants to compute errors in their own way
         let mut ctx = Context {
             region_live_at,
             invalidates,
             cfg_edge,
+            cfg_node: &cfg_node,
             outlives: &all_facts.outlives,
             borrow_region: &all_facts.borrow_region,
             killed,
+            known_contains,
+            placeholder_origin,
+            placeholder_loan,
             potential_errors: None,
         };
 
         let errors = match algorithm {
             Algorithm::LocationInsensitive => location_insensitive::compute(&ctx, &mut result),
-            Algorithm::Naive => naive::compute(&ctx, &mut result),
+            Algorithm::Naive => {
+                let (errors, subset_errors) = naive::compute(&ctx, &mut result);
+
+                // Record illegal subset errors
+                for &(origin1, origin2, location) in subset_errors.iter() {
+                    result
+                        .subset_errors
+                        .entry(location)
+                        .or_default()
+                        .insert((origin1, origin2));
+                }
+
+                errors
+            }
             Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
             Algorithm::Hybrid => {
+                // WIP: the `LocationInsensitive` variant doesn't compute any illegal subset
+                // relation errors. So using it as a quick pre-filter for illegal accesses
+                // errors will also end up skipping checking for subset errors.
+
                 // Execute the fast `LocationInsensitive` computation as a pre-pass:
                 // if it finds no possible errors, we don't need to do the more complex
                 // computations as they won't find errors either, and we can return early.
@@ -246,8 +300,10 @@ impl<T: FactTypes> Output<T> {
             }
             Algorithm::Compare => {
                 // Ensure the `Naive` and `DatafrogOpt` errors are the same
-                let naive_errors = naive::compute(&ctx, &mut result);
+                let (naive_errors, _) = naive::compute(&ctx, &mut result);
                 let opt_errors = datafrog_opt::compute(&ctx, &mut result);
+
+                // TODO: compare illegal subset relations errors as well here ?
 
                 let mut naive_errors_by_point = FxHashMap::default();
                 for &(loan, point) in naive_errors.iter() {
@@ -279,11 +335,12 @@ impl<T: FactTypes> Output<T> {
             }
         };
 
+        // Record illegal access errors
         for &(loan, location) in errors.iter() {
             result.errors.entry(location).or_default().push(loan);
         }
 
-        // Record more debugging info when necessary
+        // Record more debugging info when asked to do so
         if dump_enabled {
             for &(origin, location) in ctx.region_live_at.iter() {
                 result
@@ -292,26 +349,63 @@ impl<T: FactTypes> Output<T> {
                     .or_default()
                     .push(origin);
             }
+
+            for &(origin, loan) in ctx.known_contains.iter() {
+                result
+                    .known_contains
+                    .entry(origin)
+                    .or_default()
+                    .insert(loan);
+            }
         }
 
         result
     }
 
+    /// Computes the transitive closure of the `known_subset` relation, so that we have
+    /// the full list of placeholder loans contained by the placeholder origins.
+    fn compute_known_contains(
+        known_subset: &Relation<(T::Origin, T::Origin)>,
+        placeholder: &Vec<(T::Origin, T::Loan)>,
+    ) -> Relation<(T::Origin, T::Loan)> {
+        let mut iteration = datafrog::Iteration::new();
+        let known_contains = iteration.variable("known_contains");
+
+        // known_contains(Origin1, Loan1) :-
+        //   placeholder(Origin1, Loan1).
+        known_contains.extend(placeholder.iter());
+
+        while iteration.changed() {
+            // known_contains(Origin2, Loan1) :-
+            //   known_contains(Origin1, Loan1),
+            //   known_subset(Origin1, Origin2).
+            known_contains.from_join(
+                &known_contains,
+                known_subset,
+                |&_origin1, &loan1, &origin2| (origin2, loan1),
+            );
+        }
+
+        known_contains.complete()
+    }
+
     fn new(dump_enabled: bool) -> Self {
         Output {
+            errors: FxHashMap::default(),
+            subset_errors: FxHashMap::default(),
+            dump_enabled,
             borrow_live_at: FxHashMap::default(),
             restricts: FxHashMap::default(),
             restricts_anywhere: FxHashMap::default(),
             region_live_at: FxHashMap::default(),
             invalidates: FxHashMap::default(),
-            errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
             var_live_at: FxHashMap::default(),
             var_drop_live_at: FxHashMap::default(),
             path_maybe_initialized_at: FxHashMap::default(),
             var_maybe_initialized_on_exit: FxHashMap::default(),
-            dump_enabled,
+            known_contains: FxHashMap::default(),
         }
     }
 

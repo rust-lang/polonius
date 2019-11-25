@@ -49,6 +49,8 @@ pub(crate) fn load_tab_delimited_facts(
             initialized_at,
             moved_out_at,
             path_accessed_at,
+            known_subset,
+            placeholder,
         }
     }
 }

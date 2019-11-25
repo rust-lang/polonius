@@ -62,6 +62,19 @@ pub struct AllFacts<T: FactTypes> {
     /// `path_accessed_at(path, point)` when the `path` was accessed at point
     /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
     pub path_accessed_at: Vec<(T::Path, T::Point)>,
+
+    /// These reflect the `'a: 'b` relations that are either declared by the user on function
+    /// declarations or which are inferred via implied bounds.
+    /// For example: `fn foo<'a, 'b: 'a, 'c>(x: &'c &'a u32)` would have two entries:
+    /// - one for the user-supplied subset `'b: 'a`
+    /// - and one for the `'a: 'c` implied bound from the `x` parameter,
+    /// (note that the transitive relation `'b: 'c` is not necessarily included
+    /// explicitly, but rather inferred by polonius).
+    pub known_subset: Vec<(T::Origin, T::Origin)>,
+
+    /// `placeholder(origin, loan)` describes a placeholder `origin`, with its associated
+    ///  placeholder `loan`.
+    pub placeholder: Vec<(T::Origin, T::Loan)>,
 }
 
 impl<T: FactTypes> Default for AllFacts<T> {
@@ -83,6 +96,8 @@ impl<T: FactTypes> Default for AllFacts<T> {
             initialized_at: Vec::default(),
             moved_out_at: Vec::default(),
             path_accessed_at: Vec::default(),
+            known_subset: Vec::default(),
+            placeholder: Vec::default(),
         }
     }
 }

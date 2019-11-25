@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub struct Input {
-    pub universal_regions: Vec<String>,
+    pub placeholders: Vec<Placeholder>,
+    pub known_subsets: Vec<KnownSubset>,
     pub blocks: Vec<Block>,
     pub var_uses_region: Vec<(String, String)>,
     pub var_drops_region: Vec<(String, String)>,
@@ -8,15 +9,26 @@ pub struct Input {
 
 impl Input {
     pub fn new(
-        universal_regions: Vec<String>,
+        placeholders: Vec<String>,
+        known_subsets: Option<Vec<KnownSubset>>,
         var_uses_region: Option<Vec<(String, String)>>,
         var_drops_region: Option<Vec<(String, String)>>,
         blocks: Vec<Block>,
     ) -> Input {
+        // set-up placeholders as origins with a placeholder loan of the same name
+        let placeholders: Vec<_> = placeholders
+            .into_iter()
+            .map(|origin| Placeholder {
+                loan: origin.clone(),
+                origin,
+            })
+            .collect();
+
         Input {
-            universal_regions,
-            var_uses_region: var_uses_region.unwrap_or(Vec::default()),
-            var_drops_region: var_drops_region.unwrap_or(Vec::default()),
+            placeholders,
+            known_subsets: known_subsets.unwrap_or_default(),
+            var_uses_region: var_uses_region.unwrap_or_default(),
+            var_drops_region: var_drops_region.unwrap_or_default(),
             blocks,
         }
     }
@@ -55,6 +67,18 @@ pub enum Fact {
     UseVariable { variable: String },
 }
 
+#[derive(Debug, PartialEq)]
+pub struct KnownSubset {
+    pub a: String,
+    pub b: String,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Placeholder {
+    pub origin: String,
+    pub loan: String,
+}
+
 impl Statement {
     pub(crate) fn new(effects: Vec<Effect>) -> Self {
         // Anything live on entry to the "mid point" is also live on
@@ -68,13 +92,6 @@ impl Statement {
             .cloned()
             .collect();
 
-        Self {
-            effects_start,
-            effects,
-        }
-    }
-
-    pub(crate) fn with_start_effects(effects_start: Vec<Effect>, effects: Vec<Effect>) -> Self {
         Self {
             effects_start,
             effects,

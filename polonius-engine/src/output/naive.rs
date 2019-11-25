@@ -19,14 +19,21 @@ use crate::output::{Context, Output};
 pub(super) fn compute<T: FactTypes>(
     ctx: &Context<T>,
     result: &mut Output<T>,
-) -> Relation<(T::Loan, T::Point)> {
+) -> (
+    Relation<(T::Loan, T::Point)>,
+    Relation<(T::Origin, T::Origin, T::Point)>,
+) {
     let timer = Instant::now();
 
-    let errors = {
+    let (errors, subset_errors) = {
         // Static inputs
         let region_live_at_rel = &ctx.region_live_at;
         let cfg_edge_rel = &ctx.cfg_edge;
+        let cfg_node = ctx.cfg_node;
         let killed_rel = &ctx.killed;
+        let known_contains = &ctx.known_contains;
+        let placeholder_origin = &ctx.placeholder_origin;
+        let placeholder_loan = &ctx.placeholder_loan;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -51,8 +58,9 @@ pub(super) fn compute<T: FactTypes>(
         let region_live_at_var =
             iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
 
-        // output
+        // output relations: illegal accesses errors, and illegal subset relations errors
         let errors = iteration.variable("errors");
+        let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
 
         // load initial facts.
         subset.extend(ctx.outlives.iter());
@@ -67,6 +75,20 @@ pub(super) fn compute<T: FactTypes>(
                 .iter()
                 .map(|&(origin, point)| ((origin, point), ())),
         );
+
+        // Placeholder loans are contained by their placeholder origin at all points of the CFG.
+        //
+        // contains(Origin, Loan, Node) :-
+        //   cfg_node(Node),
+        //   placeholder(Origin, Loan).
+        let mut placeholder_loans = Vec::with_capacity(placeholder_loan.len() * cfg_node.len());
+        for &(loan, origin) in placeholder_loan.iter() {
+            for &node in cfg_node.iter() {
+                placeholder_loans.push((origin, loan, node));
+            }
+        }
+
+        requires.extend(placeholder_loans);
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -163,8 +185,28 @@ pub(super) fn compute<T: FactTypes>(
             errors.from_join(&invalidates, &borrow_live_at, |&(loan, point), _, _| {
                 (loan, point)
             });
+
+            // subset_errors(Origin1, Origin2, Point) :-
+            //   requires(Origin2, Loan1, Point),
+            //   placeholder(Origin2, _),
+            //   placeholder(Origin1, Loan1),
+            //   !known_contains(Origin2, Loan1).
+            subset_errors.from_leapjoin(
+                &requires,
+                (
+                    placeholder_origin.filter_with(|&(origin2, _loan1, _point)| (origin2, ())),
+                    placeholder_loan.extend_with(|&(_origin2, loan1, _point)| loan1),
+                    known_contains.filter_anti(|&(origin2, loan1, _point)| (origin2, loan1)),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&(origin2, _loan1, _point), &origin1| {
+                        origin2 != origin1
+                    }),
+                ),
+                |&(origin2, _loan1, point), &origin1| (origin1, origin2, point),
+            );
         }
 
+        // Handle verbose output data
         if result.dump_enabled {
             let subset = subset.complete();
             assert!(
@@ -206,14 +248,15 @@ pub(super) fn compute<T: FactTypes>(
             }
         }
 
-        errors.complete()
+        (errors.complete(), subset_errors.complete())
     };
 
     info!(
-        "errors is complete: {} tuples, {:?}",
+        "analysis done: {} `errors` tuples, {} `subset_errors` tuples, {:?}",
         errors.len(),
+        subset_errors.len(),
         timer.elapsed()
     );
 
-    errors
+    (errors, subset_errors)
 }

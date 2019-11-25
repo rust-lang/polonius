@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use polonius_parser::{
-    ir::{Effect, Fact},
+    ir::{Effect, Fact, KnownSubset, Placeholder},
     parse_input,
 };
 
@@ -29,6 +29,8 @@ struct Facts {
     initialized_at: BTreeSet<(Path, Point)>,
     moved_out_at: BTreeSet<(Path, Point)>,
     path_accessed_at: BTreeSet<(Path, Point)>,
+    known_subset: BTreeSet<(Origin, Origin)>,
+    placeholder: BTreeSet<(Origin, Loan)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -50,6 +52,8 @@ impl From<Facts> for AllFacts {
             initialized_at: facts.initialized_at.into_iter().collect(),
             moved_out_at: facts.moved_out_at.into_iter().collect(),
             path_accessed_at: facts.path_accessed_at.into_iter().collect(),
+            known_subset: facts.known_subset.into_iter().collect(),
+            placeholder: facts.placeholder.into_iter().collect(),
         }
     }
 }
@@ -66,10 +70,20 @@ pub(crate) fn parse_from_program(
     // facts: universal_region(Origin)
     facts.universal_region.extend(
         input
-            .universal_regions
+            .placeholders
             .iter()
-            .map(|origin| tables.origins.intern(origin)),
+            .map(|placeholder| tables.origins.intern(&placeholder.origin)),
     );
+
+    // facts: placeholder(Origin, Loan)
+    facts
+        .placeholder
+        .extend(input.placeholders.iter().map(|placeholder| {
+            (
+                tables.origins.intern(&placeholder.origin),
+                tables.loans.intern(&placeholder.loan),
+            )
+        }));
 
     facts
         .var_drops_region
@@ -88,6 +102,16 @@ pub(crate) fn parse_from_program(
                 tables.origins.intern(origin),
             )
         }));
+
+    // facts: known_subset(Origin, Origin)
+    facts.known_subset.extend(
+        input
+            .known_subsets
+            .iter()
+            .map(|KnownSubset { ref a, ref b }| {
+                (tables.origins.intern(a), tables.origins.intern(b))
+            }),
+    );
 
     for block in &input.blocks {
         let block_name = &block.name;
@@ -231,7 +255,7 @@ mod tests {
     fn complete_program() {
         let program = r"
             // program description
-            universal_regions { 'a, 'b, 'c }
+            placeholders { 'a, 'b, 'c }
 
             // block description
             block B0 {
@@ -262,9 +286,37 @@ mod tests {
         let universal_regions: Vec<_> = facts
             .universal_region
             .iter()
-            .map(|origin| tables.origins.untern(*origin).to_string())
+            .map(|origin| tables.origins.untern(*origin))
             .collect();
         assert_eq!(universal_regions, ["'a", "'b", "'c"]);
+
+        // facts: placeholder
+        let placeholders: Vec<_> = facts
+            .placeholder
+            .iter()
+            .map(|&(origin, loan)| Placeholder {
+                origin: tables.origins.untern(origin).to_string(),
+                loan: tables.loans.untern(loan).to_string(),
+            })
+            .collect();
+
+        assert_eq!(
+            placeholders,
+            vec![
+                Placeholder {
+                    origin: "'a".to_string(),
+                    loan: "'a".to_string(),
+                },
+                Placeholder {
+                    origin: "'b".to_string(),
+                    loan: "'b".to_string(),
+                },
+                Placeholder {
+                    origin: "'c".to_string(),
+                    loan: "'c".to_string(),
+                },
+            ]
+        );
 
         // facts: invalidates
         assert_eq!(facts.invalidates.len(), 2);
