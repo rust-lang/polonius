@@ -197,7 +197,7 @@ impl<T: FactTypes> Output<T> {
 
         liveness::make_universal_regions_live::<T>(
             &mut origin_live_on_entry,
-            &cfg_edge,
+            &cfg_node,
             &all_facts.universal_region,
         );
 
@@ -370,7 +370,7 @@ impl<T: FactTypes> Output<T> {
     /// the full list of placeholder loans contained by the placeholder origins.
     fn compute_known_contains(
         known_subset: &Relation<(T::Origin, T::Origin)>,
-        placeholder: &Vec<(T::Origin, T::Loan)>,
+        placeholder: &[(T::Origin, T::Loan)],
     ) -> Relation<(T::Origin, T::Loan)> {
         let mut iteration = datafrog::Iteration::new();
         let known_contains = iteration.variable("known_contains");
@@ -409,6 +409,7 @@ impl<T: FactTypes> Output<T> {
             var_live_on_entry: FxHashMap::default(),
             var_drop_live_on_entry: FxHashMap::default(),
             path_maybe_initialized_on_exit: FxHashMap::default(),
+            var_maybe_partly_initialized_on_exit: FxHashMap::default(),
             known_contains: FxHashMap::default(),
         }
     }

@@ -65,7 +65,6 @@ pub struct AllFacts<T: FactTypes> {
 
     /// `path_accessed_at_base(path, point)` when the `path` was accessed at point
     /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
-
     pub path_accessed_at_base: Vec<(T::Path, T::Point)>,
     /// These reflect the `'a: 'b` relations that are either declared by the user on function
     /// declarations or which are inferred via implied bounds.
