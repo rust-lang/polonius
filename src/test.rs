@@ -104,7 +104,7 @@ fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
 
     let mut expected = FxHashMap::default();
     expected.insert(Point::from(24), vec![Loan::from(1)]);
-    expected.insert(Point::from(48), vec![Loan::from(2)]);
+    expected.insert(Point::from(50), vec![Loan::from(2)]);
 
     assert_equal(&insensitive.errors, &expected);
     Ok(())
