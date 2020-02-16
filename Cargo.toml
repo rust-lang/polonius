@@ -1,6 +1,6 @@
 [package]
 name = "polonius"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["The Rust Project Developers", "Polonius Developers"]
 description = "Core definition for the Rust borrow checker"
 license = "Apache-2.0/MIT"
@@ -15,7 +15,7 @@ polonius-parser = {version = "0.4.0", path = "polonius-parser" }
 
 [dependencies]
 rustc-hash = "1.0.0"
-polonius-engine = {version = "0.11.0", path = "polonius-engine" }
+polonius-engine = {version = "0.12.0", path = "polonius-engine" }
 log = "0.4"
 petgraph = "0.4.13"
 pico-args = "0.2"

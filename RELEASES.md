@@ -1,5 +1,8 @@
 # polonius
 
+## v0.7.0
+- update to the latest `polonius-engine`
+
 ## v0.6.0
 - update to the latest `polonius-engine`
 - update the test parser to add the new facts related to subset errors
@@ -32,6 +35,12 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 - preliminary work towards a friendly front-end format
 
 # polonius-engine
+
+## v.0.12.0
+
+- finish moving to the new terminology
+- implement move tracking
+- remove some of the input facts not needed for testing
 
 ## v0.11.0
 
