@@ -8,10 +8,7 @@ fn placeholders() {
     let program = r"
         placeholders { 'a, 'b, 'c }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Placeholders");
     assert_eq!(
         input.placeholders,
         vec![
@@ -40,10 +37,7 @@ fn blocks() {
         block B1 {
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Parse Error");
     assert_eq!(
         input.blocks.iter().map(|b| &b.name).collect::<Vec<_>>(),
         ["B0", "B1"]
@@ -60,10 +54,7 @@ fn goto() {
         block B1 {
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Parse Error");
     assert_eq!(input.blocks[0].goto, ["B1"]);
 }
 
@@ -77,10 +68,7 @@ fn effects() {
             invalidates(L0);
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Parse Error");
     let block = &input.blocks[0];
     assert_eq!(block.statements.len(), 3);
 
@@ -138,10 +126,7 @@ fn effects_start() {
             invalidates(L0), invalidates(L1) / use('c);
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Effects start");
     let block = &input.blocks[0];
     assert_eq!(block.statements.len(), 3);
 
@@ -152,7 +137,7 @@ fn effects_start() {
             Effect::Fact(Fact::Invalidates {
                 loan: "L0".to_string()
             }),
-            Effect::Fact(Fact::RegionLiveAt {
+            Effect::Fact(Fact::OriginLiveOnEntry {
                 origin: "'a".to_string()
             })
         ]
@@ -226,13 +211,10 @@ fn variable_used() {
         placeholders { 'a, 'b, 'c }
 
         block B0 {
-            var_used(V0);
+            var_used_at(V0);
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Variable used");
     let block = &input.blocks[0];
     assert_eq!(block.statements.len(), 1);
 
@@ -251,13 +233,10 @@ fn variable_defined() {
         placeholders { 'a, 'b, 'c }
 
         block B0 {
-            var_defined(V1);
+            var_defined_at(V1);
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Variable defined");
     let block = &input.blocks[0];
     assert_eq!(block.statements.len(), 1);
 
@@ -271,22 +250,19 @@ fn variable_defined() {
 }
 
 #[test]
-fn var_uses_region() {
+fn use_of_var_derefs_origin() {
     let program = r"
         placeholders { 'a, 'b, 'c }
-        var_uses_region { (V1, 'a), (V2, 'b) }
-        var_drops_region {  }
+        use_of_var_derefs_origin { (V1, 'a), (V2, 'b) }
+        drop_of_var_derefs_origin {  }
 
         block B0 {
-            var_defined(V1);
+            var_defined_at(V1);
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Use of var derefs origin");
     assert_eq!(
-        input.var_uses_region,
+        input.use_of_var_derefs_origin,
         [
             ("V1".to_string(), "'a".to_string()),
             ("V2".to_string(), "'b".to_string())
@@ -295,22 +271,19 @@ fn var_uses_region() {
 }
 
 #[test]
-fn var_drops_region() {
+fn drop_of_var_derefs_origin() {
     let program = r"
         placeholders { 'a, 'b, 'c }
-        var_uses_region {  }
-        var_drops_region { (V1, 'a) }
+        use_of_var_derefs_origin {  }
+        drop_of_var_derefs_origin { (V1, 'a) }
 
         block B0 {
-            var_defined(V1);
+            var_defined_at(V1);
         }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Drop of var derefs origin");
     assert_eq!(
-        input.var_drops_region,
+        input.drop_of_var_derefs_origin,
         [("V1".to_string(), "'a".to_string())]
     );
 }
@@ -321,10 +294,7 @@ fn known_subsets() {
         placeholders { 'a, 'b, 'c }
         known_subsets { 'a: 'b, 'b: 'c }
     ";
-    let input = parse_input(program);
-    assert!(input.is_ok());
-
-    let input = input.unwrap();
+    let input = parse_input(program).expect("Known subsets");
     assert_eq!(
         input.placeholders,
         vec![
