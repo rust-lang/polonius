@@ -104,7 +104,7 @@ fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
 
     let mut expected = FxHashMap::default();
     expected.insert(Point::from(24), vec![Loan::from(1)]);
-    expected.insert(Point::from(48), vec![Loan::from(2)]);
+    expected.insert(Point::from(50), vec![Loan::from(2)]);
 
     assert_equal(&insensitive.errors, &expected);
     Ok(())
@@ -172,7 +172,7 @@ fn send_is_not_static_std_sync() {
     let program = r"
         placeholders { }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), region_live_at('b);
+            borrow_region_at('a, L0), outlives('a: 'b), origin_live_on_entry('b);
         }
     ";
 
@@ -190,7 +190,7 @@ fn escape_upvar_nested() {
     let program = r"
         placeholders { }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c), region_live_at('c);
+            borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c), origin_live_on_entry('c);
         }
     ";
 
@@ -213,7 +213,7 @@ fn issue_31567() {
             outlives('a: 'b),
             outlives('b: 'c),
             outlives('c: 'd),
-            region_live_at('d);
+            origin_live_on_entry('d);
         }
     ";
 
@@ -328,7 +328,7 @@ fn var_live_in_single_block() {
         placeholders { }
 
         block B0 {
-            var_used(V1);
+            var_used_at(V1);
             goto B1;
         }
     ";
@@ -336,7 +336,7 @@ fn var_live_in_single_block() {
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
-    let liveness = Output::compute(&facts, Algorithm::Naive, true).var_live_at;
+    let liveness = Output::compute(&facts, Algorithm::Naive, true).var_live_on_entry;
     println!("Registered liveness data: {:?}", liveness);
     for (point, variables) in liveness.iter() {
         println!("{:?} has live variables: {:?}", point, variables);
@@ -363,14 +363,14 @@ fn var_live_in_successor_propagates_to_predecessor() {
 
         block B2 {
             invalidates(L0);
-            var_used(V1);
+            var_used_at(V1);
         }
     ";
 
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
-    let liveness = Output::compute(&facts, Algorithm::Naive, true).var_live_at;
+    let liveness = Output::compute(&facts, Algorithm::Naive, true).var_live_on_entry;
     println!("Registered liveness data: {:?}", liveness);
     println!("CFG: {:?}", facts.cfg_edge);
     for (point, variables) in liveness.iter() {
@@ -393,14 +393,14 @@ fn var_live_in_successor_killed_by_reassignment() {
         }
 
         block B1 {
-            var_defined(V1); // V1 dies
+            var_defined_at(V1); // V1 dies
             invalidates(L0);
             goto B2;
         }
 
         block B2 {
             invalidates(L0);
-            var_used(V1);
+            var_used_at(V1);
         }
     ";
 
@@ -409,7 +409,7 @@ fn var_live_in_successor_killed_by_reassignment() {
 
     let result = Output::compute(&facts, Algorithm::Naive, true);
     println!("result: {:#?}", result);
-    let liveness = result.var_live_at;
+    let liveness = result.var_live_on_entry;
     println!("CFG: {:#?}", facts.cfg_edge);
 
     let first_defined: Point = 3.into(); // Mid(B1[0])
@@ -454,14 +454,14 @@ fn var_drop_used_simple() {
         }
 
         block B1 {
-            var_defined(V1); // V1 dies
+            var_defined_at(V1); // V1 dies
             invalidates(L0);
             goto B2;
         }
 
         block B2 {
             invalidates(L0);
-            var_drop_used(V1);
+            var_dropped_at(V1);
         }
     ";
 
@@ -470,7 +470,7 @@ fn var_drop_used_simple() {
 
     let result = Output::compute(&facts, Algorithm::Naive, true);
     println!("result: {:#?}", result);
-    let liveness = result.var_drop_live_at;
+    let liveness = result.var_drop_live_on_entry;
     println!("CFG: {:#?}", facts.cfg_edge);
     let first_defined: Point = 3.into(); // Mid(B1[0])
 

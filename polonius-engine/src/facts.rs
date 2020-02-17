@@ -24,45 +24,48 @@ pub struct AllFacts<T: FactTypes> {
     /// `invalidates(point, loan)` when the `loan` is invalidated at `point`
     pub invalidates: Vec<(T::Point, T::Loan)>,
 
-    /// `var_used(var, point)` when the variable `var` is used for anything but a drop at `point`
-    pub var_used: Vec<(T::Variable, T::Point)>,
+    /// `var_used_at(var, point)` when the variable `var` is used for anything
+    /// but a drop at `point`
+    pub var_used_at: Vec<(T::Variable, T::Point)>,
 
-    /// `var_defined(var, point)` when the variable `var` is overwritten at `point`
-    pub var_defined: Vec<(T::Variable, T::Point)>,
+    /// `var_defined_at(var, point)` when the variable `var` is overwritten at `point`
+    pub var_defined_at: Vec<(T::Variable, T::Point)>,
 
-    /// `var_used(var, point)` when the variable `var` is used in a drop at `point`
-    pub var_drop_used: Vec<(T::Variable, T::Point)>,
+    /// `var_dropped_at(var, point)` when the variable `var` is used in a drop at `point`
+    pub var_dropped_at: Vec<(T::Variable, T::Point)>,
 
-    /// `var_uses_region(var, origin)` when the type of `var` includes the `origin`
-    pub var_uses_region: Vec<(T::Variable, T::Origin)>,
+    // `use_of_var_derefs_origin(variable, origin)`: References with the given
+    // `origin` may be dereferenced when the `variable` is used.
+    //
+    // In rustc, we generate this whenever the type of the variable includes the
+    // given origin.
+    pub use_of_var_derefs_origin: Vec<(T::Variable, T::Origin)>,
 
-    /// `var_drops_region(var, origin)` when the type of `var` includes the `origin` and uses
-    /// it when dropping
-    pub var_drops_region: Vec<(T::Variable, T::Origin)>,
+    /// `drop_of_var_derefs_origin(var, origin)` when the type of `var` includes
+    /// the `origin` and uses it when dropping
+    pub drop_of_var_derefs_origin: Vec<(T::Variable, T::Origin)>,
 
-    /// `child(path1, path2)` when the path `path1` is the direct or transitive child
-    /// of `path2`, e.g. `child(x.y, x)`, `child(x.y.z, x.y)`, `child(x.y.z, x)`
-    /// would all be true if there was a path like `x.y.z`.
-    pub child: Vec<(T::Path, T::Path)>,
+    /// `child_path(child, parent)` when the path `child` is the direct child of
+    /// `parent`, e.g. `child_path(x.y, x)`, but not `child_path(x.y.z, x)`.
+    pub child_path: Vec<(T::Path, T::Path)>,
 
-    /// `path_belongs_to_var(path, var)` the root path `path` starting in variable `var`.
-    pub path_belongs_to_var: Vec<(T::Path, T::Variable)>,
+    /// `path_is_var(path, var)` the root path `path` starting in variable `var`.
+    pub path_is_var: Vec<(T::Path, T::Variable)>,
 
-    /// `initialized_at(path, point)` when the `path` was initialized at point
+    /// `path_assigned_at(path, point)` when the `path` was initialized at point
     /// `point`. This fact is only emitted for a prefix `path`, and not for the
     /// implicit initialization of all of `path`'s children. E.g. a statement like
     /// `x.y = 3` at `point` would give the fact `initialized_at(x.y, point)` (but
     /// neither `initialized_at(x.y.z, point)` nor `initialized_at(x, point)`).
-    pub initialized_at: Vec<(T::Path, T::Point)>,
+    pub path_assigned_at_base: Vec<(T::Path, T::Point)>,
 
-    /// `moved_out_at(path, point)` when the `path` was moved at `point`. The
-    /// same logic is applied as for `initialized_at` above.
-    pub moved_out_at: Vec<(T::Path, T::Point)>,
+    /// `path_moved_at_base(path, point)` when the `path` was moved at `point`. The
+    /// same logic is applied as for `assigned_at` above.
+    pub path_moved_at_base: Vec<(T::Path, T::Point)>,
 
-    /// `path_accessed_at(path, point)` when the `path` was accessed at point
+    /// `path_accessed_at_base(path, point)` when the `path` was accessed at point
     /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
-    pub path_accessed_at: Vec<(T::Path, T::Point)>,
-
+    pub path_accessed_at_base: Vec<(T::Path, T::Point)>,
     /// These reflect the `'a: 'b` relations that are either declared by the user on function
     /// declarations or which are inferred via implied bounds.
     /// For example: `fn foo<'a, 'b: 'a, 'c>(x: &'c &'a u32)` would have two entries:
@@ -86,16 +89,16 @@ impl<T: FactTypes> Default for AllFacts<T> {
             killed: Vec::default(),
             outlives: Vec::default(),
             invalidates: Vec::default(),
-            var_used: Vec::default(),
-            var_defined: Vec::default(),
-            var_drop_used: Vec::default(),
-            var_uses_region: Vec::default(),
-            var_drops_region: Vec::default(),
-            child: Vec::default(),
-            path_belongs_to_var: Vec::default(),
-            initialized_at: Vec::default(),
-            moved_out_at: Vec::default(),
-            path_accessed_at: Vec::default(),
+            var_used_at: Vec::default(),
+            var_defined_at: Vec::default(),
+            var_dropped_at: Vec::default(),
+            use_of_var_derefs_origin: Vec::default(),
+            drop_of_var_derefs_origin: Vec::default(),
+            child_path: Vec::default(),
+            path_is_var: Vec::default(),
+            path_assigned_at_base: Vec::default(),
+            path_moved_at_base: Vec::default(),
+            path_accessed_at_base: Vec::default(),
             known_subset: Vec::default(),
             placeholder: Vec::default(),
         }

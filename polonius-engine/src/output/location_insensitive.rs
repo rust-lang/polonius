@@ -15,14 +15,14 @@ use crate::facts::FactTypes;
 use crate::output::{Context, Output};
 
 pub(super) fn compute<T: FactTypes>(
-    ctx: &Context<T>,
+    ctx: &Context<'_, T>,
     result: &mut Output<T>,
 ) -> Relation<(T::Loan, T::Point)> {
     let timer = Instant::now();
 
     let potential_errors = {
         // Static inputs
-        let region_live_at = &ctx.region_live_at;
+        let origin_live_on_entry = &ctx.origin_live_on_entry;
         let invalidates = &ctx.invalidates;
 
         // Create a new iteration context, ...
@@ -64,7 +64,7 @@ pub(super) fn compute<T: FactTypes>(
 
             // borrow_live_at(loan, point) :-
             //   requires(origin, loan),
-            //   region_live_at(origin, point)
+            //   origin_live_on_entry(origin, point)
             //
             // potential_errors(loan, point) :-
             //   invalidates(loan, point),
@@ -76,7 +76,7 @@ pub(super) fn compute<T: FactTypes>(
             potential_errors.from_leapjoin(
                 &requires,
                 (
-                    region_live_at.extend_with(|&(origin, _loan)| origin),
+                    origin_live_on_entry.extend_with(|&(origin, _loan)| origin),
                     invalidates.extend_with(|&(_origin, loan)| loan),
                 ),
                 |&(_origin, loan), &point| (loan, point),

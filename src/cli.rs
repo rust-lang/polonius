@@ -15,9 +15,9 @@ use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
 
-const PKG_NAME: &'static str = env!("CARGO_PKG_NAME");
-const PKG_VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const PKG_DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+const PKG_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 #[derive(Debug)]
 pub struct Options {

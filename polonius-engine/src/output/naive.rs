@@ -17,7 +17,7 @@ use crate::facts::FactTypes;
 use crate::output::{Context, Output};
 
 pub(super) fn compute<T: FactTypes>(
-    ctx: &Context<T>,
+    ctx: &Context<'_, T>,
     result: &mut Output<T>,
 ) -> (
     Relation<(T::Loan, T::Point)>,
@@ -27,7 +27,7 @@ pub(super) fn compute<T: FactTypes>(
 
     let (errors, subset_errors) = {
         // Static inputs
-        let region_live_at_rel = &ctx.region_live_at;
+        let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge_rel = &ctx.cfg_edge;
         let cfg_node = ctx.cfg_node;
         let killed_rel = &ctx.killed;
@@ -53,10 +53,10 @@ pub(super) fn compute<T: FactTypes>(
         // different index for `requires`.
         let requires_op = iteration.variable_indistinct("requires_op");
 
-        // we need `region_live_at` in both variable and relation forms.
+        // we need `origin_live_on_entry` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
-        let region_live_at_var =
-            iteration.variable::<((T::Origin, T::Point), ())>("region_live_at");
+        let origin_live_on_entry_var =
+            iteration.variable::<((T::Origin, T::Point), ())>("origin_live_on_entry");
 
         // output relations: illegal accesses errors, and illegal subset relations errors
         let errors = iteration.variable("errors");
@@ -70,8 +70,8 @@ pub(super) fn compute<T: FactTypes>(
                 .iter()
                 .map(|&(loan, point)| ((loan, point), ())),
         );
-        region_live_at_var.extend(
-            region_live_at_rel
+        origin_live_on_entry_var.extend(
+            origin_live_on_entry_rel
                 .iter()
                 .map(|&(origin, point)| ((origin, point), ())),
         );
@@ -131,14 +131,14 @@ pub(super) fn compute<T: FactTypes>(
             // subset(origin1, origin2, point2) :-
             //   subset(origin1, origin2, point1),
             //   cfg_edge(point1, point2),
-            //   region_live_at(origin1, point2),
-            //   region_live_at(origin2, point2).
+            //   origin_live_on_entry(origin1, point2),
+            //   origin_live_on_entry(origin2, point2).
             subset.from_leapjoin(
                 &subset,
                 (
                     cfg_edge_rel.extend_with(|&(_origin1, _origin2, point1)| point1),
-                    region_live_at_rel.extend_with(|&(origin1, _origin2, _point1)| origin1),
-                    region_live_at_rel.extend_with(|&(_origin1, origin2, _point1)| origin2),
+                    origin_live_on_entry_rel.extend_with(|&(origin1, _origin2, _point1)| origin1),
+                    origin_live_on_entry_rel.extend_with(|&(_origin1, origin2, _point1)| origin2),
                 ),
                 |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
@@ -159,23 +159,23 @@ pub(super) fn compute<T: FactTypes>(
             //   requires(origin, loan, point1),
             //   !killed(loan, point1),
             //   cfg_edge(point1, point2),
-            //   region_live_at(origin, point2).
+            //   origin_live_on_entry(origin, point2).
             requires.from_leapjoin(
                 &requires,
                 (
                     killed_rel.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
                     cfg_edge_rel.extend_with(|&(_origin, _loan, point1)| point1),
-                    region_live_at_rel.extend_with(|&(origin, _loan, _point1)| origin),
+                    origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin),
                 ),
                 |&(origin, loan, _point1), &point2| (origin, loan, point2),
             );
 
             // borrow_live_at(loan, point) :-
             //   requires(origin, loan, point),
-            //   region_live_at(origin, point).
+            //   origin_live_on_entry(origin, point).
             borrow_live_at.from_join(
                 &requires_op,
-                &region_live_at_var,
+                &origin_live_on_entry_var,
                 |&(_origin, point), &loan, _| ((loan, point), ()),
             );
 

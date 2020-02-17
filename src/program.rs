@@ -19,18 +19,18 @@ struct Facts {
     killed: BTreeSet<(Loan, Point)>,
     outlives: BTreeSet<(Origin, Origin, Point)>,
     invalidates: BTreeSet<(Point, Loan)>,
-    var_defined: BTreeSet<(Variable, Point)>,
-    var_used: BTreeSet<(Variable, Point)>,
-    var_drop_used: BTreeSet<(Variable, Point)>,
-    var_uses_region: BTreeSet<(Variable, Origin)>,
-    var_drops_region: BTreeSet<(Variable, Origin)>,
-    child: BTreeSet<(Path, Path)>,
-    path_belongs_to_var: BTreeSet<(Path, Variable)>,
-    initialized_at: BTreeSet<(Path, Point)>,
-    moved_out_at: BTreeSet<(Path, Point)>,
-    path_accessed_at: BTreeSet<(Path, Point)>,
     known_subset: BTreeSet<(Origin, Origin)>,
     placeholder: BTreeSet<(Origin, Loan)>,
+    var_defined_at: BTreeSet<(Variable, Point)>,
+    var_used_at: BTreeSet<(Variable, Point)>,
+    var_dropped_at: BTreeSet<(Variable, Point)>,
+    use_of_var_derefs_origin: BTreeSet<(Variable, Origin)>,
+    drop_of_var_derefs_origin: BTreeSet<(Variable, Origin)>,
+    child_path: BTreeSet<(Path, Path)>,
+    path_is_var: BTreeSet<(Path, Variable)>,
+    path_assigned_at_base: BTreeSet<(Path, Point)>,
+    path_moved_at_base: BTreeSet<(Path, Point)>,
+    path_accessed_at_base: BTreeSet<(Path, Point)>,
 }
 
 impl From<Facts> for AllFacts {
@@ -42,16 +42,16 @@ impl From<Facts> for AllFacts {
             killed: facts.killed.into_iter().collect(),
             outlives: facts.outlives.into_iter().collect(),
             invalidates: facts.invalidates.into_iter().collect(),
-            var_defined: facts.var_defined.into_iter().collect(),
-            var_used: facts.var_used.into_iter().collect(),
-            var_drop_used: facts.var_drop_used.into_iter().collect(),
-            var_uses_region: facts.var_uses_region.into_iter().collect(),
-            var_drops_region: facts.var_drops_region.into_iter().collect(),
-            child: facts.child.into_iter().collect(),
-            path_belongs_to_var: facts.path_belongs_to_var.into_iter().collect(),
-            initialized_at: facts.initialized_at.into_iter().collect(),
-            moved_out_at: facts.moved_out_at.into_iter().collect(),
-            path_accessed_at: facts.path_accessed_at.into_iter().collect(),
+            var_defined_at: facts.var_defined_at.into_iter().collect(),
+            var_used_at: facts.var_used_at.into_iter().collect(),
+            var_dropped_at: facts.var_dropped_at.into_iter().collect(),
+            use_of_var_derefs_origin: facts.use_of_var_derefs_origin.into_iter().collect(),
+            drop_of_var_derefs_origin: facts.drop_of_var_derefs_origin.into_iter().collect(),
+            child_path: facts.child_path.into_iter().collect(),
+            path_is_var: facts.path_is_var.into_iter().collect(),
+            path_assigned_at_base: facts.path_assigned_at_base.into_iter().collect(),
+            path_moved_at_base: facts.path_moved_at_base.into_iter().collect(),
+            path_accessed_at_base: facts.path_accessed_at_base.into_iter().collect(),
             known_subset: facts.known_subset.into_iter().collect(),
             placeholder: facts.placeholder.into_iter().collect(),
         }
@@ -86,22 +86,32 @@ pub(crate) fn parse_from_program(
         }));
 
     facts
-        .var_drops_region
-        .extend(input.var_drops_region.iter().map(|(variable, origin)| {
-            (
-                tables.variables.intern(variable),
-                tables.origins.intern(origin),
-            )
-        }));
+        .drop_of_var_derefs_origin
+        .extend(
+            input
+                .drop_of_var_derefs_origin
+                .iter()
+                .map(|(variable, origin)| {
+                    (
+                        tables.variables.intern(variable),
+                        tables.origins.intern(origin),
+                    )
+                }),
+        );
 
     facts
-        .var_uses_region
-        .extend(input.var_uses_region.iter().map(|(variable, origin)| {
-            (
-                tables.variables.intern(variable),
-                tables.origins.intern(origin),
-            )
-        }));
+        .use_of_var_derefs_origin
+        .extend(
+            input
+                .use_of_var_derefs_origin
+                .iter()
+                .map(|(variable, origin)| {
+                    (
+                        tables.variables.intern(variable),
+                        tables.origins.intern(origin),
+                    )
+                }),
+        );
 
     // facts: known_subset(Origin, Origin)
     facts.known_subset.extend(
@@ -228,18 +238,18 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.invalidates.insert((point, loan));
         }
 
-        // facts: var_defined(Variable, Point)
+        // facts: var_defined_at(Variable, Point)
         Fact::DefineVariable { ref variable } => {
-            // var_defined: a variable is overwritten here
+            // var_defined_at: a variable is overwritten here
             let variable = tables.variables.intern(variable);
-            facts.var_defined.insert((variable, point));
+            facts.var_defined_at.insert((variable, point));
         }
 
-        // facts: var_used(Variable, Point)
+        // facts: var_used_at(Variable, Point)
         Fact::UseVariable { ref variable } => {
-            // var_used: a variable is used here
+            // var_used_at: a variable is used here
             let variable = tables.variables.intern(variable);
-            facts.var_used.insert((variable, point));
+            facts.var_used_at.insert((variable, point));
         }
 
         _ => {}
@@ -263,7 +273,7 @@ mod tests {
                 invalidates(L0);
 
                 // 1:
-                invalidates(L1), region_live_at('d) / kill(L2);
+                invalidates(L1), origin_live_on_entry('d) / kill(L2);
 
                 // another comment
                 goto B1;

@@ -20,11 +20,17 @@ pub(crate) fn dump_output(
     output_dir: &Option<PathBuf>,
     intern: &InternerTables,
 ) -> io::Result<()> {
-    dump_rows(
-        &mut writer_for(output_dir, "errors")?,
-        intern,
-        &output.errors,
-    )?;
+    macro_rules! dump_output_fields {
+        ( $($field:ident),+ ) => {
+            $(dump_rows(
+                &mut writer_for(output_dir, stringify!($field))?,
+                intern,
+                &output.$field,
+            )?;)+
+        };
+    }
+
+    dump_output_fields![errors, move_errors];
 
     dump_rows(
         &mut writer_for(output_dir, "subset_errors")?,
@@ -33,61 +39,19 @@ pub(crate) fn dump_output(
     )?;
 
     if output.dump_enabled {
-        dump_rows(
-            &mut writer_for(output_dir, "restricts")?,
-            intern,
-            &output.restricts,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "restricts_anywhere")?,
-            intern,
-            &output.restricts_anywhere,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "region_live_at")?,
-            intern,
-            &output.region_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "invalidates")?,
-            intern,
-            &output.invalidates,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "borrow_live_at")?,
-            intern,
-            &output.borrow_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "subset_anywhere")?,
-            intern,
-            &output.subset_anywhere,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "var_live_at")?,
-            intern,
-            &output.var_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "var_drop_live_at")?,
-            intern,
-            &output.var_drop_live_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "path_maybe_initialized_at")?,
-            intern,
-            &output.path_maybe_initialized_at,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "var_maybe_initialized_on_exit")?,
-            intern,
-            &output.var_maybe_initialized_on_exit,
-        )?;
-        dump_rows(
-            &mut writer_for(output_dir, "known_contains")?,
-            intern,
-            &output.known_contains,
-        )?;
+        dump_output_fields![
+            restricts,
+            restricts_anywhere,
+            origin_live_on_entry,
+            invalidates,
+            borrow_live_at,
+            subset_anywhere,
+            known_contains,
+            var_live_on_entry,
+            var_drop_live_on_entry,
+            path_maybe_initialized_on_exit,
+            var_maybe_partly_initialized_on_exit
+        ];
     }
     return Ok(());
 
@@ -404,44 +368,44 @@ fn build_inputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            all_facts.var_used.iter().cloned(),
+            all_facts.var_used_at.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "var_used".to_string(),
+            "var_used_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            all_facts.var_defined.iter().cloned(),
+            all_facts.var_defined_at.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "var_defined".to_string(),
+            "var_defined_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            all_facts.var_drop_used.iter().cloned(),
+            all_facts.var_dropped_at.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "var_drop_used".to_string(),
+            "var_dropped_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            all_facts.initialized_at.iter().cloned(),
+            all_facts.path_assigned_at_base.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "initialized_at".to_string(),
+            "path_assigned_at_base".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            all_facts.moved_out_at.iter().cloned(),
+            all_facts.path_moved_at_base.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "moved_out_at".to_string(),
+            "moved_out_at_base".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            all_facts.path_accessed_at.iter().cloned(),
+            all_facts.path_accessed_at_base.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "path_accessed_at".to_string(),
+            "path_accessed_at_base".to_string(),
             1,
             intern,
         ),
@@ -482,37 +446,44 @@ fn build_outputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            output.var_live_at.iter(),
+            output.var_live_on_entry.iter(),
             |(point, var)| (*point, var.clone()),
-            "var_live_at".to_string(),
+            "var_live_on_entry".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            output.var_drop_live_at.iter(),
+            output.var_drop_live_on_entry.iter(),
             |(point, var)| (*point, var.clone()),
-            "var_drop_live_at".to_string(),
+            "var_drop_live_on_entry".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            output.region_live_at.iter(),
+            output.origin_live_on_entry.iter(),
             |(point, origin)| (*point, origin.clone()),
-            "region_live_at".to_string(),
+            "origin_live_on_entry".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            output.var_maybe_initialized_on_exit.iter(),
+            output.var_maybe_partly_initialized_on_exit.iter(),
             |(point, var)| (*point, var.clone()),
-            "var_maybe_initialized_on_exit".to_string(),
+            "var_maybe_partly_initialized_on_exit".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            output.path_maybe_initialized_at.iter(),
+            output.path_maybe_initialized_on_exit.iter(),
             |(point, path)| (*point, path.clone()),
-            "path_maybe_initialized_at".to_string(),
+            "path_maybe_initialized_on_exit".to_string(),
+            1,
+            intern,
+        ),
+        facts_by_point(
+            output.move_errors.iter(),
+            |(point, path)| (*point, path.clone()),
+            "move_errors".to_string(),
             1,
             intern,
         ),
@@ -668,7 +639,7 @@ impl Liveness {
 
         point_facts.extend(
             all_facts
-                .var_defined
+                .var_defined_at
                 .iter()
                 .filter(|&(_var, point)| *point == location)
                 .map(|&(var, point)| ("☠".to_string(), var, point)),
@@ -676,7 +647,7 @@ impl Liveness {
 
         point_facts.extend(
             all_facts
-                .var_drop_used
+                .var_dropped_at
                 .iter()
                 .filter(|&(_var, point)| *point == location)
                 .map(|&(var, point)| ("💧".to_string(), var, point)),
@@ -684,7 +655,7 @@ impl Liveness {
 
         point_facts.extend(
             all_facts
-                .var_used
+                .var_used_at
                 .iter()
                 .filter(|&(_var, point)| *point == location)
                 .map(|&(var, point)| ("🔧".to_string(), var, point)),
@@ -693,12 +664,12 @@ impl Liveness {
         Self {
             point_facts,
             use_live_vars: output
-                .var_live_at
+                .var_live_on_entry
                 .get(&location)
                 .map_or(HashSet::default(), |live| live.iter().cloned().collect()),
 
             drop_live_vars: output
-                .var_drop_live_at
+                .var_drop_live_on_entry
                 .get(&location)
                 .map_or(HashSet::default(), |live| live.iter().cloned().collect()),
             cfg_points: vec![location],
