@@ -73,8 +73,7 @@ fn move_reinitialize_ok() {
 pub fn conditional_init() {
     let a;
     if random() { a = 44; }
-    println!("{}", a);
-
+    println!("{}", a); //~ ERROR
 }
 
 fn main() {}
