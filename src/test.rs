@@ -688,3 +688,27 @@ fn successes_in_move_errors_dataset() {
         assert!(result.move_errors.is_empty());
     }
 }
+
+#[test]
+fn basic_move_error() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("smoke-test")
+        .join("nll-facts")
+        .join("basic_move_error");
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(result.errors.is_empty());
+    assert!(result.subset_errors.is_empty());
+
+    assert_eq!(result.move_errors.len(), 1);
+
+    let error_point = tables.points.intern("\"Start(bb9[20])\"");
+    let move_errors = result.move_errors.get(&error_point).unwrap();
+    assert_eq!(move_errors.len(), 1);
+
+    let error_path = tables.paths.intern("\"mp1\"");
+    assert_eq!(error_path, move_errors[0]);
+}
