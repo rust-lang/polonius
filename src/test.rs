@@ -665,3 +665,26 @@ fn errors_in_subset_relations_dataset() {
         assert!(subset_error.contains(&(origin_b, origin_a)));
     }
 }
+
+// There's only a single successful test in the dataset for now, but the structure of this test
+// will allow to add others, similarly to subset errors tests.
+#[test]
+fn successes_in_move_errors_dataset() {
+    let successes = ["move_reinitialize_ok"];
+
+    // these tests have no illegal access errors, no subset errors, and no move errors
+    for test_fn in &successes {
+        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("inputs")
+            .join("smoke-test")
+            .join("nll-facts")
+            .join(test_fn);
+        let tables = &mut intern::InternerTables::new();
+        let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+        let result = Output::compute(&facts, Algorithm::Naive, true);
+        assert!(result.errors.is_empty());
+        assert!(result.subset_errors.is_empty());
+        assert!(result.move_errors.is_empty());
+    }
+}
