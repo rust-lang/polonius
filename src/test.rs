@@ -712,3 +712,30 @@ fn basic_move_error() {
     let error_path = tables.paths.intern("\"mp1\"");
     assert_eq!(error_path, move_errors[0]);
 }
+
+#[test]
+fn conditional_init() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("smoke-test")
+        .join("nll-facts")
+        .join("conditional_init");
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(result.errors.is_empty());
+    assert!(result.subset_errors.is_empty());
+
+    assert_eq!(result.move_errors.len(), 2);
+
+    let error_point = tables.points.intern("\"Start(bb2[0])\"");
+    let move_errors = result.move_errors.get(&error_point).unwrap();
+    assert_eq!(move_errors.len(), 1);    
+    assert_eq!(move_errors[0], tables.paths.intern("\"mp3\""));
+
+    let error_point = tables.points.intern("\"Start(bb6[19])\"");
+    let move_errors = result.move_errors.get(&error_point).unwrap();
+    assert_eq!(move_errors.len(), 1);    
+    assert_eq!(move_errors[0], tables.paths.intern("\"mp1\""));
+}
