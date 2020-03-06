@@ -90,6 +90,20 @@ tests! {
     vec_push_ref_foo3("vec-push-ref", "foo3"),
 }
 
+// The `clap` dataset is an important benchmark, and slow enough that's it not checked in tests.
+// Therefore, this just tries loading the files, and if it fails, the dataset is missing required
+// files and needs regenerating
+#[test]
+fn smoke_test_ensuring_clap_facts_are_present() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("clap-rs")
+        .join("app-parser-{{impl}}-add_defaults");
+    let tables = &mut intern::InternerTables::new();
+    let _ = tab_delim::load_tab_delimited_facts(tables, &facts_dir)
+        .expect("If this fails, the clap dataset is invalid and needs to be regenerated");
+}
+
 #[test]
 fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
     let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -731,11 +745,11 @@ fn conditional_init() {
 
     let error_point = tables.points.intern("\"Start(bb2[0])\"");
     let move_errors = result.move_errors.get(&error_point).unwrap();
-    assert_eq!(move_errors.len(), 1);    
+    assert_eq!(move_errors.len(), 1);
     assert_eq!(move_errors[0], tables.paths.intern("\"mp3\""));
 
     let error_point = tables.points.intern("\"Start(bb6[19])\"");
     let move_errors = result.move_errors.get(&error_point).unwrap();
-    assert_eq!(move_errors.len(), 1);    
+    assert_eq!(move_errors.len(), 1);
     assert_eq!(move_errors[0], tables.paths.intern("\"mp1\""));
 }
