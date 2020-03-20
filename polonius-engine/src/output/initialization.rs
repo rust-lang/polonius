@@ -153,12 +153,7 @@ fn compute_move_errors<T: FactTypes>(
     path_maybe_initialized_on_exit.insert(ctx.path_assigned_at.clone());
 
     // path_maybe_uninitialized_on_exit(path, point) :- path_moved_at(path, point).
-    path_maybe_uninitialized_on_exit.insert(
-        ctx.path_moved_at
-            .iter()
-            .map(|&(path, point)| (path, point))
-            .collect(),
-    );
+    path_maybe_uninitialized_on_exit.insert(ctx.path_moved_at.clone());
 
     while iteration.changed() {
         // path_maybe_initialized_on_exit(path, point2) :-
