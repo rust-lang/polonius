@@ -61,7 +61,7 @@ fn compute_transitive_paths<T: FactTypes>(
     path_accessed_at.insert(path_accessed_at_base.into());
 
     // path_begins_with_var(Path, Var) :- path_is_var(Path, Var).
-    path_begins_with_var.insert(path_is_var.into_iter().collect());
+    path_begins_with_var.insert(path_is_var.into());
 
     while iteration.changed() {
         // ancestor_path(Grandparent, Child) :-
