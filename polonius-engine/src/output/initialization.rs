@@ -141,7 +141,7 @@ fn compute_move_errors<T: FactTypes>(
     // path through the CFG to Point such that `Path` has been moved out by the
     // time we arrive at `Point` without it being re-initialized for sure.
     let path_maybe_uninitialized_on_exit =
-        iteration.variable::<(T::Path, T::Point)>("path_maybe_deinitialized_on_exit");
+        iteration.variable::<(T::Path, T::Point)>("path_maybe_uninitialized_on_exit");
 
     // move_error(Path, Point): There is an access to `Path` at `Point`, but
     // `Path` is potentially moved (or never initialised).
@@ -175,7 +175,7 @@ fn compute_move_errors<T: FactTypes>(
         );
 
         // path_maybe_uninitialized_on_exit(path, point2) :-
-        //     path_maybe_uninitialized_exit(path, point1),
+        //     path_maybe_uninitialized_on_exit(path, point1),
         //     cfg_edge_(point1, point2)
         //     !path_assigned_at(point1, point2).
         path_maybe_uninitialized_on_exit.from_leapjoin(
