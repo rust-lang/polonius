@@ -136,6 +136,12 @@ fn test_sensitive_passes_issue_47680() -> Result<(), Box<dyn Error>> {
     let sensitive = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
 
     assert!(sensitive.errors.is_empty());
+
+    // This is a non-regression assert for the false positives which were triggered on this
+    // dataset: some move errors were reported due to an error in computing the ancestor
+    // path to track paths and subpaths moves and initialization.
+    assert!(sensitive.move_errors.is_empty());
+
     Ok(())
 }
 
