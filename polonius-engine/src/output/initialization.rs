@@ -206,12 +206,14 @@ fn compute_move_errors<T: FactTypes>(
         );
     }
 
-    for &(path, location) in path_maybe_initialized_on_exit.complete().iter() {
-        output
-            .path_maybe_initialized_on_exit
-            .entry(location)
-            .or_default()
-            .push(path);
+    if output.dump_enabled {
+        for &(path, location) in path_maybe_initialized_on_exit.complete().iter() {
+            output
+                .path_maybe_initialized_on_exit
+                .entry(location)
+                .or_default()
+                .push(path);
+        }
     }
 
     InitializationStatus {
