@@ -49,7 +49,7 @@ fn compute_transitive_paths<T: FactTypes>(
     let path_begins_with_var = iteration.variable::<(T::Path, T::Variable)>("path_begins_with_var");
 
     // ancestor_path(Parent, Child) :- child_path(Child, Parent).
-    ancestor_path.insert(child_path.iter().collect());
+    ancestor_path.extend(child_path.iter().map(|&(child, parent)| (parent, child)));
 
     // path_moved_at(Path, Point) :- path_moved_at_base(path, point).
     path_moved_at.insert(path_moved_at_base.into());
