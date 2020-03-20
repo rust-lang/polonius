@@ -51,26 +51,26 @@ fn compute_transitive_paths<T: FactTypes>(
     // ancestor_path(Parent, Child) :- child_path(Child, Parent).
     ancestor_path.extend(child_path.iter().map(|&(child, parent)| (parent, child)));
 
-    // path_moved_at(Path, Point) :- path_moved_at_base(path, point).
+    // path_moved_at(Path, Point) :- path_moved_at_base(Path, Point).
     path_moved_at.insert(path_moved_at_base.into());
 
-    // path_assigned_at(Path, Point) :- path_assigned_at_base(path, Point).
+    // path_assigned_at(Path, Point) :- path_assigned_at_base(Path, Point).
     path_assigned_at.insert(path_assigned_at_base.into());
 
-    // path_accessed_at(Path, Point) :- path_accessed_at_base(path, Point).
+    // path_accessed_at(Path, Point) :- path_accessed_at_base(Path, Point).
     path_accessed_at.insert(path_accessed_at_base.into());
 
     // path_begins_with_var(Path, Var) :- path_is_var(Path, Var).
     path_begins_with_var.insert(path_is_var.into_iter().collect());
 
     while iteration.changed() {
-        // ancestor(Grandparent, Child) :-
-        //    ancestor(Parent, Child),
-        //    child(Parent, Grandparent).
+        // ancestor_path(Grandparent, Child) :-
+        //    ancestor_path(Parent, Child),
+        //    child_path(Parent, Grandparent).
         ancestor_path.from_join(
             &ancestor_path,
             &child_path,
-            |&_mother, &daughter, &grandmother| (grandmother, daughter),
+            |&_parent, &child, &grandparent| (grandparent, child),
         );
 
         // moving a path moves its children
