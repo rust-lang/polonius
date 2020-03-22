@@ -169,6 +169,9 @@ impl<T: FactTypes> Output<T> {
             move_errors,
         ) = initialization::compute(initialization_ctx, &cfg_edge, &mut result);
 
+        // FIXME: move errors should prevent the computation from continuing: we can't compute
+        // liveness and analyze loans accurately when there are move errors, and should early
+        // return here.
         for &(path, location) in move_errors.iter() {
             result.move_errors.entry(location).or_default().push(path);
         }

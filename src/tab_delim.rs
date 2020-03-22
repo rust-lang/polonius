@@ -85,12 +85,7 @@ where
             .collect(),
 
         Err(e) => {
-            error!(
-                "Error opening file '{}': {}. Defaulting to empty relation",
-                path.display(),
-                e
-            );
-            Ok(Vec::new())
+            panic!("Error opening file '{}': {}", path.display(), e);
         }
     }
 }

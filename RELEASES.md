@@ -36,6 +36,10 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 
 # polonius-engine
 
+## v.0.12.1
+
+- fix an issue in tracking paths and subpaths in move/init analysis
+
 ## v.0.12.0
 
 - finish moving to the new terminology

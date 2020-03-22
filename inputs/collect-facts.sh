@@ -2,7 +2,7 @@
 
 RUSTC_RELEASE="stage1"
 RUSTC_ARGS="-Znll-facts -Zborrowck=mir"
-INPUT_FOLDERS=(issue-47680 smoke-test vec-push-ref)
+INPUT_FOLDERS=(issue-47680 smoke-test vec-push-ref subset-relations)
 
 for test_folder in "${INPUT_FOLDERS[@]}";
 do

@@ -90,6 +90,20 @@ tests! {
     vec_push_ref_foo3("vec-push-ref", "foo3"),
 }
 
+// The `clap` dataset is an important benchmark, and slow enough that's it not checked in tests.
+// Therefore, this just tries loading the files, and if it fails, the dataset is missing required
+// files and needs regenerating
+#[test]
+fn smoke_test_ensuring_clap_facts_are_present() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("clap-rs")
+        .join("app-parser-{{impl}}-add_defaults");
+    let tables = &mut intern::InternerTables::new();
+    let _ = tab_delim::load_tab_delimited_facts(tables, &facts_dir)
+        .expect("If this fails, the clap dataset is invalid and needs to be regenerated");
+}
+
 #[test]
 fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
     let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -122,6 +136,12 @@ fn test_sensitive_passes_issue_47680() -> Result<(), Box<dyn Error>> {
     let sensitive = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
 
     assert!(sensitive.errors.is_empty());
+
+    // This is a non-regression assert for the false positives which were triggered on this
+    // dataset: some move errors were reported due to an error in computing the ancestor
+    // path to track paths and subpaths moves and initialization.
+    assert!(sensitive.move_errors.is_empty());
+
     Ok(())
 }
 
@@ -664,4 +684,78 @@ fn errors_in_subset_relations_dataset() {
         // that is the subset error we should find
         assert!(subset_error.contains(&(origin_b, origin_a)));
     }
+}
+
+// There's only a single successful test in the dataset for now, but the structure of this test
+// will allow to add others, similarly to subset errors tests.
+#[test]
+fn successes_in_move_errors_dataset() {
+    let successes = ["move_reinitialize_ok"];
+
+    // these tests have no illegal access errors, no subset errors, and no move errors
+    for test_fn in &successes {
+        let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("inputs")
+            .join("smoke-test")
+            .join("nll-facts")
+            .join(test_fn);
+        let tables = &mut intern::InternerTables::new();
+        let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+        let result = Output::compute(&facts, Algorithm::Naive, true);
+        assert!(result.errors.is_empty());
+        assert!(result.subset_errors.is_empty());
+        assert!(result.move_errors.is_empty());
+    }
+}
+
+#[test]
+fn basic_move_error() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("smoke-test")
+        .join("nll-facts")
+        .join("basic_move_error");
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(result.errors.is_empty());
+    assert!(result.subset_errors.is_empty());
+
+    assert_eq!(result.move_errors.len(), 1);
+
+    let error_point = tables.points.intern("\"Start(bb9[20])\"");
+    let move_errors = result.move_errors.get(&error_point).unwrap();
+    assert_eq!(move_errors.len(), 1);
+
+    let error_path = tables.paths.intern("\"mp1\"");
+    assert_eq!(error_path, move_errors[0]);
+}
+
+#[test]
+fn conditional_init() {
+    let facts_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("inputs")
+        .join("smoke-test")
+        .join("nll-facts")
+        .join("conditional_init");
+    let tables = &mut intern::InternerTables::new();
+    let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
+
+    let result = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(result.errors.is_empty());
+    assert!(result.subset_errors.is_empty());
+
+    assert_eq!(result.move_errors.len(), 2);
+
+    let error_point = tables.points.intern("\"Start(bb2[0])\"");
+    let move_errors = result.move_errors.get(&error_point).unwrap();
+    assert_eq!(move_errors.len(), 1);
+    assert_eq!(move_errors[0], tables.paths.intern("\"mp3\""));
+
+    let error_point = tables.points.intern("\"Start(bb6[19])\"");
+    let move_errors = result.move_errors.get(&error_point).unwrap();
+    assert_eq!(move_errors.len(), 1);
+    assert_eq!(move_errors[0], tables.paths.intern("\"mp1\""));
 }

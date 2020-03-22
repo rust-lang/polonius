@@ -49,28 +49,28 @@ fn compute_transitive_paths<T: FactTypes>(
     let path_begins_with_var = iteration.variable::<(T::Path, T::Variable)>("path_begins_with_var");
 
     // ancestor_path(Parent, Child) :- child_path(Child, Parent).
-    ancestor_path.insert(child_path.iter().collect());
+    ancestor_path.extend(child_path.iter().map(|&(child, parent)| (parent, child)));
 
-    // path_moved_at(Path, Point) :- path_moved_at_base(path, point).
+    // path_moved_at(Path, Point) :- path_moved_at_base(Path, Point).
     path_moved_at.insert(path_moved_at_base.into());
 
-    // path_assigned_at(Path, Point) :- path_assigned_at_base(path, Point).
+    // path_assigned_at(Path, Point) :- path_assigned_at_base(Path, Point).
     path_assigned_at.insert(path_assigned_at_base.into());
 
-    // path_accessed_at(Path, Point) :- path_accessed_at_base(path, Point).
+    // path_accessed_at(Path, Point) :- path_accessed_at_base(Path, Point).
     path_accessed_at.insert(path_accessed_at_base.into());
 
     // path_begins_with_var(Path, Var) :- path_is_var(Path, Var).
-    path_begins_with_var.insert(path_is_var.into_iter().collect());
+    path_begins_with_var.insert(path_is_var.into());
 
     while iteration.changed() {
-        // ancestor(Grandparent, Child) :-
-        //    ancestor(Parent, Child),
-        //    child(Parent, Grandparent).
+        // ancestor_path(Grandparent, Child) :-
+        //    ancestor_path(Parent, Child),
+        //    child_path(Parent, Grandparent).
         ancestor_path.from_join(
             &ancestor_path,
             &child_path,
-            |&_mother, &daughter, &grandmother| (grandmother, daughter),
+            |&_parent, &child, &grandparent| (grandparent, child),
         );
 
         // moving a path moves its children
@@ -141,7 +141,7 @@ fn compute_move_errors<T: FactTypes>(
     // path through the CFG to Point such that `Path` has been moved out by the
     // time we arrive at `Point` without it being re-initialized for sure.
     let path_maybe_uninitialized_on_exit =
-        iteration.variable::<(T::Path, T::Point)>("path_maybe_deinitialized_on_exit");
+        iteration.variable::<(T::Path, T::Point)>("path_maybe_uninitialized_on_exit");
 
     // move_error(Path, Point): There is an access to `Path` at `Point`, but
     // `Path` is potentially moved (or never initialised).
@@ -153,12 +153,7 @@ fn compute_move_errors<T: FactTypes>(
     path_maybe_initialized_on_exit.insert(ctx.path_assigned_at.clone());
 
     // path_maybe_uninitialized_on_exit(path, point) :- path_moved_at(path, point).
-    path_maybe_uninitialized_on_exit.insert(
-        ctx.path_moved_at
-            .iter()
-            .map(|&(path, point)| (path, point))
-            .collect(),
-    );
+    path_maybe_uninitialized_on_exit.insert(ctx.path_moved_at.clone());
 
     while iteration.changed() {
         // path_maybe_initialized_on_exit(path, point2) :-
@@ -175,7 +170,7 @@ fn compute_move_errors<T: FactTypes>(
         );
 
         // path_maybe_uninitialized_on_exit(path, point2) :-
-        //     path_maybe_uninitialized_exit(path, point1),
+        //     path_maybe_uninitialized_on_exit(path, point1),
         //     cfg_edge_(point1, point2)
         //     !path_assigned_at(point1, point2).
         path_maybe_uninitialized_on_exit.from_leapjoin(
@@ -211,12 +206,14 @@ fn compute_move_errors<T: FactTypes>(
         );
     }
 
-    for &(path, location) in path_maybe_initialized_on_exit.complete().iter() {
-        output
-            .path_maybe_initialized_on_exit
-            .entry(location)
-            .or_default()
-            .push(path);
+    if output.dump_enabled {
+        for &(path, location) in path_maybe_initialized_on_exit.complete().iter() {
+            output
+                .path_maybe_initialized_on_exit
+                .entry(location)
+                .or_default()
+                .push(path);
+        }
     }
 
     InitializationStatus {
