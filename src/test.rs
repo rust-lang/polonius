@@ -725,7 +725,7 @@ fn basic_move_error() {
 
     assert_eq!(result.move_errors.len(), 1);
 
-    let error_point = tables.points.intern("\"Start(bb9[20])\"");
+    let error_point = tables.points.intern("\"Mid(bb9[20])\"");
     let move_errors = result.move_errors.get(&error_point).unwrap();
     assert_eq!(move_errors.len(), 1);
 
@@ -747,14 +747,9 @@ fn conditional_init() {
     assert!(result.errors.is_empty());
     assert!(result.subset_errors.is_empty());
 
-    assert_eq!(result.move_errors.len(), 2);
+    assert_eq!(result.move_errors.len(), 1);
 
-    let error_point = tables.points.intern("\"Start(bb2[0])\"");
-    let move_errors = result.move_errors.get(&error_point).unwrap();
-    assert_eq!(move_errors.len(), 1);
-    assert_eq!(move_errors[0], tables.paths.intern("\"mp3\""));
-
-    let error_point = tables.points.intern("\"Start(bb6[19])\"");
+    let error_point = tables.points.intern("\"Mid(bb6[19])\"");
     let move_errors = result.move_errors.get(&error_point).unwrap();
     assert_eq!(move_errors.len(), 1);
     assert_eq!(move_errors[0], tables.paths.intern("\"mp1\""));
