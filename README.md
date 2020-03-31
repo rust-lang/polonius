@@ -1,7 +1,8 @@
 This is a core library that models the borrow check. It implements the analysis
-[described in this blogpost][post].
+[described in this blogpost][post]. Details are [in the Polonius book][book].
 
 [post]: http://smallcultfollowing.com/babysteps/blog/2018/04/27/an-alias-based-formulation-of-the-borrow-checker/
+[book]: https://rust-lang.github.io/polonius/
 
 ### Why the name "Polonius"?
 
