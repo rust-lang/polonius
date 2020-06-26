@@ -50,6 +50,7 @@ pub(crate) fn dump_output(
             var_live_on_entry,
             var_drop_live_on_entry,
             path_maybe_initialized_on_exit,
+            path_maybe_uninitialized_on_exit,
             var_maybe_partly_initialized_on_exit
         ];
     }
