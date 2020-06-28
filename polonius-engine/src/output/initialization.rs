@@ -214,6 +214,14 @@ fn compute_move_errors<T: FactTypes>(
                 .or_default()
                 .push(path);
         }
+
+        for &(path, location) in path_maybe_uninitialized_on_exit.complete().iter() {
+            output
+                .path_maybe_uninitialized_on_exit
+                .entry(location)
+                .or_default()
+                .push(path);
+        }
     }
 
     InitializationStatus {

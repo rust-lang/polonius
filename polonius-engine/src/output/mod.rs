@@ -92,6 +92,7 @@ pub struct Output<T: FactTypes> {
     pub var_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
     pub var_drop_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
     pub path_maybe_initialized_on_exit: FxHashMap<T::Point, Vec<T::Path>>,
+    pub path_maybe_uninitialized_on_exit: FxHashMap<T::Point, Vec<T::Path>>,
     pub known_contains: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
     pub var_maybe_partly_initialized_on_exit: FxHashMap<T::Point, Vec<T::Variable>>,
 }
@@ -412,6 +413,7 @@ impl<T: FactTypes> Output<T> {
             var_live_on_entry: FxHashMap::default(),
             var_drop_live_on_entry: FxHashMap::default(),
             path_maybe_initialized_on_exit: FxHashMap::default(),
+            path_maybe_uninitialized_on_exit: FxHashMap::default(),
             var_maybe_partly_initialized_on_exit: FxHashMap::default(),
             known_contains: FxHashMap::default(),
         }
