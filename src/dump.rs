@@ -22,21 +22,22 @@ pub(crate) fn dump_output(
 ) -> io::Result<()> {
     macro_rules! dump_output_fields {
         ( $($field:ident),+ ) => {
-            $(dump_rows(
-                &mut writer_for(output_dir, stringify!($field))?,
-                intern,
-                &output.$field,
-            )?;)+
+            $({
+                let (name, mut write) = writer_for(output_dir, stringify!($field))?;
+                dump_rows(
+                    name,
+                    &mut write,
+                    intern,
+                    &output.$field,
+                )?;
+            })+
         };
     }
 
     dump_output_fields![errors, move_errors];
 
-    dump_rows(
-        &mut writer_for(output_dir, "subset_errors")?,
-        intern,
-        &output.subset_errors,
-    )?;
+    let (name, mut write) = writer_for(output_dir, "subset_errors")?;
+    dump_rows(name, &mut write, intern, &output.subset_errors)?;
 
     if output.dump_enabled {
         dump_output_fields![
@@ -56,7 +57,10 @@ pub(crate) fn dump_output(
     }
     return Ok(());
 
-    fn writer_for(out_dir: &Option<PathBuf>, name: &str) -> io::Result<Box<dyn Write>> {
+    fn writer_for(
+        out_dir: &Option<PathBuf>,
+        name: &str,
+    ) -> io::Result<(Option<String>, Box<dyn Write>)> {
         // create a writer for the provided output.
         // If we have an output directory use that, otherwise just dump to stdout
         use std::fs;
@@ -66,12 +70,12 @@ pub(crate) fn dump_output(
                 fs::create_dir_all(&dir)?;
                 let mut of = dir.join(name);
                 of.set_extension("facts");
-                Box::new(fs::File::create(of)?)
+                (None, Box::new(fs::File::create(of)?))
             }
             None => {
                 let mut stdout = io::stdout();
-                write!(&mut stdout, "# {}\n\n", name)?;
-                Box::new(stdout)
+                write!(&mut stdout, "# {}\n", name)?;
+                (Some(name.to_string()), Box::new(stdout))
             }
         })
     }
@@ -87,6 +91,7 @@ trait OutputDump {
 }
 
 fn dump_rows(
+    name: Option<String>,
     stream: &mut dyn Write,
     intern: &InternerTables,
     value: &impl OutputDump,
@@ -112,6 +117,9 @@ fn dump_rows(
         }
         string.push_str(last);
 
+        if let Some(ref name) = name {
+            write!(stream, "{} ", name)?;
+        }
         writeln!(stream, "{}", string)?;
     }
 
