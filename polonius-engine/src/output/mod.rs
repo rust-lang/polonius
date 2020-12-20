@@ -211,11 +211,11 @@ impl<T: FactTypes> Output<T> {
         //
         // Note: if rustc and polonius had more interaction, we could also delay or avoid
         // generating some of the facts that are now always present here. For example,
-        // the `LocationInsensitive` variant doesn't use the `loan_killed_at` or `loan_invalidated_at`
-        // relations, so we could technically delay passing them from rustc, when
-        // using this or the `Hybrid` variant, to after the pre-pass has made sure
-        // we actually need to compute the full analysis. If these facts happened to
-        // be recorded in separate MIR walks, we might also avoid generating those facts.
+        // the `LocationInsensitive` variant doesn't use the `loan_killed_at` relation, so we could
+        // technically delay computing and passing it from rustc, when using this or the `Hybrid`
+        // variants, to after the pre-pass has made sure we actually need to compute the full
+        // analysis. If these facts happened to be recorded in separate MIR walks, we might also
+        // avoid generating those facts.
 
         let origin_live_on_entry = origin_live_on_entry.into();
 

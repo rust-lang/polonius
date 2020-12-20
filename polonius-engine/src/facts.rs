@@ -18,7 +18,7 @@ pub struct AllFacts<T: FactTypes> {
 
     /// `loan_killed_at(loan, point)` when some prefix of the path borrowed at `loan`
     /// is assigned at `point`.
-    /// Indicates that the path borrowed by the `loan` has changed in some way that the loan no 
+    /// Indicates that the path borrowed by the `loan` has changed in some way that the loan no
     /// longer needs to be tracked. (In particular, mutations to the path that was borrowed
     /// no longer invalidate the loan)
     pub loan_killed_at: Vec<(T::Loan, T::Point)>,
@@ -72,6 +72,7 @@ pub struct AllFacts<T: FactTypes> {
     /// `path_accessed_at_base(path, point)` when the `path` was accessed at point
     /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
     pub path_accessed_at_base: Vec<(T::Path, T::Point)>,
+
     /// These reflect the `'a: 'b` relations that are either declared by the user on function
     /// declarations or which are inferred via implied bounds.
     /// For example: `fn foo<'a, 'b: 'a, 'c>(x: &'c &'a u32)` would have two entries:

@@ -30,7 +30,8 @@ pub(super) fn compute<T: FactTypes>(
         let mut iteration = Iteration::new();
 
         // `loan_invalidated_at` facts, stored ready for joins
-        let loan_invalidated_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
+        let loan_invalidated_at =
+            iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
 
         // we need `origin_live_on_entry` in both variable and relation forms,
         // (respectively, for join and antijoin).
@@ -369,9 +370,11 @@ pub(super) fn compute<T: FactTypes>(
             // errors(loan, point) :-
             //   loan_invalidated_at(loan, point),
             //   borrow_live_at(loan, point).
-            errors.from_join(&loan_invalidated_at, &borrow_live_at, |&(loan, point), _, _| {
-                (loan, point)
-            });
+            errors.from_join(
+                &loan_invalidated_at,
+                &borrow_live_at,
+                |&(loan, point), _, _| (loan, point),
+            );
         }
 
         if result.dump_enabled {
