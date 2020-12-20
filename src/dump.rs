@@ -349,9 +349,9 @@ fn build_inputs_by_point_for_visualization(
 ) -> Vec<HashMap<Point, String>> {
     vec![
         facts_by_point(
-            all_facts.borrow_region.iter().cloned(),
+            all_facts.loan_issued_at.iter().cloned(),
             |(origin, loan, point)| (point, (origin, loan)),
-            "borrow_region".to_string(),
+            "loan_issued_at".to_string(),
             2,
             intern,
         ),

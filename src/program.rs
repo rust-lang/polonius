@@ -13,7 +13,7 @@ use crate::intern::InternerTables;
 /// A structure to hold and deduplicate facts
 #[derive(Default)]
 struct Facts {
-    borrow_region: BTreeSet<(Origin, Loan, Point)>,
+    loan_issued_at: BTreeSet<(Origin, Loan, Point)>,
     universal_region: BTreeSet<Origin>,
     cfg_edge: BTreeSet<(Point, Point)>,
     killed: BTreeSet<(Loan, Point)>,
@@ -36,7 +36,7 @@ struct Facts {
 impl From<Facts> for AllFacts {
     fn from(facts: Facts) -> Self {
         Self {
-            borrow_region: facts.borrow_region.into_iter().collect(),
+            loan_issued_at: facts.loan_issued_at.into_iter().collect(),
             universal_region: facts.universal_region.into_iter().collect(),
             cfg_edge: facts.cfg_edge.into_iter().collect(),
             killed: facts.killed.into_iter().collect(),
@@ -203,16 +203,16 @@ pub(crate) fn parse_from_program(
 
 fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut InternerTables) {
     match fact {
-        // facts: borrow_region(Origin, Loan, Point)
+        // facts: loan_issued_at(Origin, Loan, Point)
         Fact::BorrowRegionAt {
             ref origin,
             ref loan,
         } => {
-            // borrow_region: a `borrow_region` occurs on the Mid point
+            // loan_issued_at: a `loan_issued_at` occurs on the Mid point
             let origin = tables.origins.intern(origin);
             let loan = tables.loans.intern(loan);
 
-            facts.borrow_region.insert((origin, loan, point));
+            facts.loan_issued_at.insert((origin, loan, point));
         }
 
         // facts: outlives(Origin, Origin, Point)
@@ -359,11 +359,11 @@ mod tests {
             assert_eq!(point, "\"Mid(B1[0])\"");
         }
 
-        assert_eq!(facts.borrow_region.len(), 1);
+        assert_eq!(facts.loan_issued_at.len(), 1);
         {
-            let origin = tables.origins.untern(facts.borrow_region[0].0);
-            let loan = tables.loans.untern(facts.borrow_region[0].1);
-            let point = tables.points.untern(facts.borrow_region[0].2);
+            let origin = tables.origins.untern(facts.loan_issued_at[0].0);
+            let loan = tables.loans.untern(facts.loan_issued_at[0].1);
+            let point = tables.points.untern(facts.loan_issued_at[0].2);
 
             assert_eq!(origin, "'b");
             assert_eq!(loan, "L1");

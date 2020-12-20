@@ -4,10 +4,11 @@ use std::hash::Hash;
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
 pub struct AllFacts<T: FactTypes> {
-    /// `borrow_region(origin, loan, point)` -- the `origin` may refer to data
-    /// from `loan` starting at `point` (this is usually the
-    /// point *after* a borrow rvalue)
-    pub borrow_region: Vec<(T::Origin, T::Loan, T::Point)>,
+    /// `loan_issued_at(origin, loan, point)` indicates that the `loan` was "issued"
+    /// at the given `point`, creating a reference with the `origin`.
+    /// Effectively, `origin` may refer to data from `loan` starting at `point` (this is usually
+    /// the point *after* a borrow rvalue).
+    pub loan_issued_at: Vec<(T::Origin, T::Loan, T::Point)>,
 
     /// `universal_region(origin)` -- this is a "free region" within fn body
     pub universal_region: Vec<T::Origin>,
@@ -83,7 +84,7 @@ pub struct AllFacts<T: FactTypes> {
 impl<T: FactTypes> Default for AllFacts<T> {
     fn default() -> Self {
         AllFacts {
-            borrow_region: Vec::default(),
+            loan_issued_at: Vec::default(),
             universal_region: Vec::default(),
             cfg_edge: Vec::default(),
             killed: Vec::default(),

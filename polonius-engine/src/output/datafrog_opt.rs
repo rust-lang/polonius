@@ -37,9 +37,9 @@ pub(super) fn compute<T: FactTypes>(
         let origin_live_on_entry_var =
             iteration.variable::<((T::Origin, T::Point), ())>("origin_live_on_entry");
 
-        // `borrow_region` input but organized for join
-        let borrow_region_op =
-            iteration.variable::<((T::Origin, T::Point), T::Loan)>("borrow_region_op");
+        // `loan_issued_at` input but organized for join
+        let loan_issued_at_op =
+            iteration.variable::<((T::Origin, T::Point), T::Loan)>("loan_issued_at_op");
 
         // .decl subset(origin1, origin2, point)
         //
@@ -127,8 +127,8 @@ pub(super) fn compute<T: FactTypes>(
         let errors = iteration.variable("errors");
 
         // Make "variable" versions of the relations, needed for joins.
-        borrow_region_op.extend(
-            ctx.borrow_region
+        loan_issued_at_op.extend(
+            ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
         );
@@ -150,9 +150,9 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin1, origin2, point)| ((origin1, point), origin2)),
         );
 
-        // requires(origin, loan, point) :- borrow_region(origin, loan, point).
+        // requires(origin, loan, point) :- loan_issued_at(origin, loan, point).
         requires_op.extend(
-            ctx.borrow_region
+            ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
         );
@@ -314,10 +314,10 @@ pub(super) fn compute<T: FactTypes>(
             );
 
             // dead_borrow_region_can_reach_root((origin, point), loan) :-
-            //   borrow_region(origin, loan, point),
+            //   loan_issued_at(origin, loan, point),
             //   !origin_live_on_entry(origin, point).
             dead_borrow_region_can_reach_root.from_antijoin(
-                &borrow_region_op,
+                &loan_issued_at_op,
                 &origin_live_on_entry_rel,
                 |&(origin, point), &loan| ((origin, point), loan),
             );

@@ -64,7 +64,7 @@ pub(super) fn compute<T: FactTypes>(
 
         // load initial facts.
         subset.extend(ctx.outlives.iter());
-        requires.extend(ctx.borrow_region.iter());
+        requires.extend(ctx.loan_issued_at.iter());
         invalidates.extend(
             ctx.invalidates
                 .iter()
@@ -143,8 +143,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
 
-            // requires(origin, loan, point) :- borrow_region(origin, loan, point).
-            // Already loaded; borrow_region is static.
+            // requires(origin, loan, point) :- loan_issued_at(origin, loan, point).
+            // Already loaded; `loan_issued_at` is static.
 
             // requires(origin2, loan, point) :-
             //   requires(origin1, loan, point),

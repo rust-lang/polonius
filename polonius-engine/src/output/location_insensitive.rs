@@ -43,9 +43,9 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin1, origin2, _point)| (origin1, origin2)),
         );
 
-        // requires(origin, loan) :- borrow_region(origin, loan, _point).
+        // requires(origin, loan) :- loan_issued_at(origin, loan, _point).
         requires.extend(
-            ctx.borrow_region
+            ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, _point)| (origin, loan)),
         );

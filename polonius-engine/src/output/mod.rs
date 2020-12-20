@@ -123,7 +123,7 @@ struct Context<'ctx, T: FactTypes> {
 
     // static inputs used via `Variable`s, by all variants
     outlives: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
-    borrow_region: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
+    loan_issued_at: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
 
     // static inputs used by variants other than `LocationInsensitive`
     cfg_node: &'ctx BTreeSet<T::Point>,
@@ -261,7 +261,7 @@ impl<T: FactTypes> Output<T> {
             cfg_edge,
             cfg_node: &cfg_node,
             outlives: &all_facts.outlives,
-            borrow_region: &all_facts.borrow_region,
+            loan_issued_at: &all_facts.loan_issued_at,
             killed,
             known_contains,
             placeholder_origin,
