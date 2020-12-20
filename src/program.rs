@@ -18,7 +18,7 @@ struct Facts {
     cfg_edge: BTreeSet<(Point, Point)>,
     loan_killed_at: BTreeSet<(Loan, Point)>,
     outlives: BTreeSet<(Origin, Origin, Point)>,
-    invalidates: BTreeSet<(Point, Loan)>,
+    loan_invalidated_at: BTreeSet<(Point, Loan)>,
     known_subset: BTreeSet<(Origin, Origin)>,
     placeholder: BTreeSet<(Origin, Loan)>,
     var_defined_at: BTreeSet<(Variable, Point)>,
@@ -41,7 +41,7 @@ impl From<Facts> for AllFacts {
             cfg_edge: facts.cfg_edge.into_iter().collect(),
             loan_killed_at: facts.loan_killed_at.into_iter().collect(),
             outlives: facts.outlives.into_iter().collect(),
-            invalidates: facts.invalidates.into_iter().collect(),
+            loan_invalidated_at: facts.loan_invalidated_at.into_iter().collect(),
             var_defined_at: facts.var_defined_at.into_iter().collect(),
             var_used_at: facts.var_used_at.into_iter().collect(),
             var_dropped_at: facts.var_dropped_at.into_iter().collect(),
@@ -189,7 +189,7 @@ pub(crate) fn parse_from_program(
                 };
             }
 
-            // commonly used to emit manual `invalidates` at Start points, like some rustc features do
+            // commonly used to emit manual `loan_invalidated_at` at Start points, like some rustc features do
             for effect in &statement.effects_start {
                 if let Effect::Fact(ref fact) = effect {
                     emit_fact(&mut facts, fact, start, tables);
@@ -231,11 +231,11 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.loan_killed_at.insert((loan, point));
         }
 
-        // facts: invalidates(Point, Loan)
+        // facts: loan_invalidated_at(Point, Loan)
         Fact::Invalidates { ref loan } => {
             let loan = tables.loans.intern(loan);
-            // invalidates: a loan can be invalidated on both Start and Mid points
-            facts.invalidates.insert((point, loan));
+            // loan_invalidated_at: a loan can be invalidated on both Start and Mid points
+            facts.loan_invalidated_at.insert((point, loan));
         }
 
         // facts: var_defined_at(Variable, Point)
@@ -328,21 +328,21 @@ mod tests {
             ]
         );
 
-        // facts: invalidates
-        assert_eq!(facts.invalidates.len(), 2);
+        // facts: loan_invalidated_at
+        assert_eq!(facts.loan_invalidated_at.len(), 2);
         {
-            // regular mid point `invalidates`
-            let point = tables.points.untern(facts.invalidates[0].0);
-            let loan = tables.loans.untern(facts.invalidates[0].1);
+            // regular mid point `loan_invalidated_at`
+            let point = tables.points.untern(facts.loan_invalidated_at[0].0);
+            let loan = tables.loans.untern(facts.loan_invalidated_at[0].1);
 
             assert_eq!(point, "\"Mid(B0[0])\"");
             assert_eq!(loan, "L0");
         }
 
         {
-            // uncommon start point `invalidates`
-            let point = tables.points.untern(facts.invalidates[1].0);
-            let loan = tables.loans.untern(facts.invalidates[1].1);
+            // uncommon start point `loan_invalidated_at`
+            let point = tables.points.untern(facts.loan_invalidated_at[1].0);
+            let loan = tables.loans.untern(facts.loan_invalidated_at[1].1);
 
             assert_eq!(point, "\"Start(B0[1])\"");
             assert_eq!(loan, "L1");

@@ -38,7 +38,7 @@ pub(crate) fn load_tab_delimited_facts(
             cfg_edge,
             loan_killed_at,
             outlives,
-            invalidates,
+            loan_invalidated_at,
             var_defined_at,
             var_used_at,
             var_dropped_at,

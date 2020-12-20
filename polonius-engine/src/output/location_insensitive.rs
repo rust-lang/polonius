@@ -23,7 +23,7 @@ pub(super) fn compute<T: FactTypes>(
     let potential_errors = {
         // Static inputs
         let origin_live_on_entry = &ctx.origin_live_on_entry;
-        let invalidates = &ctx.invalidates;
+        let loan_invalidated_at = &ctx.loan_invalidated_at;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -67,7 +67,7 @@ pub(super) fn compute<T: FactTypes>(
             //   origin_live_on_entry(origin, point)
             //
             // potential_errors(loan, point) :-
-            //   invalidates(loan, point),
+            //   loan_invalidated_at(loan, point),
             //   borrow_live_at(loan, point).
             //
             // Note: we don't need to materialize `borrow_live_at` here
@@ -77,7 +77,7 @@ pub(super) fn compute<T: FactTypes>(
                 &requires,
                 (
                     origin_live_on_entry.extend_with(|&(origin, _loan)| origin),
-                    invalidates.extend_with(|&(_origin, loan)| loan),
+                    loan_invalidated_at.extend_with(|&(_origin, loan)| loan),
                 ),
                 |&(_origin, loan), &point| (loan, point),
             );

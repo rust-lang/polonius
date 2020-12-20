@@ -43,8 +43,8 @@ pub(super) fn compute<T: FactTypes>(
         let requires = iteration.variable::<(T::Origin, T::Loan, T::Point)>("requires");
         let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
 
-        // `invalidates` facts, stored ready for joins
-        let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
+        // `loan_invalidated_at` facts, stored ready for joins
+        let loan_invalidated_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
 
         // different indices for `subset`.
         let subset_o1p = iteration.variable_indistinct("subset_o1p");
@@ -65,8 +65,8 @@ pub(super) fn compute<T: FactTypes>(
         // load initial facts.
         subset.extend(ctx.outlives.iter());
         requires.extend(ctx.loan_issued_at.iter());
-        invalidates.extend(
-            ctx.invalidates
+        loan_invalidated_at.extend(
+            ctx.loan_invalidated_at
                 .iter()
                 .map(|&(loan, point)| ((loan, point), ())),
         );
@@ -180,9 +180,9 @@ pub(super) fn compute<T: FactTypes>(
             );
 
             // errors(loan, point) :-
-            //   invalidates(loan, point),
+            //   loan_invalidated_at(loan, point),
             //   borrow_live_at(loan, point).
-            errors.from_join(&invalidates, &borrow_live_at, |&(loan, point), _, _| {
+            errors.from_join(&loan_invalidated_at, &borrow_live_at, |&(loan, point), _, _| {
                 (loan, point)
             });
 

@@ -26,8 +26,9 @@ pub struct AllFacts<T: FactTypes> {
     /// `outlives(origin1, origin2, point)` when we require `origin1@point: origin2@point`
     pub outlives: Vec<(T::Origin, T::Origin, T::Point)>,
 
-    /// `invalidates(point, loan)` when the `loan` is invalidated at `point`
-    pub invalidates: Vec<(T::Point, T::Loan)>,
+    /// `loan_invalidated_at(point, loan)` indicates that the `loan` is invalidated by some action
+    /// taking place at `point`; if any origin that references this loan is live, this is an error.
+    pub loan_invalidated_at: Vec<(T::Point, T::Loan)>,
 
     /// `var_used_at(var, point)` when the variable `var` is used for anything
     /// but a drop at `point`
@@ -93,7 +94,7 @@ impl<T: FactTypes> Default for AllFacts<T> {
             cfg_edge: Vec::default(),
             loan_killed_at: Vec::default(),
             outlives: Vec::default(),
-            invalidates: Vec::default(),
+            loan_invalidated_at: Vec::default(),
             var_used_at: Vec::default(),
             var_defined_at: Vec::default(),
             var_dropped_at: Vec::default(),
