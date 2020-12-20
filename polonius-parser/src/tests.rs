@@ -64,7 +64,7 @@ fn effects() {
         placeholders { 'a, 'b, 'c }
         block B0 {
             use('a), outlives('a: 'b), loan_issued_at('b, L1);
-            kill(L2);
+            loan_killed_at(L2);
             invalidates(L0);
         }
     ";
@@ -102,7 +102,7 @@ fn effects() {
     let effects = &statements[1].effects;
     assert_eq!(
         effects[0],
-        Effect::Fact(Fact::Kill {
+        Effect::Fact(Fact::LoanKilledAt {
             loan: "L2".to_string()
         })
     );
@@ -190,7 +190,7 @@ fn complete_example() {
             invalidates(L0);
 
             // 1:
-            kill(L2);
+            loan_killed_at(L2);
 
             invalidates(L1) / use('a, 'b);
 

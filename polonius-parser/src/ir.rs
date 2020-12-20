@@ -61,7 +61,7 @@ pub enum Fact {
     Outlives { a: String, b: String },
     LoanIssuedAt { origin: String, loan: String },
     Invalidates { loan: String },
-    Kill { loan: String },
+    LoanKilledAt { loan: String },
     OriginLiveOnEntry { origin: String },
     DefineVariable { variable: String },
     UseVariable { variable: String },

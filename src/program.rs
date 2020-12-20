@@ -225,7 +225,7 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
         }
 
         // facts: loan_killed_at(Loan, Point)
-        Fact::Kill { ref loan } => {
+        Fact::LoanKilledAt { ref loan } => {
             // loan_killed_at: a loan is killed on Mid points
             let loan = tables.loans.intern(loan);
             facts.loan_killed_at.insert((loan, point));
@@ -273,7 +273,7 @@ mod tests {
                 invalidates(L0);
 
                 // 1:
-                invalidates(L1), origin_live_on_entry('d) / kill(L2);
+                invalidates(L1), origin_live_on_entry('d) / loan_killed_at(L2);
 
                 // another comment
                 goto B1;
