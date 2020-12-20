@@ -23,8 +23,10 @@ pub struct AllFacts<T: FactTypes> {
     /// no longer invalidate the loan)
     pub loan_killed_at: Vec<(T::Loan, T::Point)>,
 
-    /// `outlives(origin1, origin2, point)` when we require `origin1@point: origin2@point`
-    pub outlives: Vec<(T::Origin, T::Origin, T::Point)>,
+    /// `subset_base(origin1, origin2, point)` when we require `origin1@point: origin2@point`.
+    /// Indicates that `origin1 <= origin2` -- i.e., the set of loans in `origin1` are a subset
+    // of those in `origin2`.
+    pub subset_base: Vec<(T::Origin, T::Origin, T::Point)>,
 
     /// `loan_invalidated_at(point, loan)` indicates that the `loan` is invalidated by some action
     /// taking place at `point`; if any origin that references this loan is live, this is an error.
@@ -94,7 +96,7 @@ impl<T: FactTypes> Default for AllFacts<T> {
             universal_region: Vec::default(),
             cfg_edge: Vec::default(),
             loan_killed_at: Vec::default(),
-            outlives: Vec::default(),
+            subset_base: Vec::default(),
             loan_invalidated_at: Vec::default(),
             var_used_at: Vec::default(),
             var_defined_at: Vec::default(),

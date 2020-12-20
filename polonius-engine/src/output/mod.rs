@@ -122,7 +122,7 @@ struct Context<'ctx, T: FactTypes> {
     loan_invalidated_at: Relation<(T::Loan, T::Point)>,
 
     // static inputs used via `Variable`s, by all variants
-    outlives: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
+    subset_base: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
     loan_issued_at: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
 
     // static inputs used by variants other than `LocationInsensitive`
@@ -260,7 +260,7 @@ impl<T: FactTypes> Output<T> {
             loan_invalidated_at,
             cfg_edge,
             cfg_node: &cfg_node,
-            outlives: &all_facts.outlives,
+            subset_base: &all_facts.subset_base,
             loan_issued_at: &all_facts.loan_issued_at,
             loan_killed_at,
             known_contains,

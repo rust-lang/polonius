@@ -66,7 +66,7 @@ pub(super) fn compute<T: FactTypes>(
         let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
 
         // load initial facts.
-        subset.extend(ctx.outlives.iter());
+        subset.extend(ctx.subset_base.iter());
         origin_contains_loan_on_entry.extend(ctx.loan_issued_at.iter());
         loan_invalidated_at.extend(
             ctx.loan_invalidated_at
@@ -123,8 +123,8 @@ pub(super) fn compute<T: FactTypes>(
                 });
 
             // subset(origin1, origin2, point) :-
-            //   outlives(origin1, origin2, point).
-            // Already loaded; `outlives` is static.
+            //   subset_base(origin1, origin2, point).
+            // Already loaded; `subset_base` is static.
 
             // subset(origin1, origin3, point) :-
             //   subset(origin1, origin2, point),

@@ -17,7 +17,7 @@ struct Facts {
     universal_region: BTreeSet<Origin>,
     cfg_edge: BTreeSet<(Point, Point)>,
     loan_killed_at: BTreeSet<(Loan, Point)>,
-    outlives: BTreeSet<(Origin, Origin, Point)>,
+    subset_base: BTreeSet<(Origin, Origin, Point)>,
     loan_invalidated_at: BTreeSet<(Point, Loan)>,
     known_subset: BTreeSet<(Origin, Origin)>,
     placeholder: BTreeSet<(Origin, Loan)>,
@@ -40,7 +40,7 @@ impl From<Facts> for AllFacts {
             universal_region: facts.universal_region.into_iter().collect(),
             cfg_edge: facts.cfg_edge.into_iter().collect(),
             loan_killed_at: facts.loan_killed_at.into_iter().collect(),
-            outlives: facts.outlives.into_iter().collect(),
+            subset_base: facts.subset_base.into_iter().collect(),
             loan_invalidated_at: facts.loan_invalidated_at.into_iter().collect(),
             var_defined_at: facts.var_defined_at.into_iter().collect(),
             var_used_at: facts.var_used_at.into_iter().collect(),
@@ -215,13 +215,13 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.loan_issued_at.insert((origin, loan, point));
         }
 
-        // facts: outlives(Origin, Origin, Point)
+        // facts: subset_base(Origin, Origin, Point)
         Fact::Outlives { ref a, ref b } => {
-            // outlives: a `outlives` occurs on Mid points
+            // subset_base: a `subset_base` occurs on Mid points
             let origin_a = tables.origins.intern(a);
             let origin_b = tables.origins.intern(b);
 
-            facts.outlives.insert((origin_a, origin_b, point));
+            facts.subset_base.insert((origin_a, origin_b, point));
         }
 
         // facts: loan_killed_at(Loan, Point)
@@ -348,11 +348,11 @@ mod tests {
             assert_eq!(loan, "L1");
         }
 
-        assert_eq!(facts.outlives.len(), 1);
+        assert_eq!(facts.subset_base.len(), 1);
         {
-            let origin_a = tables.origins.untern(facts.outlives[0].0);
-            let origin_b = tables.origins.untern(facts.outlives[0].1);
-            let point = tables.points.untern(facts.outlives[0].2);
+            let origin_a = tables.origins.untern(facts.subset_base[0].0);
+            let origin_b = tables.origins.untern(facts.subset_base[0].1);
+            let point = tables.points.untern(facts.subset_base[0].2);
 
             assert_eq!(origin_a, "'a");
             assert_eq!(origin_b, "'b");

@@ -38,9 +38,9 @@ pub(super) fn compute<T: FactTypes>(
         // load initial facts.
 
         // subset(origin1, origin2) :-
-        //   outlives(origin1, origin2, _point).
+        //   subset_base(origin1, origin2, _point).
         subset.extend(
-            ctx.outlives
+            ctx.subset_base
                 .iter()
                 .map(|&(origin1, origin2, _point)| (origin1, origin2)),
         );

@@ -363,9 +363,9 @@ fn build_inputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            all_facts.outlives.iter().cloned(),
+            all_facts.subset_base.iter().cloned(),
             |(origin1, origin2, point)| (point, (origin1, origin2)),
-            "outlives".to_string(),
+            "subset_base".to_string(),
             2,
             intern,
         ),
