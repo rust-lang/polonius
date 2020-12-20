@@ -24,7 +24,7 @@ pub(super) fn compute<T: FactTypes>(
         // Static inputs
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge_rel = &ctx.cfg_edge;
-        let killed_rel = &ctx.killed;
+        let loan_killed_at = &ctx.loan_killed_at;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -190,13 +190,13 @@ pub(super) fn compute<T: FactTypes>(
 
             // dying_region_requires((origin, point1, point2), loan) :-
             //   requires(origin, loan, point1),
-            //   !killed(loan, point1),
+            //   !loan_killed_at(loan, point1),
             //   cfg_edge(point1, point2),
             //   !origin_live_on_entry(origin, point2).
             dying_region_requires.from_leapjoin(
                 &requires_op,
                 (
-                    killed_rel.filter_anti(|&((_, point1), loan)| (loan, point1)),
+                    loan_killed_at.filter_anti(|&((_, point1), loan)| (loan, point1)),
                     cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
                     origin_live_on_entry_rel.extend_anti(|&((origin, _), _)| origin),
                 ),
@@ -300,13 +300,13 @@ pub(super) fn compute<T: FactTypes>(
 
             // requires(origin, loan, point2) :-
             //   requires(origin, loan, point1),
-            //   !killed(loan, point1),
+            //   !loan_killed_at(loan, point1),
             //   cfg_edge(point1, point2),
             //   origin_live_on_entry(origin, point2).
             requires_op.from_leapjoin(
                 &requires_op,
                 (
-                    killed_rel.filter_anti(|&((_, point1), loan)| (loan, point1)),
+                    loan_killed_at.filter_anti(|&((_, point1), loan)| (loan, point1)),
                     cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
                     origin_live_on_entry_rel.extend_with(|&((origin, _), _)| origin),
                 ),

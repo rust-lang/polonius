@@ -356,9 +356,9 @@ fn build_inputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            all_facts.killed.iter().cloned(),
+            all_facts.loan_killed_at.iter().cloned(),
             |(loan, point)| (point, (loan,)),
-            "killed".to_string(),
+            "loan_killed_at".to_string(),
             1,
             intern,
         ),

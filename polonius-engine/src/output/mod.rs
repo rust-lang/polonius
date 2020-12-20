@@ -127,7 +127,7 @@ struct Context<'ctx, T: FactTypes> {
 
     // static inputs used by variants other than `LocationInsensitive`
     cfg_node: &'ctx BTreeSet<T::Point>,
-    killed: Relation<(T::Loan, T::Point)>,
+    loan_killed_at: Relation<(T::Loan, T::Point)>,
     known_contains: Relation<(T::Origin, T::Loan)>,
     placeholder_origin: Relation<(T::Origin, ())>,
     placeholder_loan: Relation<(T::Loan, T::Origin)>,
@@ -211,7 +211,7 @@ impl<T: FactTypes> Output<T> {
         //
         // Note: if rustc and polonius had more interaction, we could also delay or avoid
         // generating some of the facts that are now always present here. For example,
-        // the `LocationInsensitive` variant doesn't use the `killed` or `invalidates`
+        // the `LocationInsensitive` variant doesn't use the `loan_killed_at` or `invalidates`
         // relations, so we could technically delay passing them from rustc, when
         // using this or the `Hybrid` variant, to after the pre-pass has made sure
         // we actually need to compute the full analysis. If these facts happened to
@@ -229,7 +229,7 @@ impl<T: FactTypes> Output<T> {
                 .map(|&(point, loan)| (loan, point)),
         );
 
-        let killed = all_facts.killed.clone().into();
+        let loan_killed_at = all_facts.loan_killed_at.clone().into();
 
         // `known_subset` is a list of all the `'a: 'b` subset relations the user gave:
         // it's not required to be transitive. `known_contains` is its transitive closure: a list
@@ -262,7 +262,7 @@ impl<T: FactTypes> Output<T> {
             cfg_node: &cfg_node,
             outlives: &all_facts.outlives,
             loan_issued_at: &all_facts.loan_issued_at,
-            killed,
+            loan_killed_at,
             known_contains,
             placeholder_origin,
             placeholder_loan,

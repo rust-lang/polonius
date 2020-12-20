@@ -16,7 +16,7 @@ struct Facts {
     loan_issued_at: BTreeSet<(Origin, Loan, Point)>,
     universal_region: BTreeSet<Origin>,
     cfg_edge: BTreeSet<(Point, Point)>,
-    killed: BTreeSet<(Loan, Point)>,
+    loan_killed_at: BTreeSet<(Loan, Point)>,
     outlives: BTreeSet<(Origin, Origin, Point)>,
     invalidates: BTreeSet<(Point, Loan)>,
     known_subset: BTreeSet<(Origin, Origin)>,
@@ -39,7 +39,7 @@ impl From<Facts> for AllFacts {
             loan_issued_at: facts.loan_issued_at.into_iter().collect(),
             universal_region: facts.universal_region.into_iter().collect(),
             cfg_edge: facts.cfg_edge.into_iter().collect(),
-            killed: facts.killed.into_iter().collect(),
+            loan_killed_at: facts.loan_killed_at.into_iter().collect(),
             outlives: facts.outlives.into_iter().collect(),
             invalidates: facts.invalidates.into_iter().collect(),
             var_defined_at: facts.var_defined_at.into_iter().collect(),
@@ -224,11 +224,11 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.outlives.insert((origin_a, origin_b, point));
         }
 
-        // facts: killed(Loan, Point)
+        // facts: loan_killed_at(Loan, Point)
         Fact::Kill { ref loan } => {
-            // killed: a loan is killed on Mid points
+            // loan_killed_at: a loan is killed on Mid points
             let loan = tables.loans.intern(loan);
-            facts.killed.insert((loan, point));
+            facts.loan_killed_at.insert((loan, point));
         }
 
         // facts: invalidates(Point, Loan)
@@ -370,10 +370,10 @@ mod tests {
             assert_eq!(point, "\"Mid(B1[0])\"");
         }
 
-        assert_eq!(facts.killed.len(), 1);
+        assert_eq!(facts.loan_killed_at.len(), 1);
         {
-            let loan = tables.loans.untern(facts.killed[0].0);
-            let point = tables.points.untern(facts.killed[0].1);
+            let loan = tables.loans.untern(facts.loan_killed_at[0].0);
+            let point = tables.points.untern(facts.loan_killed_at[0].1);
 
             assert_eq!(loan, "L2");
             assert_eq!(point, "\"Mid(B0[1])\"");

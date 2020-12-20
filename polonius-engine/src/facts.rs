@@ -16,8 +16,12 @@ pub struct AllFacts<T: FactTypes> {
     /// `cfg_edge(point1, point2)` for each edge `point1 -> point2` in the control flow
     pub cfg_edge: Vec<(T::Point, T::Point)>,
 
-    /// `killed(loan, point)` when some prefix of the path borrowed at `loan` is assigned at `point`
-    pub killed: Vec<(T::Loan, T::Point)>,
+    /// `loan_killed_at(loan, point)` when some prefix of the path borrowed at `loan`
+    /// is assigned at `point`.
+    /// Indicates that the path borrowed by the `loan` has changed in some way that the loan no 
+    /// longer needs to be tracked. (In particular, mutations to the path that was borrowed
+    /// no longer invalidate the loan)
+    pub loan_killed_at: Vec<(T::Loan, T::Point)>,
 
     /// `outlives(origin1, origin2, point)` when we require `origin1@point: origin2@point`
     pub outlives: Vec<(T::Origin, T::Origin, T::Point)>,
@@ -87,7 +91,7 @@ impl<T: FactTypes> Default for AllFacts<T> {
             loan_issued_at: Vec::default(),
             universal_region: Vec::default(),
             cfg_edge: Vec::default(),
-            killed: Vec::default(),
+            loan_killed_at: Vec::default(),
             outlives: Vec::default(),
             invalidates: Vec::default(),
             var_used_at: Vec::default(),

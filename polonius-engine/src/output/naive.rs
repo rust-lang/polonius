@@ -30,7 +30,7 @@ pub(super) fn compute<T: FactTypes>(
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge_rel = &ctx.cfg_edge;
         let cfg_node = ctx.cfg_node;
-        let killed_rel = &ctx.killed;
+        let loan_killed_at = &ctx.loan_killed_at;
         let known_contains = &ctx.known_contains;
         let placeholder_origin = &ctx.placeholder_origin;
         let placeholder_loan = &ctx.placeholder_loan;
@@ -157,13 +157,13 @@ pub(super) fn compute<T: FactTypes>(
 
             // requires(origin, loan, point2) :-
             //   requires(origin, loan, point1),
-            //   !killed(loan, point1),
+            //   !loan_killed_at(loan, point1),
             //   cfg_edge(point1, point2),
             //   origin_live_on_entry(origin, point2).
             requires.from_leapjoin(
                 &requires,
                 (
-                    killed_rel.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
+                    loan_killed_at.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
                     cfg_edge_rel.extend_with(|&(_origin, _loan, point1)| point1),
                     origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin),
                 ),
