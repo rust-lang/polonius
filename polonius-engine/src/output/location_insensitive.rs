@@ -30,7 +30,8 @@ pub(super) fn compute<T: FactTypes>(
 
         // .. some variables, ..
         let subset = iteration.variable::<(T::Origin, T::Origin)>("subset");
-        let requires = iteration.variable::<(T::Origin, T::Loan)>("requires");
+        let origin_contains_loan_on_entry =
+            iteration.variable::<(T::Origin, T::Loan)>("origin_contains_loan_on_entry");
 
         let potential_errors = iteration.variable::<(T::Loan, T::Point)>("potential_errors");
 
@@ -44,9 +45,9 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin1, origin2, _point)| (origin1, origin2)),
         );
 
-        // requires(origin, loan) :-
+        // origin_contains_loan_on_entry(origin, loan) :-
         //   loan_issued_at(origin, loan, _point).
-        requires.extend(
+        origin_contains_loan_on_entry.extend(
             ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, _point)| (origin, loan)),
@@ -54,18 +55,20 @@ pub(super) fn compute<T: FactTypes>(
 
         // .. and then start iterating rules!
         while iteration.changed() {
-            // requires(origin2, loan) :-
-            //   requires(origin1, loan),
+            // origin_contains_loan_on_entry(origin2, loan) :-
+            //   origin_contains_loan_on_entry(origin1, loan),
             //   subset(origin1, origin2).
             //
             // Note: Since `subset` is effectively a static input, this join can be ported to
             // a leapjoin. Doing so, however, was 7% slower on `clap`.
-            requires.from_join(&requires, &subset, |&_origin1, &loan, &origin2| {
-                (origin2, loan)
-            });
+            origin_contains_loan_on_entry.from_join(
+                &origin_contains_loan_on_entry,
+                &subset,
+                |&_origin1, &loan, &origin2| (origin2, loan),
+            );
 
             // borrow_live_at(loan, point) :-
-            //   requires(origin, loan),
+            //   origin_contains_loan_on_entry(origin, loan),
             //   origin_live_on_entry(origin, point)
             //
             // potential_errors(loan, point) :-
@@ -76,7 +79,7 @@ pub(super) fn compute<T: FactTypes>(
             // so we can inline it in the `potential_errors` relation.
             //
             potential_errors.from_leapjoin(
-                &requires,
+                &origin_contains_loan_on_entry,
                 (
                     origin_live_on_entry.extend_with(|&(origin, _loan)| origin),
                     loan_invalidated_at.extend_with(|&(_origin, loan)| loan),
@@ -95,8 +98,8 @@ pub(super) fn compute<T: FactTypes>(
                     .insert(origin2);
             }
 
-            let requires = requires.complete();
-            for &(origin, loan) in requires.iter() {
+            let origin_contains_loan_on_entry = origin_contains_loan_on_entry.complete();
+            for &(origin, loan) in origin_contains_loan_on_entry.iter() {
                 result
                     .restricts_anywhere
                     .entry(origin)
