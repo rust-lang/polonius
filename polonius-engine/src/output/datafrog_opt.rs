@@ -144,14 +144,16 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin, point)| ((origin, point), ())),
         );
 
-        // subset(origin1, origin2, point) :- outlives(origin1, origin2, point).
+        // subset(origin1, origin2, point) :-
+        //   outlives(origin1, origin2, point).
         subset_o1p.extend(
             ctx.outlives
                 .iter()
                 .map(|&(origin1, origin2, point)| ((origin1, point), origin2)),
         );
 
-        // requires(origin, loan, point) :- loan_issued_at(origin, loan, point).
+        // requires(origin, loan, point) :-
+        //   loan_issued_at(origin, loan, point).
         requires_op.extend(
             ctx.loan_issued_at
                 .iter()

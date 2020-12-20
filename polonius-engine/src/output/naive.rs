@@ -117,8 +117,9 @@ pub(super) fn compute<T: FactTypes>(
 
             requires_op.from_map(&requires, |&(origin, loan, point)| ((origin, point), loan));
 
-            // subset(origin1, origin2, point) :- outlives(origin1, origin2, point).
-            // Already loaded; outlives is static.
+            // subset(origin1, origin2, point) :-
+            //   outlives(origin1, origin2, point).
+            // Already loaded; `outlives` is static.
 
             // subset(origin1, origin3, point) :-
             //   subset(origin1, origin2, point),
@@ -144,7 +145,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
 
-            // requires(origin, loan, point) :- loan_issued_at(origin, loan, point).
+            // requires(origin, loan, point) :-
+            //   loan_issued_at(origin, loan, point).
             // Already loaded; `loan_issued_at` is static.
 
             // requires(origin2, loan, point) :-
