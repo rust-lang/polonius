@@ -83,8 +83,8 @@ pub struct Output<T: FactTypes> {
 
     // these are just for debugging
     pub loan_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
-    pub restricts: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
-    pub restricts_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
+    pub origin_contains_loan_at: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
+    pub origin_contains_loan_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
     pub origin_live_on_entry: FxHashMap<T::Point, Vec<T::Origin>>,
     pub loan_invalidated_at: FxHashMap<T::Point, Vec<T::Loan>>,
     pub subset: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Origin>>>,
@@ -403,8 +403,8 @@ impl<T: FactTypes> Output<T> {
             subset_errors: FxHashMap::default(),
             dump_enabled,
             loan_live_at: FxHashMap::default(),
-            restricts: FxHashMap::default(),
-            restricts_anywhere: FxHashMap::default(),
+            origin_contains_loan_at: FxHashMap::default(),
+            origin_contains_loan_anywhere: FxHashMap::default(),
             origin_live_on_entry: FxHashMap::default(),
             loan_invalidated_at: FxHashMap::default(),
             move_errors: FxHashMap::default(),
@@ -426,25 +426,25 @@ impl<T: FactTypes> Output<T> {
         }
     }
 
-    pub fn borrows_in_scope_at(&self, location: T::Point) -> &[T::Loan] {
+    pub fn loans_in_scope_at(&self, location: T::Point) -> &[T::Loan] {
         match self.loan_live_at.get(&location) {
             Some(p) => p,
             None => &[],
         }
     }
 
-    pub fn restricts_at(
+    pub fn origin_contains_loan_at(
         &self,
         location: T::Point,
     ) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Loan>>> {
         assert!(self.dump_enabled);
-        match self.restricts.get(&location) {
+        match self.origin_contains_loan_at.get(&location) {
             Some(map) => Cow::Borrowed(map),
             None => Cow::Owned(BTreeMap::default()),
         }
     }
 
-    pub fn regions_live_at(&self, location: T::Point) -> &[T::Origin] {
+    pub fn origins_live_at(&self, location: T::Point) -> &[T::Origin] {
         assert!(self.dump_enabled);
         match self.origin_live_on_entry.get(&location) {
             Some(v) => v,

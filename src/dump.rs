@@ -41,8 +41,8 @@ pub(crate) fn dump_output(
 
     if output.dump_enabled {
         dump_output_fields![
-            restricts,
-            restricts_anywhere,
+            origin_contains_loan_at,
+            origin_contains_loan_anywhere,
             origin_live_on_entry,
             loan_invalidated_at,
             loan_live_at,
@@ -434,9 +434,9 @@ fn build_outputs_by_point_for_visualization(
             intern,
         ),
         facts_by_point(
-            output.restricts.iter(),
+            output.origin_contains_loan_at.iter(),
             |(point, origin_to_loans)| (*point, origin_to_loans.clone()),
-            "restricts".to_string(),
+            "origin_contains_loan_at".to_string(),
             0,
             intern,
         ),

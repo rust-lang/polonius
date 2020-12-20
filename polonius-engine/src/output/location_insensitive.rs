@@ -101,7 +101,7 @@ pub(super) fn compute<T: FactTypes>(
             let origin_contains_loan_on_entry = origin_contains_loan_on_entry.complete();
             for &(origin, loan) in origin_contains_loan_on_entry.iter() {
                 result
-                    .restricts_anywhere
+                    .origin_contains_loan_anywhere
                     .entry(origin)
                     .or_default()
                     .insert(loan);

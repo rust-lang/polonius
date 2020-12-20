@@ -240,7 +240,7 @@ pub(super) fn compute<T: FactTypes>(
             let origin_contains_loan_on_entry = origin_contains_loan_on_entry.complete();
             for &(origin, loan, location) in origin_contains_loan_on_entry.iter() {
                 result
-                    .restricts
+                    .origin_contains_loan_at
                     .entry(location)
                     .or_default()
                     .entry(origin)
