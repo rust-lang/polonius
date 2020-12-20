@@ -60,7 +60,7 @@ pub enum Effect {
 pub enum Fact {
     Outlives { a: String, b: String },
     LoanIssuedAt { origin: String, loan: String },
-    Invalidates { loan: String },
+    LoanInvalidatedAt { loan: String },
     LoanKilledAt { loan: String },
     OriginLiveOnEntry { origin: String },
     DefineVariable { variable: String },

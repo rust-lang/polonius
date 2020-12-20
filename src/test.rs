@@ -372,17 +372,17 @@ fn var_live_in_successor_propagates_to_predecessor() {
         placeholders { }
 
         block B0 {
-            invalidates(L0); // generate a point
+            loan_invalidated_at(L0); // generate a point
             goto B1;
         }
 
         block B1 {
-            invalidates(L0);
+            loan_invalidated_at(L0);
             goto B2;
         }
 
         block B2 {
-            invalidates(L0);
+            loan_invalidated_at(L0);
             var_used_at(V1);
         }
     ";
@@ -408,18 +408,18 @@ fn var_live_in_successor_killed_by_reassignment() {
         placeholders { }
 
         block B0 {
-            invalidates(L0); // generate a point
+            loan_invalidated_at(L0); // generate a point
             goto B1;
         }
 
         block B1 {
             var_defined_at(V1); // V1 dies
-            invalidates(L0);
+            loan_invalidated_at(L0);
             goto B2;
         }
 
         block B2 {
-            invalidates(L0);
+            loan_invalidated_at(L0);
             var_used_at(V1);
         }
     ";
@@ -469,18 +469,18 @@ fn var_drop_used_simple() {
         placeholders { }
 
         block B0 {
-            invalidates(L0); // generate a point
+            loan_invalidated_at(L0); // generate a point
             goto B1;
         }
 
         block B1 {
             var_defined_at(V1); // V1 dies
-            invalidates(L0);
+            loan_invalidated_at(L0);
             goto B2;
         }
 
         block B2 {
-            invalidates(L0);
+            loan_invalidated_at(L0);
             var_dropped_at(V1);
         }
     ";

@@ -232,7 +232,7 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
         }
 
         // facts: loan_invalidated_at(Point, Loan)
-        Fact::Invalidates { ref loan } => {
+        Fact::LoanInvalidatedAt { ref loan } => {
             let loan = tables.loans.intern(loan);
             // loan_invalidated_at: a loan can be invalidated on both Start and Mid points
             facts.loan_invalidated_at.insert((point, loan));
@@ -270,10 +270,10 @@ mod tests {
             // block description
             block B0 {
                 // 0:
-                invalidates(L0);
+                loan_invalidated_at(L0);
 
                 // 1:
-                invalidates(L1), origin_live_on_entry('d) / loan_killed_at(L2);
+                loan_invalidated_at(L1), origin_live_on_entry('d) / loan_killed_at(L2);
 
                 // another comment
                 goto B1;
