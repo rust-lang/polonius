@@ -192,7 +192,7 @@ fn send_is_not_static_std_sync() {
     let program = r"
         placeholders { }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), origin_live_on_entry('b);
+            loan_issued_at('a, L0), outlives('a: 'b), origin_live_on_entry('b);
         }
     ";
 
@@ -210,7 +210,7 @@ fn escape_upvar_nested() {
     let program = r"
         placeholders { }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c), origin_live_on_entry('c);
+            loan_issued_at('a, L0), outlives('a: 'b), outlives('b: 'c), origin_live_on_entry('c);
         }
     ";
 
@@ -229,7 +229,7 @@ fn issue_31567() {
     let program = r"
         placeholders { }
         block B0 {
-            borrow_region_at('a, L0),
+            loan_issued_at('a, L0),
             outlives('a: 'b),
             outlives('b: 'c),
             outlives('c: 'd),
@@ -244,7 +244,7 @@ fn issue_31567() {
 
 #[test]
 fn borrowed_local_error() {
-    // This test is related to the previous 3: there is still a borrow_region outliving a live origin,
+    // This test is related to the previous 3: there is still an issuing origin outliving a live origin,
     // through a chain of `outlives` at a single point, but this time there are also 2 points
     // and an edge.
 
@@ -259,7 +259,7 @@ fn borrowed_local_error() {
     let program = r"
         placeholders { 'c }
         block B0 {
-            borrow_region_at('a, L0), outlives('a: 'b), outlives('b: 'c);
+            loan_issued_at('a, L0), outlives('a: 'b), outlives('b: 'c);
         }
     ";
 
@@ -533,7 +533,7 @@ fn illegal_subset_error() {
         
         block B0 {
             // creates a transitive `'b: 'a` subset
-            borrow_region_at('x, L0),
+            loan_issued_at('x, L0),
               outlives('b: 'x),
               outlives('x: 'a);
         }
@@ -561,7 +561,7 @@ fn known_placeholder_origin_subset() {
         known_subsets { 'b: 'a }
 
         block B0 {
-            borrow_region_at('x, L0),
+            loan_issued_at('x, L0),
               outlives('b: 'x),
               outlives('x: 'a);
         }
@@ -585,7 +585,7 @@ fn transitive_known_subset() {
         known_subsets { 'a: 'b, 'b: 'c }
         
         block B0 {
-            borrow_region_at('x, L0),
+            loan_issued_at('x, L0),
               outlives('a: 'x),
               outlives('x: 'c);
         }
@@ -613,11 +613,11 @@ fn transitive_illegal_subset_error() {
         
         block B0 {
             // this transitive `'a: 'b` subset is already known
-            borrow_region_at('x, L0),
+            loan_issued_at('x, L0),
               outlives('a: 'x),
               outlives('x: 'b);
             // creates an unknown transitive `'a: 'c` subset
-            borrow_region_at('y, L1),
+            loan_issued_at('y, L1),
               outlives('b: 'y),
               outlives('y: 'c);
         }

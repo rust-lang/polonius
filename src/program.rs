@@ -204,7 +204,7 @@ pub(crate) fn parse_from_program(
 fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut InternerTables) {
     match fact {
         // facts: loan_issued_at(Origin, Loan, Point)
-        Fact::BorrowRegionAt {
+        Fact::LoanIssuedAt {
             ref origin,
             ref loan,
         } => {
@@ -281,7 +281,7 @@ mod tests {
 
             block B1 {
                 // O:
-                use('a, 'b), outlives('a: 'b), borrow_region_at('b, L1);
+                use('a, 'b), outlives('a: 'b), loan_issued_at('b, L1);
             }
         ";
 

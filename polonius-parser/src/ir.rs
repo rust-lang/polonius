@@ -59,7 +59,7 @@ pub enum Effect {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fact {
     Outlives { a: String, b: String },
-    BorrowRegionAt { origin: String, loan: String },
+    LoanIssuedAt { origin: String, loan: String },
     Invalidates { loan: String },
     Kill { loan: String },
     OriginLiveOnEntry { origin: String },

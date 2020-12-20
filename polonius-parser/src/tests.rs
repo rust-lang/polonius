@@ -63,7 +63,7 @@ fn effects() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         block B0 {
-            use('a), outlives('a: 'b), borrow_region_at('b, L1);
+            use('a), outlives('a: 'b), loan_issued_at('b, L1);
             kill(L2);
             invalidates(L0);
         }
@@ -93,7 +93,7 @@ fn effects() {
     );
     assert_eq!(
         effects[2],
-        Effect::Fact(Fact::BorrowRegionAt {
+        Effect::Fact(Fact::LoanIssuedAt {
             origin: "'b".to_string(),
             loan: "L1".to_string()
         })
@@ -199,7 +199,7 @@ fn complete_example() {
         }
 
         block B1 {
-            use('a), outlives('a: 'b), borrow_region_at('b, L1);
+            use('a), outlives('a: 'b), loan_issued_at('b, L1);
         }
     ";
     assert!(parse_input(program).is_ok());
