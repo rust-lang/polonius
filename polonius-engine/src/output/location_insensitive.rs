@@ -67,15 +67,15 @@ pub(super) fn compute<T: FactTypes>(
                 |&_origin1, &loan, &origin2| (origin2, loan),
             );
 
-            // borrow_live_at(loan, point) :-
+            // loan_live_at(loan, point) :-
             //   origin_contains_loan_on_entry(origin, loan),
             //   origin_live_on_entry(origin, point)
             //
             // potential_errors(loan, point) :-
             //   loan_invalidated_at(loan, point),
-            //   borrow_live_at(loan, point).
+            //   loan_live_at(loan, point).
             //
-            // Note: we don't need to materialize `borrow_live_at` here
+            // Note: we don't need to materialize `loan_live_at` here
             // so we can inline it in the `potential_errors` relation.
             //
             potential_errors.from_leapjoin(

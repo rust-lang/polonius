@@ -45,7 +45,7 @@ pub(crate) fn dump_output(
             restricts_anywhere,
             origin_live_on_entry,
             loan_invalidated_at,
-            borrow_live_at,
+            loan_live_at,
             subset_anywhere,
             known_contains,
             var_live_on_entry,
@@ -427,9 +427,9 @@ fn build_outputs_by_point_for_visualization(
 ) -> Vec<HashMap<Point, String>> {
     vec![
         facts_by_point(
-            output.borrow_live_at.iter(),
+            output.loan_live_at.iter(),
             |(point, loans)| (*point, loans.clone()),
-            "borrow_live_at".to_string(),
+            "loan_live_at".to_string(),
             0,
             intern,
         ),

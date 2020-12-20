@@ -42,7 +42,7 @@ pub(super) fn compute<T: FactTypes>(
         let subset = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset");
         let origin_contains_loan_on_entry =
             iteration.variable::<(T::Origin, T::Loan, T::Point)>("origin_contains_loan_on_entry");
-        let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
+        let loan_live_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_live_at");
 
         // `loan_invalidated_at` facts, stored ready for joins
         let loan_invalidated_at =
@@ -178,10 +178,10 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin, loan, _point1), &point2| (origin, loan, point2),
             );
 
-            // borrow_live_at(loan, point) :-
+            // loan_live_at(loan, point) :-
             //   origin_contains_loan_on_entry(origin, loan, point),
             //   origin_live_on_entry(origin, point).
-            borrow_live_at.from_join(
+            loan_live_at.from_join(
                 &origin_contains_loan_on_entry_op,
                 &origin_live_on_entry_var,
                 |&(_origin, point), &loan, _| ((loan, point), ()),
@@ -189,10 +189,10 @@ pub(super) fn compute<T: FactTypes>(
 
             // errors(loan, point) :-
             //   loan_invalidated_at(loan, point),
-            //   borrow_live_at(loan, point).
+            //   loan_live_at(loan, point).
             errors.from_join(
                 &loan_invalidated_at,
-                &borrow_live_at,
+                &loan_live_at,
                 |&(loan, point), _, _| (loan, point),
             );
 
@@ -248,13 +248,9 @@ pub(super) fn compute<T: FactTypes>(
                     .insert(loan);
             }
 
-            let borrow_live_at = borrow_live_at.complete();
-            for &((loan, location), _) in borrow_live_at.iter() {
-                result
-                    .borrow_live_at
-                    .entry(location)
-                    .or_default()
-                    .push(loan);
+            let loan_live_at = loan_live_at.complete();
+            for &((loan, location), _) in loan_live_at.iter() {
+                result.loan_live_at.entry(location).or_default().push(loan);
             }
         }
 

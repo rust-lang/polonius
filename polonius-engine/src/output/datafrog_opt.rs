@@ -53,10 +53,10 @@ pub(super) fn compute<T: FactTypes>(
         let origin_contains_loan_on_entry_op = iteration
             .variable::<((T::Origin, T::Point), T::Loan)>("origin_contains_loan_on_entry_op");
 
-        // .decl borrow_live_at(loan, point)
+        // .decl loan_live_at(loan, point)
         //
         // True if the restrictions of the `loan` need to be enforced at `point`.
-        let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
+        let loan_live_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_live_at");
 
         // .decl live_to_dying_regions(origin1, origin2, point1, point2)
         //
@@ -346,16 +346,16 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin2, point), &loan| ((origin2, point), loan),
             );
 
-            // borrow_live_at(loan, point) :-
+            // loan_live_at(loan, point) :-
             //   origin_contains_loan_on_entry(origin, loan, point),
             //   origin_live_on_entry(origin, point).
-            borrow_live_at.from_join(
+            loan_live_at.from_join(
                 &origin_contains_loan_on_entry_op,
                 &origin_live_on_entry_var,
                 |&(_origin, point), &loan, _| ((loan, point), ()),
             );
 
-            // borrow_live_at(loan, point) :-
+            // loan_live_at(loan, point) :-
             //   dead_borrow_region_can_reach_dead(origin1, loan, point),
             //   subset(origin1, origin2, point),
             //   origin_live_on_entry(origin2, point).
@@ -364,7 +364,7 @@ pub(super) fn compute<T: FactTypes>(
             // `dead_borrow_region_can_reach_dead_1`, which is equal
             // to `dead_borrow_region_can_reach_dead` and `subset`
             // joined together.
-            borrow_live_at.from_join(
+            loan_live_at.from_join(
                 &dead_borrow_region_can_reach_dead_1,
                 &origin_live_on_entry_var,
                 |&(_origin2, point), &loan, _| ((loan, point), ()),
@@ -372,10 +372,10 @@ pub(super) fn compute<T: FactTypes>(
 
             // errors(loan, point) :-
             //   loan_invalidated_at(loan, point),
-            //   borrow_live_at(loan, point).
+            //   loan_live_at(loan, point).
             errors.from_join(
                 &loan_invalidated_at,
-                &borrow_live_at,
+                &loan_live_at,
                 |&(loan, point), _, _| (loan, point),
             );
         }
@@ -411,13 +411,9 @@ pub(super) fn compute<T: FactTypes>(
                     .insert(loan);
             }
 
-            let borrow_live_at = borrow_live_at.complete();
-            for &((loan, location), _) in borrow_live_at.iter() {
-                result
-                    .borrow_live_at
-                    .entry(location)
-                    .or_default()
-                    .push(loan);
+            let loan_live_at = loan_live_at.complete();
+            for &((loan, location), _) in loan_live_at.iter() {
+                result.loan_live_at.entry(location).or_default().push(loan);
             }
         }
 

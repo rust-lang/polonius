@@ -82,7 +82,7 @@ pub struct Output<T: FactTypes> {
     pub dump_enabled: bool,
 
     // these are just for debugging
-    pub borrow_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub loan_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
     pub restricts: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
     pub restricts_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
     pub origin_live_on_entry: FxHashMap<T::Point, Vec<T::Origin>>,
@@ -402,7 +402,7 @@ impl<T: FactTypes> Output<T> {
             errors: FxHashMap::default(),
             subset_errors: FxHashMap::default(),
             dump_enabled,
-            borrow_live_at: FxHashMap::default(),
+            loan_live_at: FxHashMap::default(),
             restricts: FxHashMap::default(),
             restricts_anywhere: FxHashMap::default(),
             origin_live_on_entry: FxHashMap::default(),
@@ -427,7 +427,7 @@ impl<T: FactTypes> Output<T> {
     }
 
     pub fn borrows_in_scope_at(&self, location: T::Point) -> &[T::Loan] {
-        match self.borrow_live_at.get(&location) {
+        match self.loan_live_at.get(&location) {
             Some(p) => p,
             None => &[],
         }
