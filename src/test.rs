@@ -290,19 +290,22 @@ fn smoke_test_errors() {
         let location_insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
         assert!(
             !location_insensitive.errors.is_empty(),
-            format!("LocationInsensitive didn't find errors for '{}'", test_fn)
+            "LocationInsensitive didn't find errors for '{}'",
+            test_fn
         );
 
         let naive = Output::compute(&facts, Algorithm::Naive, true);
         assert!(
             !naive.errors.is_empty(),
-            format!("Naive didn't find errors for '{}'", test_fn)
+            "Naive didn't find errors for '{}'",
+            test_fn
         );
 
         let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
         assert!(
             !opt.errors.is_empty(),
-            format!("DatafrogOpt didn't find errors for '{}'", test_fn)
+            "DatafrogOpt didn't find errors for '{}'",
+            test_fn
         );
     }
 }
