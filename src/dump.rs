@@ -41,11 +41,11 @@ pub(crate) fn dump_output(
 
     if output.dump_enabled {
         dump_output_fields![
-            restricts,
-            restricts_anywhere,
+            origin_contains_loan_at,
+            origin_contains_loan_anywhere,
             origin_live_on_entry,
-            invalidates,
-            borrow_live_at,
+            loan_invalidated_at,
+            loan_live_at,
             subset_anywhere,
             known_contains,
             var_live_on_entry,
@@ -349,30 +349,30 @@ fn build_inputs_by_point_for_visualization(
 ) -> Vec<HashMap<Point, String>> {
     vec![
         facts_by_point(
-            all_facts.borrow_region.iter().cloned(),
+            all_facts.loan_issued_at.iter().cloned(),
             |(origin, loan, point)| (point, (origin, loan)),
-            "borrow_region".to_string(),
+            "loan_issued_at".to_string(),
             2,
             intern,
         ),
         facts_by_point(
-            all_facts.killed.iter().cloned(),
+            all_facts.loan_killed_at.iter().cloned(),
             |(loan, point)| (point, (loan,)),
-            "killed".to_string(),
+            "loan_killed_at".to_string(),
             1,
             intern,
         ),
         facts_by_point(
-            all_facts.outlives.iter().cloned(),
+            all_facts.subset_base.iter().cloned(),
             |(origin1, origin2, point)| (point, (origin1, origin2)),
-            "outlives".to_string(),
+            "subset_base".to_string(),
             2,
             intern,
         ),
         facts_by_point(
-            all_facts.invalidates.iter().cloned(),
+            all_facts.loan_invalidated_at.iter().cloned(),
             |(point, loan)| (point, (loan,)),
-            "invalidates".to_string(),
+            "loan_invalidated_at".to_string(),
             0,
             intern,
         ),
@@ -427,23 +427,23 @@ fn build_outputs_by_point_for_visualization(
 ) -> Vec<HashMap<Point, String>> {
     vec![
         facts_by_point(
-            output.borrow_live_at.iter(),
+            output.loan_live_at.iter(),
             |(point, loans)| (*point, loans.clone()),
-            "borrow_live_at".to_string(),
+            "loan_live_at".to_string(),
             0,
             intern,
         ),
         facts_by_point(
-            output.restricts.iter(),
+            output.origin_contains_loan_at.iter(),
             |(point, origin_to_loans)| (*point, origin_to_loans.clone()),
-            "restricts".to_string(),
+            "origin_contains_loan_at".to_string(),
             0,
             intern,
         ),
         facts_by_point(
-            output.invalidates.iter(),
+            output.loan_invalidated_at.iter(),
             |(point, loans)| (*point, loans.clone()),
-            "invalidates".to_string(),
+            "loan_invalidated_at".to_string(),
             0,
             intern,
         ),

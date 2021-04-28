@@ -63,9 +63,9 @@ fn effects() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         block B0 {
-            use('a), outlives('a: 'b), borrow_region_at('b, L1);
-            kill(L2);
-            invalidates(L0);
+            use('a), outlives('a: 'b), loan_issued_at('b, L1);
+            loan_killed_at(L2);
+            loan_invalidated_at(L0);
         }
     ";
     let input = parse_input(program).expect("Parse Error");
@@ -93,7 +93,7 @@ fn effects() {
     );
     assert_eq!(
         effects[2],
-        Effect::Fact(Fact::BorrowRegionAt {
+        Effect::Fact(Fact::LoanIssuedAt {
             origin: "'b".to_string(),
             loan: "L1".to_string()
         })
@@ -102,7 +102,7 @@ fn effects() {
     let effects = &statements[1].effects;
     assert_eq!(
         effects[0],
-        Effect::Fact(Fact::Kill {
+        Effect::Fact(Fact::LoanKilledAt {
             loan: "L2".to_string()
         })
     );
@@ -110,7 +110,7 @@ fn effects() {
     let effects = &statements[2].effects;
     assert_eq!(
         effects[0],
-        Effect::Fact(Fact::Invalidates {
+        Effect::Fact(Fact::LoanInvalidatedAt {
             loan: "L0".to_string()
         })
     );
@@ -121,9 +121,9 @@ fn effects_start() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         block B0 {
-            invalidates(L0), origin_live_on_entry('a) / use('a);
-            invalidates(L1);
-            invalidates(L0), invalidates(L1) / use('c);
+            loan_invalidated_at(L0), origin_live_on_entry('a) / use('a);
+            loan_invalidated_at(L1);
+            loan_invalidated_at(L0), loan_invalidated_at(L1) / use('c);
         }
     ";
     let input = parse_input(program).expect("Effects start");
@@ -134,7 +134,7 @@ fn effects_start() {
     assert_eq!(
         statements.effects_start,
         [
-            Effect::Fact(Fact::Invalidates {
+            Effect::Fact(Fact::LoanInvalidatedAt {
                 loan: "L0".to_string()
             }),
             Effect::Fact(Fact::OriginLiveOnEntry {
@@ -153,7 +153,7 @@ fn effects_start() {
     assert!(statements.effects_start.is_empty());
     assert_eq!(
         statements.effects,
-        [Effect::Fact(Fact::Invalidates {
+        [Effect::Fact(Fact::LoanInvalidatedAt {
             loan: "L1".to_string()
         })]
     );
@@ -162,10 +162,10 @@ fn effects_start() {
     assert_eq!(
         statements.effects_start,
         [
-            Effect::Fact(Fact::Invalidates {
+            Effect::Fact(Fact::LoanInvalidatedAt {
                 loan: "L0".to_string()
             }),
-            Effect::Fact(Fact::Invalidates {
+            Effect::Fact(Fact::LoanInvalidatedAt {
                 loan: "L1".to_string()
             })
         ]
@@ -187,19 +187,19 @@ fn complete_example() {
         // block description
         block B0 {
             // 0:
-            invalidates(L0);
+            loan_invalidated_at(L0);
 
             // 1:
-            kill(L2);
+            loan_killed_at(L2);
 
-            invalidates(L1) / use('a, 'b);
+            loan_invalidated_at(L1) / use('a, 'b);
 
             // another comment
             goto B1, B2;
         }
 
         block B1 {
-            use('a), outlives('a: 'b), borrow_region_at('b, L1);
+            use('a), outlives('a: 'b), loan_issued_at('b, L1);
         }
     ";
     assert!(parse_input(program).is_ok());

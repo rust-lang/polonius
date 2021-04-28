@@ -4,10 +4,11 @@ use std::hash::Hash;
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
 pub struct AllFacts<T: FactTypes> {
-    /// `borrow_region(origin, loan, point)` -- the `origin` may refer to data
-    /// from `loan` starting at `point` (this is usually the
-    /// point *after* a borrow rvalue)
-    pub borrow_region: Vec<(T::Origin, T::Loan, T::Point)>,
+    /// `loan_issued_at(origin, loan, point)` indicates that the `loan` was "issued"
+    /// at the given `point`, creating a reference with the `origin`.
+    /// Effectively, `origin` may refer to data from `loan` starting at `point` (this is usually
+    /// the point *after* a borrow rvalue).
+    pub loan_issued_at: Vec<(T::Origin, T::Loan, T::Point)>,
 
     /// `universal_region(origin)` -- this is a "free region" within fn body
     pub universal_region: Vec<T::Origin>,
@@ -15,14 +16,21 @@ pub struct AllFacts<T: FactTypes> {
     /// `cfg_edge(point1, point2)` for each edge `point1 -> point2` in the control flow
     pub cfg_edge: Vec<(T::Point, T::Point)>,
 
-    /// `killed(loan, point)` when some prefix of the path borrowed at `loan` is assigned at `point`
-    pub killed: Vec<(T::Loan, T::Point)>,
+    /// `loan_killed_at(loan, point)` when some prefix of the path borrowed at `loan`
+    /// is assigned at `point`.
+    /// Indicates that the path borrowed by the `loan` has changed in some way that the loan no
+    /// longer needs to be tracked. (In particular, mutations to the path that was borrowed
+    /// no longer invalidate the loan)
+    pub loan_killed_at: Vec<(T::Loan, T::Point)>,
 
-    /// `outlives(origin1, origin2, point)` when we require `origin1@point: origin2@point`
-    pub outlives: Vec<(T::Origin, T::Origin, T::Point)>,
+    /// `subset_base(origin1, origin2, point)` when we require `origin1@point: origin2@point`.
+    /// Indicates that `origin1 <= origin2` -- i.e., the set of loans in `origin1` are a subset
+    // of those in `origin2`.
+    pub subset_base: Vec<(T::Origin, T::Origin, T::Point)>,
 
-    /// `invalidates(point, loan)` when the `loan` is invalidated at `point`
-    pub invalidates: Vec<(T::Point, T::Loan)>,
+    /// `loan_invalidated_at(point, loan)` indicates that the `loan` is invalidated by some action
+    /// taking place at `point`; if any origin that references this loan is live, this is an error.
+    pub loan_invalidated_at: Vec<(T::Point, T::Loan)>,
 
     /// `var_used_at(var, point)` when the variable `var` is used for anything
     /// but a drop at `point`
@@ -66,6 +74,7 @@ pub struct AllFacts<T: FactTypes> {
     /// `path_accessed_at_base(path, point)` when the `path` was accessed at point
     /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
     pub path_accessed_at_base: Vec<(T::Path, T::Point)>,
+
     /// These reflect the `'a: 'b` relations that are either declared by the user on function
     /// declarations or which are inferred via implied bounds.
     /// For example: `fn foo<'a, 'b: 'a, 'c>(x: &'c &'a u32)` would have two entries:
@@ -83,12 +92,12 @@ pub struct AllFacts<T: FactTypes> {
 impl<T: FactTypes> Default for AllFacts<T> {
     fn default() -> Self {
         AllFacts {
-            borrow_region: Vec::default(),
+            loan_issued_at: Vec::default(),
             universal_region: Vec::default(),
             cfg_edge: Vec::default(),
-            killed: Vec::default(),
-            outlives: Vec::default(),
-            invalidates: Vec::default(),
+            loan_killed_at: Vec::default(),
+            subset_base: Vec::default(),
+            loan_invalidated_at: Vec::default(),
             var_used_at: Vec::default(),
             var_defined_at: Vec::default(),
             var_dropped_at: Vec::default(),

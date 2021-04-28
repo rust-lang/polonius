@@ -33,12 +33,12 @@ pub(crate) fn load_tab_delimited_facts(
 
     load_facts! {
         from (tables, facts_dir) load AllFacts {
-            borrow_region,
+            loan_issued_at,
             universal_region,
             cfg_edge,
-            killed,
-            outlives,
-            invalidates,
+            loan_killed_at,
+            subset_base,
+            loan_invalidated_at,
             var_defined_at,
             var_used_at,
             var_dropped_at,

@@ -47,9 +47,9 @@ Effect = {
 
 Fact : Fact = {
   "outlives" "(" <a:Origin> ":" <b:Origin> ")" => Fact::Outlives { <> },
-  "borrow_region_at" "(" <origin:Origin> "," <loan:Loan> ")" => Fact::BorrowRegionAt { <> },
-  "invalidates" "(" <loan:Loan> ")" => Fact::Invalidates { <> },
-  "kill" "(" <loan:Loan> ")" => Fact::Kill { <> },
+  "loan_issued_at" "(" <origin:Origin> "," <loan:Loan> ")" => Fact::LoanIssuedAt { <> },
+  "loan_invalidated_at" "(" <loan:Loan> ")" => Fact::LoanInvalidatedAt { <> },
+  "loan_killed_at" "(" <loan:Loan> ")" => Fact::LoanKilledAt { <> },
   "var_used_at" "(" <variable:Variable> ")" => Fact::UseVariable { <> },
   "var_defined_at" "(" <variable:Variable> ")" => Fact::DefineVariable { <> },
   "origin_live_on_entry" "(" <origin:Origin> ")" => Fact::OriginLiveOnEntry { <> },

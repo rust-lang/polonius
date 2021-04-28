@@ -30,7 +30,7 @@ pub(super) fn compute<T: FactTypes>(
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge_rel = &ctx.cfg_edge;
         let cfg_node = ctx.cfg_node;
-        let killed_rel = &ctx.killed;
+        let loan_killed_at = &ctx.loan_killed_at;
         let known_contains = &ctx.known_contains;
         let placeholder_origin = &ctx.placeholder_origin;
         let placeholder_loan = &ctx.placeholder_loan;
@@ -40,18 +40,21 @@ pub(super) fn compute<T: FactTypes>(
 
         // .. some variables, ..
         let subset = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset");
-        let requires = iteration.variable::<(T::Origin, T::Loan, T::Point)>("requires");
-        let borrow_live_at = iteration.variable::<((T::Loan, T::Point), ())>("borrow_live_at");
+        let origin_contains_loan_on_entry =
+            iteration.variable::<(T::Origin, T::Loan, T::Point)>("origin_contains_loan_on_entry");
+        let loan_live_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_live_at");
 
-        // `invalidates` facts, stored ready for joins
-        let invalidates = iteration.variable::<((T::Loan, T::Point), ())>("invalidates");
+        // `loan_invalidated_at` facts, stored ready for joins
+        let loan_invalidated_at =
+            iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
 
         // different indices for `subset`.
         let subset_o1p = iteration.variable_indistinct("subset_o1p");
         let subset_o2p = iteration.variable_indistinct("subset_o2p");
 
-        // different index for `requires`.
-        let requires_op = iteration.variable_indistinct("requires_op");
+        // different index for `origin_contains_loan_on_entry`.
+        let origin_contains_loan_on_entry_op =
+            iteration.variable_indistinct("origin_contains_loan_on_entry_op");
 
         // we need `origin_live_on_entry` in both variable and relation forms.
         // (respectively, for the regular join and the leapjoin).
@@ -63,10 +66,10 @@ pub(super) fn compute<T: FactTypes>(
         let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
 
         // load initial facts.
-        subset.extend(ctx.outlives.iter());
-        requires.extend(ctx.borrow_region.iter());
-        invalidates.extend(
-            ctx.invalidates
+        subset.extend(ctx.subset_base.iter());
+        origin_contains_loan_on_entry.extend(ctx.loan_issued_at.iter());
+        loan_invalidated_at.extend(
+            ctx.loan_invalidated_at
                 .iter()
                 .map(|&(loan, point)| ((loan, point), ())),
         );
@@ -88,7 +91,7 @@ pub(super) fn compute<T: FactTypes>(
             }
         }
 
-        requires.extend(placeholder_loans);
+        origin_contains_loan_on_entry.extend(placeholder_loans);
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -114,10 +117,14 @@ pub(super) fn compute<T: FactTypes>(
                 ((origin2, point), origin1)
             });
 
-            requires_op.from_map(&requires, |&(origin, loan, point)| ((origin, point), loan));
+            origin_contains_loan_on_entry_op
+                .from_map(&origin_contains_loan_on_entry, |&(origin, loan, point)| {
+                    ((origin, point), loan)
+                });
 
-            // subset(origin1, origin2, point) :- outlives(origin1, origin2, point).
-            // Already loaded; outlives is static.
+            // subset(origin1, origin2, point) :-
+            //   subset_base(origin1, origin2, point).
+            // Already loaded; `subset_base` is static.
 
             // subset(origin1, origin3, point) :-
             //   subset(origin1, origin2, point),
@@ -143,56 +150,59 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
 
-            // requires(origin, loan, point) :- borrow_region(origin, loan, point).
-            // Already loaded; borrow_region is static.
+            // origin_contains_loan_on_entry(origin, loan, point) :-
+            //   loan_issued_at(origin, loan, point).
+            // Already loaded; `loan_issued_at` is static.
 
-            // requires(origin2, loan, point) :-
-            //   requires(origin1, loan, point),
+            // origin_contains_loan_on_entry(origin2, loan, point) :-
+            //   origin_contains_loan_on_entry(origin1, loan, point),
             //   subset(origin1, origin2, point).
-            requires.from_join(
-                &requires_op,
+            origin_contains_loan_on_entry.from_join(
+                &origin_contains_loan_on_entry_op,
                 &subset_o1p,
                 |&(_origin1, point), &loan, &origin2| (origin2, loan, point),
             );
 
-            // requires(origin, loan, point2) :-
-            //   requires(origin, loan, point1),
-            //   !killed(loan, point1),
+            // origin_contains_loan_on_entry(origin, loan, point2) :-
+            //   origin_contains_loan_on_entry(origin, loan, point1),
+            //   !loan_killed_at(loan, point1),
             //   cfg_edge(point1, point2),
             //   origin_live_on_entry(origin, point2).
-            requires.from_leapjoin(
-                &requires,
+            origin_contains_loan_on_entry.from_leapjoin(
+                &origin_contains_loan_on_entry,
                 (
-                    killed_rel.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
+                    loan_killed_at.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
                     cfg_edge_rel.extend_with(|&(_origin, _loan, point1)| point1),
                     origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin),
                 ),
                 |&(origin, loan, _point1), &point2| (origin, loan, point2),
             );
 
-            // borrow_live_at(loan, point) :-
-            //   requires(origin, loan, point),
+            // loan_live_at(loan, point) :-
+            //   origin_contains_loan_on_entry(origin, loan, point),
             //   origin_live_on_entry(origin, point).
-            borrow_live_at.from_join(
-                &requires_op,
+            loan_live_at.from_join(
+                &origin_contains_loan_on_entry_op,
                 &origin_live_on_entry_var,
                 |&(_origin, point), &loan, _| ((loan, point), ()),
             );
 
             // errors(loan, point) :-
-            //   invalidates(loan, point),
-            //   borrow_live_at(loan, point).
-            errors.from_join(&invalidates, &borrow_live_at, |&(loan, point), _, _| {
-                (loan, point)
-            });
+            //   loan_invalidated_at(loan, point),
+            //   loan_live_at(loan, point).
+            errors.from_join(
+                &loan_invalidated_at,
+                &loan_live_at,
+                |&(loan, point), _, _| (loan, point),
+            );
 
             // subset_errors(Origin1, Origin2, Point) :-
-            //   requires(Origin2, Loan1, Point),
+            //   origin_contains_loan_on_entry(Origin2, Loan1, Point),
             //   placeholder(Origin2, _),
             //   placeholder(Origin1, Loan1),
             //   !known_contains(Origin2, Loan1).
             subset_errors.from_leapjoin(
-                &requires,
+                &origin_contains_loan_on_entry,
                 (
                     placeholder_origin.filter_with(|&(origin2, _loan1, _point)| (origin2, ())),
                     placeholder_loan.extend_with(|&(_origin2, loan1, _point)| loan1),
@@ -227,10 +237,10 @@ pub(super) fn compute<T: FactTypes>(
                     .insert(origin2);
             }
 
-            let requires = requires.complete();
-            for &(origin, loan, location) in requires.iter() {
+            let origin_contains_loan_on_entry = origin_contains_loan_on_entry.complete();
+            for &(origin, loan, location) in origin_contains_loan_on_entry.iter() {
                 result
-                    .restricts
+                    .origin_contains_loan_at
                     .entry(location)
                     .or_default()
                     .entry(origin)
@@ -238,13 +248,9 @@ pub(super) fn compute<T: FactTypes>(
                     .insert(loan);
             }
 
-            let borrow_live_at = borrow_live_at.complete();
-            for &((loan, location), _) in borrow_live_at.iter() {
-                result
-                    .borrow_live_at
-                    .entry(location)
-                    .or_default()
-                    .push(loan);
+            let loan_live_at = loan_live_at.complete();
+            for &((loan, location), _) in loan_live_at.iter() {
+                result.loan_live_at.entry(location).or_default().push(loan);
             }
         }
 

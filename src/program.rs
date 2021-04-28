@@ -13,12 +13,12 @@ use crate::intern::InternerTables;
 /// A structure to hold and deduplicate facts
 #[derive(Default)]
 struct Facts {
-    borrow_region: BTreeSet<(Origin, Loan, Point)>,
+    loan_issued_at: BTreeSet<(Origin, Loan, Point)>,
     universal_region: BTreeSet<Origin>,
     cfg_edge: BTreeSet<(Point, Point)>,
-    killed: BTreeSet<(Loan, Point)>,
-    outlives: BTreeSet<(Origin, Origin, Point)>,
-    invalidates: BTreeSet<(Point, Loan)>,
+    loan_killed_at: BTreeSet<(Loan, Point)>,
+    subset_base: BTreeSet<(Origin, Origin, Point)>,
+    loan_invalidated_at: BTreeSet<(Point, Loan)>,
     known_subset: BTreeSet<(Origin, Origin)>,
     placeholder: BTreeSet<(Origin, Loan)>,
     var_defined_at: BTreeSet<(Variable, Point)>,
@@ -36,12 +36,12 @@ struct Facts {
 impl From<Facts> for AllFacts {
     fn from(facts: Facts) -> Self {
         Self {
-            borrow_region: facts.borrow_region.into_iter().collect(),
+            loan_issued_at: facts.loan_issued_at.into_iter().collect(),
             universal_region: facts.universal_region.into_iter().collect(),
             cfg_edge: facts.cfg_edge.into_iter().collect(),
-            killed: facts.killed.into_iter().collect(),
-            outlives: facts.outlives.into_iter().collect(),
-            invalidates: facts.invalidates.into_iter().collect(),
+            loan_killed_at: facts.loan_killed_at.into_iter().collect(),
+            subset_base: facts.subset_base.into_iter().collect(),
+            loan_invalidated_at: facts.loan_invalidated_at.into_iter().collect(),
             var_defined_at: facts.var_defined_at.into_iter().collect(),
             var_used_at: facts.var_used_at.into_iter().collect(),
             var_dropped_at: facts.var_dropped_at.into_iter().collect(),
@@ -189,7 +189,7 @@ pub(crate) fn parse_from_program(
                 };
             }
 
-            // commonly used to emit manual `invalidates` at Start points, like some rustc features do
+            // commonly used to emit manual `loan_invalidated_at` at Start points, like some rustc features do
             for effect in &statement.effects_start {
                 if let Effect::Fact(ref fact) = effect {
                     emit_fact(&mut facts, fact, start, tables);
@@ -203,39 +203,39 @@ pub(crate) fn parse_from_program(
 
 fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut InternerTables) {
     match fact {
-        // facts: borrow_region(Origin, Loan, Point)
-        Fact::BorrowRegionAt {
+        // facts: loan_issued_at(Origin, Loan, Point)
+        Fact::LoanIssuedAt {
             ref origin,
             ref loan,
         } => {
-            // borrow_region: a `borrow_region` occurs on the Mid point
+            // loan_issued_at: a `loan_issued_at` occurs on the Mid point
             let origin = tables.origins.intern(origin);
             let loan = tables.loans.intern(loan);
 
-            facts.borrow_region.insert((origin, loan, point));
+            facts.loan_issued_at.insert((origin, loan, point));
         }
 
-        // facts: outlives(Origin, Origin, Point)
+        // facts: subset_base(Origin, Origin, Point)
         Fact::Outlives { ref a, ref b } => {
-            // outlives: a `outlives` occurs on Mid points
+            // subset_base: a `subset_base` occurs on Mid points
             let origin_a = tables.origins.intern(a);
             let origin_b = tables.origins.intern(b);
 
-            facts.outlives.insert((origin_a, origin_b, point));
+            facts.subset_base.insert((origin_a, origin_b, point));
         }
 
-        // facts: killed(Loan, Point)
-        Fact::Kill { ref loan } => {
-            // killed: a loan is killed on Mid points
+        // facts: loan_killed_at(Loan, Point)
+        Fact::LoanKilledAt { ref loan } => {
+            // loan_killed_at: a loan is killed on Mid points
             let loan = tables.loans.intern(loan);
-            facts.killed.insert((loan, point));
+            facts.loan_killed_at.insert((loan, point));
         }
 
-        // facts: invalidates(Point, Loan)
-        Fact::Invalidates { ref loan } => {
+        // facts: loan_invalidated_at(Point, Loan)
+        Fact::LoanInvalidatedAt { ref loan } => {
             let loan = tables.loans.intern(loan);
-            // invalidates: a loan can be invalidated on both Start and Mid points
-            facts.invalidates.insert((point, loan));
+            // loan_invalidated_at: a loan can be invalidated on both Start and Mid points
+            facts.loan_invalidated_at.insert((point, loan));
         }
 
         // facts: var_defined_at(Variable, Point)
@@ -270,10 +270,10 @@ mod tests {
             // block description
             block B0 {
                 // 0:
-                invalidates(L0);
+                loan_invalidated_at(L0);
 
                 // 1:
-                invalidates(L1), origin_live_on_entry('d) / kill(L2);
+                loan_invalidated_at(L1), origin_live_on_entry('d) / loan_killed_at(L2);
 
                 // another comment
                 goto B1;
@@ -281,7 +281,7 @@ mod tests {
 
             block B1 {
                 // O:
-                use('a, 'b), outlives('a: 'b), borrow_region_at('b, L1);
+                use('a, 'b), outlives('a: 'b), loan_issued_at('b, L1);
             }
         ";
 
@@ -328,52 +328,52 @@ mod tests {
             ]
         );
 
-        // facts: invalidates
-        assert_eq!(facts.invalidates.len(), 2);
+        // facts: loan_invalidated_at
+        assert_eq!(facts.loan_invalidated_at.len(), 2);
         {
-            // regular mid point `invalidates`
-            let point = tables.points.untern(facts.invalidates[0].0);
-            let loan = tables.loans.untern(facts.invalidates[0].1);
+            // regular mid point `loan_invalidated_at`
+            let point = tables.points.untern(facts.loan_invalidated_at[0].0);
+            let loan = tables.loans.untern(facts.loan_invalidated_at[0].1);
 
             assert_eq!(point, "\"Mid(B0[0])\"");
             assert_eq!(loan, "L0");
         }
 
         {
-            // uncommon start point `invalidates`
-            let point = tables.points.untern(facts.invalidates[1].0);
-            let loan = tables.loans.untern(facts.invalidates[1].1);
+            // uncommon start point `loan_invalidated_at`
+            let point = tables.points.untern(facts.loan_invalidated_at[1].0);
+            let loan = tables.loans.untern(facts.loan_invalidated_at[1].1);
 
             assert_eq!(point, "\"Start(B0[1])\"");
             assert_eq!(loan, "L1");
         }
 
-        assert_eq!(facts.outlives.len(), 1);
+        assert_eq!(facts.subset_base.len(), 1);
         {
-            let origin_a = tables.origins.untern(facts.outlives[0].0);
-            let origin_b = tables.origins.untern(facts.outlives[0].1);
-            let point = tables.points.untern(facts.outlives[0].2);
+            let origin_a = tables.origins.untern(facts.subset_base[0].0);
+            let origin_b = tables.origins.untern(facts.subset_base[0].1);
+            let point = tables.points.untern(facts.subset_base[0].2);
 
             assert_eq!(origin_a, "'a");
             assert_eq!(origin_b, "'b");
             assert_eq!(point, "\"Mid(B1[0])\"");
         }
 
-        assert_eq!(facts.borrow_region.len(), 1);
+        assert_eq!(facts.loan_issued_at.len(), 1);
         {
-            let origin = tables.origins.untern(facts.borrow_region[0].0);
-            let loan = tables.loans.untern(facts.borrow_region[0].1);
-            let point = tables.points.untern(facts.borrow_region[0].2);
+            let origin = tables.origins.untern(facts.loan_issued_at[0].0);
+            let loan = tables.loans.untern(facts.loan_issued_at[0].1);
+            let point = tables.points.untern(facts.loan_issued_at[0].2);
 
             assert_eq!(origin, "'b");
             assert_eq!(loan, "L1");
             assert_eq!(point, "\"Mid(B1[0])\"");
         }
 
-        assert_eq!(facts.killed.len(), 1);
+        assert_eq!(facts.loan_killed_at.len(), 1);
         {
-            let loan = tables.loans.untern(facts.killed[0].0);
-            let point = tables.points.untern(facts.killed[0].1);
+            let loan = tables.loans.untern(facts.loan_killed_at[0].0);
+            let point = tables.points.untern(facts.loan_killed_at[0].1);
 
             assert_eq!(loan, "L2");
             assert_eq!(point, "\"Mid(B0[1])\"");

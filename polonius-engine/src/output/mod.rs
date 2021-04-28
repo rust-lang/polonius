@@ -82,11 +82,11 @@ pub struct Output<T: FactTypes> {
     pub dump_enabled: bool,
 
     // these are just for debugging
-    pub borrow_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
-    pub restricts: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
-    pub restricts_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
+    pub loan_live_at: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub origin_contains_loan_at: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Loan>>>,
+    pub origin_contains_loan_anywhere: FxHashMap<T::Origin, BTreeSet<T::Loan>>,
     pub origin_live_on_entry: FxHashMap<T::Point, Vec<T::Origin>>,
-    pub invalidates: FxHashMap<T::Point, Vec<T::Loan>>,
+    pub loan_invalidated_at: FxHashMap<T::Point, Vec<T::Loan>>,
     pub subset: FxHashMap<T::Point, BTreeMap<T::Origin, BTreeSet<T::Origin>>>,
     pub subset_anywhere: FxHashMap<T::Origin, BTreeSet<T::Origin>>,
     pub var_live_on_entry: FxHashMap<T::Point, Vec<T::Variable>>,
@@ -119,15 +119,15 @@ struct LivenessContext<T: FactTypes> {
 struct Context<'ctx, T: FactTypes> {
     // `Relation`s used as static inputs, by all variants
     origin_live_on_entry: Relation<(T::Origin, T::Point)>,
-    invalidates: Relation<(T::Loan, T::Point)>,
+    loan_invalidated_at: Relation<(T::Loan, T::Point)>,
 
     // static inputs used via `Variable`s, by all variants
-    outlives: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
-    borrow_region: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
+    subset_base: &'ctx Vec<(T::Origin, T::Origin, T::Point)>,
+    loan_issued_at: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
 
     // static inputs used by variants other than `LocationInsensitive`
     cfg_node: &'ctx BTreeSet<T::Point>,
-    killed: Relation<(T::Loan, T::Point)>,
+    loan_killed_at: Relation<(T::Loan, T::Point)>,
     known_contains: Relation<(T::Origin, T::Loan)>,
     placeholder_origin: Relation<(T::Origin, ())>,
     placeholder_loan: Relation<(T::Loan, T::Origin)>,
@@ -211,25 +211,25 @@ impl<T: FactTypes> Output<T> {
         //
         // Note: if rustc and polonius had more interaction, we could also delay or avoid
         // generating some of the facts that are now always present here. For example,
-        // the `LocationInsensitive` variant doesn't use the `killed` or `invalidates`
-        // relations, so we could technically delay passing them from rustc, when
-        // using this or the `Hybrid` variant, to after the pre-pass has made sure
-        // we actually need to compute the full analysis. If these facts happened to
-        // be recorded in separate MIR walks, we might also avoid generating those facts.
+        // the `LocationInsensitive` variant doesn't use the `loan_killed_at` relation, so we could
+        // technically delay computing and passing it from rustc, when using this or the `Hybrid`
+        // variants, to after the pre-pass has made sure we actually need to compute the full
+        // analysis. If these facts happened to be recorded in separate MIR walks, we might also
+        // avoid generating those facts.
 
         let origin_live_on_entry = origin_live_on_entry.into();
 
         // TODO: also flip the order of this relation's arguments in rustc
-        // from `invalidates(point, loan)` to `invalidates(loan, point)`.
+        // from `loan_invalidated_at(point, loan)` to `loan_invalidated_at(loan, point)`.
         // to avoid this allocation.
-        let invalidates = Relation::from_iter(
+        let loan_invalidated_at = Relation::from_iter(
             all_facts
-                .invalidates
+                .loan_invalidated_at
                 .iter()
                 .map(|&(point, loan)| (loan, point)),
         );
 
-        let killed = all_facts.killed.clone().into();
+        let loan_killed_at = all_facts.loan_killed_at.clone().into();
 
         // `known_subset` is a list of all the `'a: 'b` subset relations the user gave:
         // it's not required to be transitive. `known_contains` is its transitive closure: a list
@@ -257,12 +257,12 @@ impl<T: FactTypes> Output<T> {
         // Ask the variants to compute errors in their own way
         let mut ctx = Context {
             origin_live_on_entry,
-            invalidates,
+            loan_invalidated_at,
             cfg_edge,
             cfg_node: &cfg_node,
-            outlives: &all_facts.outlives,
-            borrow_region: &all_facts.borrow_region,
-            killed,
+            subset_base: &all_facts.subset_base,
+            loan_issued_at: &all_facts.loan_issued_at,
+            loan_killed_at,
             known_contains,
             placeholder_origin,
             placeholder_loan,
@@ -402,11 +402,11 @@ impl<T: FactTypes> Output<T> {
             errors: FxHashMap::default(),
             subset_errors: FxHashMap::default(),
             dump_enabled,
-            borrow_live_at: FxHashMap::default(),
-            restricts: FxHashMap::default(),
-            restricts_anywhere: FxHashMap::default(),
+            loan_live_at: FxHashMap::default(),
+            origin_contains_loan_at: FxHashMap::default(),
+            origin_contains_loan_anywhere: FxHashMap::default(),
             origin_live_on_entry: FxHashMap::default(),
-            invalidates: FxHashMap::default(),
+            loan_invalidated_at: FxHashMap::default(),
             move_errors: FxHashMap::default(),
             subset: FxHashMap::default(),
             subset_anywhere: FxHashMap::default(),
@@ -426,25 +426,25 @@ impl<T: FactTypes> Output<T> {
         }
     }
 
-    pub fn borrows_in_scope_at(&self, location: T::Point) -> &[T::Loan] {
-        match self.borrow_live_at.get(&location) {
+    pub fn loans_in_scope_at(&self, location: T::Point) -> &[T::Loan] {
+        match self.loan_live_at.get(&location) {
             Some(p) => p,
             None => &[],
         }
     }
 
-    pub fn restricts_at(
+    pub fn origin_contains_loan_at(
         &self,
         location: T::Point,
     ) -> Cow<'_, BTreeMap<T::Origin, BTreeSet<T::Loan>>> {
         assert!(self.dump_enabled);
-        match self.restricts.get(&location) {
+        match self.origin_contains_loan_at.get(&location) {
             Some(map) => Cow::Borrowed(map),
             None => Cow::Owned(BTreeMap::default()),
         }
     }
 
-    pub fn regions_live_at(&self, location: T::Point) -> &[T::Origin] {
+    pub fn origins_live_at(&self, location: T::Point) -> &[T::Origin] {
         assert!(self.dump_enabled);
         match self.origin_live_on_entry.get(&location) {
             Some(v) => v,
