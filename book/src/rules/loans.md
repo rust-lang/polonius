@@ -139,7 +139,7 @@ errors(Loan, Point) :-
 
 These errors can be computed differently depending on the variant, but the goal is the same: if the analysis detects that a placeholder origin ultimately flows into another placeholder origin, that relationship needs to be declared or it is an error.
 
-The `Naive` rules variant computes the complete subset transitive closure and can more easily detect whether one of these facts links two placeholder origins. The `LocationInsensitive` rules variant does not compute transitive subsets at all, and uses loan propagation to detect these errors (if a placeholder loan flows into a placeholder origin). The `Opt` optimized rules variant only computes the transitive closure of some origins according to their liveness and possible contribution to any error (mostly the ones dying along an edge, and the origins they can reach), and track the transitive subsets of placeholders explicitly.
+The `Naive` rules variant computes the complete subset transitive closure and can more easily detect whether one of these facts links two placeholder origins. The `LocationInsensitive` rules variant does not compute transitive subsets at all, and uses loan propagation to detect these errors (if a placeholder loan flows into a placeholder origin). The `Opt` optimized rules variant only computes the transitive closure of some origins according to their liveness and possible contribution to any error (mostly the ones dying along an edge, and the origins they can reach), and tracks the transitive subsets of placeholders explicitly.
 
 ```prolog
 .decl subset_errors(Origin1:origin, Origin2:origin, Point:point)
@@ -159,9 +159,9 @@ The rules above document the `Naive` variant of loan analysis, as it is conceptu
 
 In practice, different "grades" of borrow-checking can be useful: each with different levels of precision in what it accepts and with different computational complexity requirements. The lowest of such grades, the `LocationInsensitive` variant, trades off precision for speed by ignoring both the location where subsets happen, and the origins' contents at the CFG points. The idea is: if an analysis would find no error when ignoring path- and flow-sensitivity, then the full analysis would find no error either. If it does find potential errors, then the full analysis will find a subset of these location-insensitive errors.
 
-This can be used as a quick pre-pass: if there a no errors, a full, expensive, analysis does not need to run, otherwise, only the loans where potential errors occur would need to be fully checked to remove false positives.
+This can be used as a quick pre-pass: if there are no errors, a full, expensive, analysis does not need to run, otherwise, only the loans where potential errors occur would need to be fully checked to remove false positives.
 
-The inputs are the same as the `Naive` variant, but remove the CFG points from the `subset`s. Subsets are not tracked, and are used to approximate loan propagation inside origins (regardless of liveness and location-sensitivity) in `origin_contains_loan`:
+The inputs are the same as the `Naive` variant, but ignore the CFG points from the `subset`s. Subsets are not tracked, and are used to approximate loan propagation inside origins (regardless of liveness and location-sensitivity) in `origin_contains_loan`:
 
 ```prolog
 .decl subset(Origin1:origin, Origin2:origin)
