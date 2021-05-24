@@ -25,7 +25,7 @@ pub struct AllFacts<T: FactTypes> {
 
     /// `subset_base(origin1, origin2, point)` when we require `origin1@point: origin2@point`.
     /// Indicates that `origin1 <= origin2` -- i.e., the set of loans in `origin1` are a subset
-    // of those in `origin2`.
+    /// of those in `origin2`.
     pub subset_base: Vec<(T::Origin, T::Origin, T::Point)>,
 
     /// `loan_invalidated_at(point, loan)` indicates that the `loan` is invalidated by some action
