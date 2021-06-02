@@ -1,3 +1,5 @@
+# Atoms
+
 Polonius defines the following **atoms**. To Polonius, these are
 opaque identifiers that identify particular things within the input
 program (literally they are newtype'd integers). Their meaning and
