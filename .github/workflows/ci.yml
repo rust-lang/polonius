@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    
+jobs:
+  rustfmt:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install rust beta toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: beta
+          profile: minimal
+          override: true
+          components: rustfmt
+
+      - name: Check formatting of all crates
+        run: cargo fmt --all -- --check
+
+  book:
+    name: Build and upload book
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install mdbook
+        run: |
+          mkdir mdbook
+          curl -Lf https://github.com/rust-lang/mdBook/releases/download/v0.4.8/mdbook-v0.4.8-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook
+          echo "$GITHUB_WORKSPACE/mdbook" >> $GITHUB_PATH
+
+      - name: Build book
+        run: mdbook build ./book/
+
+      - name: Deploy book to GitHub Pages
+        uses: rust-lang/simpleinfra/github-actions/static-websites@master
+        with:
+          deploy_dir: book/book
+          github_token: "${{ secrets.github_token }}"
+        if: github.ref == 'refs/heads/master'
+
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.rust == 'nightly' }}
+    strategy:
+      matrix:
+        rust: [beta, nightly]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+
+      - name: Build polonius
+        run: cargo build
+
+      - name: Execute tests for all crates in the workspace
+        run: cargo test --all
