@@ -66,9 +66,9 @@ pub(super) fn compute_live_origins<T: FactTypes>(
         |&(var, _point1), &point2| ((var, point2), ()),
     );
 
-    // var_drop_live_at(var, point) :-
+    // var_drop_live_on_entry(var, point) :-
     //     var_dropped_at(var, point),
-    //     var_maybe_partly_initialzed_on_entry(var, point).
+    //     var_maybe_partly_initialized_on_entry(var, point).
     var_drop_live_on_entry.insert(Relation::from_join(
         &var_dropped_at,
         &var_maybe_partly_initialized_on_entry,
