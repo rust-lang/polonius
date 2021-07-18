@@ -184,7 +184,7 @@ fn compute_move_errors<T: FactTypes>(
 
         // var_maybe_partly_initialized_on_exit(var, point) :-
         //     path_maybe_initialized_on_exit(path, point).
-        //     path_begins_with(path, var).
+        //     path_begins_with_var(path, var).
         var_maybe_partly_initialized_on_exit.from_leapjoin(
             &path_maybe_initialized_on_exit,
             ctx.path_begins_with_var.extend_with(|&(path, _point)| path),
