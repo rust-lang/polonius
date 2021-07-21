@@ -407,7 +407,7 @@ fn build_inputs_by_point_for_visualization(
         facts_by_point(
             all_facts.path_moved_at_base.iter().cloned(),
             |(var, point)| (point, (var,)),
-            "moved_out_at_base".to_string(),
+            "path_moved_at_base".to_string(),
             1,
             intern,
         ),
