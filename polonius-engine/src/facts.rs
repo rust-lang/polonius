@@ -42,11 +42,11 @@ pub struct AllFacts<T: FactTypes> {
     /// `var_dropped_at(var, point)` when the variable `var` is used in a drop at `point`
     pub var_dropped_at: Vec<(T::Variable, T::Point)>,
 
-    // `use_of_var_derefs_origin(variable, origin)`: References with the given
-    // `origin` may be dereferenced when the `variable` is used.
-    //
-    // In rustc, we generate this whenever the type of the variable includes the
-    // given origin.
+    /// `use_of_var_derefs_origin(variable, origin)`: References with the given
+    /// `origin` may be dereferenced when the `variable` is used.
+    ///
+    /// In rustc, we generate this whenever the type of the variable includes the
+    /// given origin.
     pub use_of_var_derefs_origin: Vec<(T::Variable, T::Origin)>,
 
     /// `drop_of_var_derefs_origin(var, origin)` when the type of `var` includes
@@ -60,19 +60,19 @@ pub struct AllFacts<T: FactTypes> {
     /// `path_is_var(path, var)` the root path `path` starting in variable `var`.
     pub path_is_var: Vec<(T::Path, T::Variable)>,
 
-    /// `path_assigned_at(path, point)` when the `path` was initialized at point
+    /// `path_assigned_at_base(path, point)` when the `path` was initialized at point
     /// `point`. This fact is only emitted for a prefix `path`, and not for the
     /// implicit initialization of all of `path`'s children. E.g. a statement like
-    /// `x.y = 3` at `point` would give the fact `initialized_at(x.y, point)` (but
-    /// neither `initialized_at(x.y.z, point)` nor `initialized_at(x, point)`).
+    /// `x.y = 3` at `point` would give the fact `path_assigned_at_base(x.y, point)` (but
+    /// neither `path_assigned_at_base(x.y.z, point)` nor `path_assigned_at_base(x, point)`).
     pub path_assigned_at_base: Vec<(T::Path, T::Point)>,
 
     /// `path_moved_at_base(path, point)` when the `path` was moved at `point`. The
-    /// same logic is applied as for `assigned_at` above.
+    /// same logic is applied as for `path_assigned_at_base` above.
     pub path_moved_at_base: Vec<(T::Path, T::Point)>,
 
     /// `path_accessed_at_base(path, point)` when the `path` was accessed at point
-    /// `point`. The same logic as for `initialized_at` and `moved_out_at` applies.
+    /// `point`. The same logic as for `path_assigned_at_base` and `path_moved_at_base` applies.
     pub path_accessed_at_base: Vec<(T::Path, T::Point)>,
 
     /// These reflect the `'a: 'b` relations that are either declared by the user on function
