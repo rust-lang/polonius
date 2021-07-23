@@ -171,8 +171,8 @@ fn compute_move_errors<T: FactTypes>(
 
         // path_maybe_uninitialized_on_exit(path, point2) :-
         //     path_maybe_uninitialized_on_exit(path, point1),
-        //     cfg_edge_(point1, point2)
-        //     !path_assigned_at(point1, point2).
+        //     cfg_edge(point1, point2)
+        //     !path_assigned_at(path, point2).
         path_maybe_uninitialized_on_exit.from_leapjoin(
             &path_maybe_uninitialized_on_exit,
             (
