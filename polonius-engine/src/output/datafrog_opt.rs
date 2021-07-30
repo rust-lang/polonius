@@ -413,6 +413,9 @@ pub(super) fn compute<T: FactTypes>(
                 |&((origin1, point), origin2), _| (origin1, origin2, point),
             );
 
+            // We compute the transitive closure of the placeholder origins, so we
+            // maintain the invariant from the rule above that `Origin1` is a placeholder origin.
+            //
             // subset_placeholder(Origin1, Origin3, Point) :-
             //     subset_placeholder(Origin1, Origin2, Point),
             //     subset(Origin2, Origin3, Point).
