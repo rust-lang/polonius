@@ -1,14 +1,12 @@
 use std::fmt;
 
-use logos::Span;
-
-use crate::lexer::Token;
+use crate::token::{Span, TokenKind};
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
     UnexpectedToken {
-        found: Token,
-        expected: Vec<Token>,
+        found: TokenKind,
+        expected: Vec<TokenKind>,
         position: Span,
     },
 }
@@ -45,7 +43,7 @@ impl fmt::Display for ParseError {
     }
 }
 
-fn token_list_to_string(tokens: &[Token]) -> String {
+fn token_list_to_string(tokens: &[TokenKind]) -> String {
     let res: Vec<String> = tokens.iter().map(|token| format!("'{}'", token)).collect();
     let mut res = res.join(", ");
     if let Some(pos) = res.rfind(", ") {

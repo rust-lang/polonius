@@ -1,11 +1,11 @@
 use std::iter::Peekable;
 use std::vec;
 
-use logos::Span;
-
 use crate::error::ParseError;
 use crate::ir::*;
-use crate::lexer::{Spanned, Token};
+use crate::token::Span;
+use crate::token::Token;
+use crate::token::TokenKind;
 use crate::Result;
 use crate::T;
 
@@ -31,10 +31,10 @@ where
 
 impl<'input, I> Parser<'input, I>
 where
-    I: Iterator<Item = Spanned<Token>>,
+    I: Iterator<Item = Token>,
 {
-    pub(crate) fn peek(&mut self) -> Token {
-        self.lexer.peek().map(|token| token.t).unwrap_or(Token::Eof)
+    pub(crate) fn peek(&mut self) -> TokenKind {
+        self.lexer.peek().map(|token| token.kind).unwrap_or(T![eof])
     }
 
     pub(crate) fn text(&mut self) -> &str {
@@ -42,11 +42,11 @@ where
     }
 
     pub(crate) fn position(&mut self) -> Span {
-        let peek = self.lexer.peek().map(|token| token.span.clone());
-        peek.unwrap_or(0..0)
+        let peek = self.lexer.peek().map(|token| token.span);
+        peek.unwrap_or_else(|| (0..0).into())
     }
 
-    pub(crate) fn try_consume(&mut self, expected: Token) -> bool {
+    pub(crate) fn try_consume(&mut self, expected: TokenKind) -> bool {
         if !self.at(expected) {
             return false;
         }
@@ -54,7 +54,7 @@ where
         true
     }
 
-    pub(crate) fn consume(&mut self, expected: Token) -> Result<Token> {
+    pub(crate) fn consume(&mut self, expected: TokenKind) -> Result<TokenKind> {
         if self.try_consume(expected) {
             return Ok(expected);
         }
@@ -65,8 +65,8 @@ where
         })
     }
 
-    pub(crate) fn at(&mut self, token: Token) -> bool {
-        self.peek() == token
+    pub(crate) fn at(&mut self, kind: TokenKind) -> bool {
+        self.peek() == kind
     }
 
     pub(crate) fn bump(&mut self) {
@@ -76,7 +76,7 @@ where
 
 impl<'input, I> Parser<'input, I>
 where
-    I: Iterator<Item = Spanned<Token>>,
+    I: Iterator<Item = Token>,
 {
     pub fn parse_input(&mut self) -> Result<Input> {
         let placeholders = self.parse_placeholders()?;
@@ -328,11 +328,15 @@ where
         }
     }
 
-    pub(crate) fn delimited(&mut self, token: Token, delimiter: Token) -> Result<Vec<String>> {
+    pub(crate) fn delimited(
+        &mut self,
+        kind: TokenKind,
+        delimiter: TokenKind,
+    ) -> Result<Vec<String>> {
         let mut result = Vec::new();
-        while self.at(token) {
+        while self.at(kind) {
             result.push(self.text().to_string());
-            self.consume(token)?;
+            self.consume(kind)?;
             if !self.try_consume(delimiter) {
                 break;
             }

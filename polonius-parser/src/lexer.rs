@@ -1,172 +1,177 @@
-use std::{fmt, ops::Deref};
+use crate::{
+    token::{Span, Token},
+    T,
+};
 
-use logos::{Logos, Span};
-
-#[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
-#[repr(u16)]
-pub enum Token {
-    #[token(",")]
-    Comma,
-    #[token(":")]
-    Colon,
-    #[token(";")]
-    Semi,
-    #[token("/")]
-    Slash,
-    #[token("(")]
-    LParen,
-    #[token(")")]
-    RParen,
-    #[token("{")]
-    LCurly,
-    #[token("}")]
-    RCurly,
-    // relation keywords
-    #[token("use_of_var_derefs_origin")]
-    KwUseOfVarDerefsOrigin,
-    #[token("drop_of_var_derefs_origin")]
-    KwDropOfVarDerefsOrigin,
-    #[token("placeholders")]
-    KwPlaceholders,
-    #[token("known_subsets")]
-    KwKnownSubsets,
-    // CFG keywords
-    #[token("block")]
-    KwBlock,
-    #[token("goto")]
-    KwGoto,
-    // effect keywords - facts
-    #[token("outlives")]
-    KwOutlives,
-    #[token("loan_issued_at")]
-    KwLoanIssuedAt,
-    #[token("loan_invalidated_at")]
-    KwLoanInvalidatedAt,
-    #[token("loan_killed_at")]
-    KwLoanKilledAt,
-    #[token("var_used_at")]
-    KwVarUsedAt,
-    #[token("var_defined_at")]
-    KwVarDefinedAt,
-    #[token("origin_live_on_entry")]
-    KwOriginLiveOnEntry,
-    #[token("var_dropped_at")]
-    KwVarDroppedAt,
-    // effect keywords - use
-    #[token("use")]
-    KwUse,
-    // parameters
-    #[regex(r"'\w+")]
-    Origin,
-    #[regex(r"B\w+")]
-    Block,
-    #[regex(r"L\w+")]
-    Loan,
-    #[regex(r"V\w+")]
-    Variable,
-    #[regex(r"//.*", logos::skip)]
-    Comment,
-    #[regex(r"[ \t\n\f]+", logos::skip)]
-    Whitespace,
-    #[error]
-    Error,
-    Eof,
+pub struct Lexer<'input> {
+    input: &'input str,
+    position: u32,
+    eof: bool,
 }
 
-#[macro_export]
-macro_rules! T {
-    [,] => { $crate::lexer::Token::Comma};
-    [:] => { $crate::lexer::Token::Colon};
-    [;] => { $crate::lexer::Token::Semi};
-    [/] => { $crate::lexer::Token::Slash};
-    ['('] => { $crate::lexer::Token::LParen};
-    [')'] => { $crate::lexer::Token::RParen};
-    ['{'] => { $crate::lexer::Token::LCurly};
-    ['}'] => { $crate::lexer::Token::RCurly};
-    // relation keywords
-    [use of var derefs origin] => { $crate::lexer::Token::KwUseOfVarDerefsOrigin};
-    [drop of var derefs origin] => { $crate::lexer::Token::KwDropOfVarDerefsOrigin};
-    [placeholders] => { $crate::lexer::Token::KwPlaceholders};
-    [known subsets] => { $crate::lexer::Token::KwKnownSubsets};
-    // CFG keywords
-    [block] => { $crate::lexer::Token::KwBlock};
-    [goto] => { $crate::lexer::Token::KwGoto};
-    // effect keywords - facts
-    [outlives] => { $crate::lexer::Token::KwOutlives};
-    [loan issued at] => { $crate::lexer::Token::KwLoanIssuedAt};
-    [loan invalidated at] => { $crate::lexer::Token::KwLoanInvalidatedAt};
-    [loan killed at] => { $crate::lexer::Token::KwLoanKilledAt};
-    [var used at] => { $crate::lexer::Token::KwVarUsedAt};
-    [var defined at] => { $crate::lexer::Token::KwVarDefinedAt};
-    [origin live on entry] => { $crate::lexer::Token::KwOriginLiveOnEntry};
-    [var dropped at] => { $crate::lexer::Token::KwVarDroppedAt};
-    // effect keywords - use
-    [use] => { $crate::lexer::Token::KwUse};
-    // parameters
-    [origin] => { $crate::lexer::Token::Origin};
-    [Block] => { $crate::lexer::Token::Block};
-    [loan] => { $crate::lexer::Token::Loan};
-    [variable] => { $crate::lexer::Token::Variable};
-    [comment] => { $crate::lexer::Token::Comment};
-    [ws] => { $crate::lexer::Token::Whitespace};
-    [error] => { $crate::lexer::Token::Error};
-    [eof] => { $crate::lexer::Token::Eof};
-}
+impl<'input> Lexer<'input> {
+    pub fn new(input: &'input str) -> Self {
+        Self {
+            input,
+            position: 0,
+            eof: false,
+        }
+    }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Spanned<T> {
-    pub t: T,
-    pub span: Span,
-}
+    pub fn next_token(&mut self, input: &str) -> Token {
+        self.valid_token(input)
+            .unwrap_or_else(|| self.invalid_token(input))
+    }
 
-impl<T> Deref for Spanned<T> {
-    type Target = T;
+    /// Returns `None` if the lexer cannot find a token at the start of `input`.
+    fn valid_token(&mut self, input: &str) -> Option<Token> {
+        let (len, kind) = match input.as_bytes() {
+            [c, ..] if (*c as char).is_whitespace() => (
+                input
+                    .char_indices()
+                    .take_while(|(_, c)| c.is_whitespace())
+                    .last()
+                    .unwrap() // we know there is at least one whitespace character
+                    .0 as u32
+                    + 1,
+                T![ws],
+            ),
+            [b',', ..] => (1, T![,]),
+            [b':', ..] => (1, T![:]),
+            [b';', ..] => (1, T![;]),
+            [b'/', next, ..] if *next != b'/' => (1, T![/]), // clash with comments
+            [b'(', ..] => (1, T!['(']),
+            [b')', ..] => (1, T![')']),
+            [b'{', ..] => (1, T!['{']),
+            [b'}', ..] => (1, T!['}']),
+            // parameters
+            [c @ b'\'' | c @ b'B' | c @ b'L' | c @ b'V', ..] => (
+                input
+                    .char_indices()
+                    .skip(1)
+                    .take_while(|(_, c)| c.is_alphanumeric() || *c == '_')
+                    .last()
+                    .map(|(pos, _c)| pos)
+                    .unwrap_or(0) as u32
+                    + 1,
+                match c {
+                    b'\'' => T![origin],
+                    b'B' => T![Block],
+                    b'L' => T![loan],
+                    b'V' => T![variable],
+                    _ => unreachable!(),
+                },
+            ),
+            [b'/', b'/', ..] => (
+                input
+                    .char_indices()
+                    .take_while(|(_, c)| *c != '\n')
+                    .last()
+                    .map(|(pos, _c)| pos)
+                    .unwrap_or(input.len()) as u32
+                    + 1,
+                T![comment],
+            ),
+            // relation keywords
+            kw if kw.starts_with("use_of_var_derefs_origin".as_bytes()) => (
+                "use_of_var_derefs_origin".len() as u32,
+                T![use of var derefs origin],
+            ),
+            kw if kw.starts_with("drop_of_var_derefs_origin".as_bytes()) => (
+                "drop_of_var_derefs_origin".len() as u32,
+                T![drop of var derefs origin],
+            ),
+            kw if kw.starts_with("placeholders".as_bytes()) => {
+                ("placeholders".len() as u32, T![placeholders])
+            }
+            kw if kw.starts_with("known_subsets".as_bytes()) => {
+                ("known_subsets".len() as u32, T![known subsets])
+            }
+            // CFG keywords
+            kw if kw.starts_with("block".as_bytes()) => ("block".len() as u32, T![block]),
+            kw if kw.starts_with("goto".as_bytes()) => ("goto".len() as u32, T![goto]),
+            // effect keywords - facts
+            kw if kw.starts_with("outlives".as_bytes()) => ("outlives".len() as u32, T![outlives]),
+            kw if kw.starts_with("loan_issued_at".as_bytes()) => {
+                ("loan_issued_at".len() as u32, T![loan issued at])
+            }
+            kw if kw.starts_with("loan_invalidated_at".as_bytes()) => {
+                ("loan_invalidated_at".len() as u32, T![loan invalidated at])
+            }
+            kw if kw.starts_with("loan_killed_at".as_bytes()) => {
+                ("loan_killed_at".len() as u32, T![loan killed at])
+            }
+            kw if kw.starts_with("var_used_at".as_bytes()) => {
+                ("var_used_at".len() as u32, T![var used at])
+            }
+            kw if kw.starts_with("var_defined_at".as_bytes()) => {
+                ("var_defined_at".len() as u32, T![var defined at])
+            }
+            kw if kw.starts_with("origin_live_on_entry".as_bytes()) => (
+                "origin_live_on_entry".len() as u32,
+                T![origin live on entry],
+            ),
+            kw if kw.starts_with("var_dropped_at".as_bytes()) => {
+                ("var_dropped_at".len() as u32, T![var dropped at])
+            }
+            // effect keywords - use
+            kw if kw.starts_with("use".as_bytes()) => ("use".len() as u32, T![use]),
+            _ => return None,
+        };
 
-    fn deref(&self) -> &Self::Target {
-        &self.t
+        let start = self.position;
+        self.position += len;
+        Some(Token {
+            kind,
+            span: Span {
+                start,
+                end: start + len,
+            },
+        })
+    }
+
+    /// Always "succeeds", because it creates an error `Token`.
+    fn invalid_token(&mut self, input: &str) -> Token {
+        let start = self.position;
+        let len = input
+            .char_indices()
+            .find(|(pos, _)| self.valid_token(&input[*pos..]).is_some())
+            .map(|(pos, _)| pos)
+            .unwrap_or_else(|| input.len());
+        debug_assert!(len <= input.len());
+
+        // Because `valid_token` advances our position,
+        // we need to reset it to after the errornous token.
+        let len = len as u32;
+        self.position = start + len;
+        Token {
+            kind: T![error],
+            span: Span {
+                start,
+                end: start + len,
+            },
+        }
     }
 }
 
-pub fn lex(input: &str) -> impl Iterator<Item = Spanned<Token>> + '_ {
-    Token::lexer(input)
-        .spanned()
-        .map(|(t, span)| Spanned { t, span })
-}
+impl<'input> Iterator for Lexer<'input> {
+    type Item = Token;
 
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            T![,] => write!(f, ","),
-            T![:] => write!(f, ":"),
-            T![;] => write!(f, ";"),
-            T![/] => write!(f, "/"),
-            T!['('] => write!(f, "("),
-            T![')'] => write!(f, ")"),
-            T!['{'] => write!(f, "{{"),
-            T!['}'] => write!(f, "}}"),
-            T![use of var derefs origin] => write!(f, "use_of_var_derefs_origin"),
-            T![drop of var derefs origin] => write!(f, "drop_of_var_derefs_origin"),
-            T![placeholders] => write!(f, "placeholders"),
-            T![known subsets] => write!(f, "known_subsets"),
-            T![block] => write!(f, "block"),
-            T![goto] => write!(f, "goto"),
-            T![outlives] => write!(f, "outlives"),
-            T![loan issued at] => write!(f, "loan_issued_at"),
-            T![loan invalidated at] => write!(f, "loan_invalidated_at"),
-            T![loan killed at] => write!(f, "loan_killed_at"),
-            T![var used at] => write!(f, "var_used_at"),
-            T![var defined at] => write!(f, "var_defined_at"),
-            T![origin live on entry] => write!(f, "origin_live_on_entry"),
-            T![var dropped at] => write!(f, "var_dropped_at"),
-            T![use] => write!(f, "use"),
-            T![origin] => write!(f, "Origin"),
-            T![Block] => write!(f, "Block"),
-            T![loan] => write!(f, "Loan"),
-            T![variable] => write!(f, "Variable"),
-            T![comment] => write!(f, "// Comment"),
-            T![ws] => write!(f, "<ws>"),
-            T![error] => write!(f, "<?>"),
-            T![eof] => write!(f, "EOF"),
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position as usize >= self.input.len() {
+            if self.eof {
+                return None;
+            }
+            self.eof = true;
+            Some(Token {
+                kind: T![eof],
+                span: Span {
+                    start: self.position,
+                    end: self.position,
+                },
+            })
+        } else {
+            Some(self.next_token(&self.input[self.position as usize..]))
         }
     }
 }
