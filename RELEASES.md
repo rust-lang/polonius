@@ -36,6 +36,10 @@ Add a CLI option `--dump-liveness-graph` to dump a Graphviz file with a
 
 # polonius-engine
 
+## v.0.13.0
+- compute subset errors in all variants, allows the `Hybrid` variant to be the default again
+- more terminology work, on the relation names, to improve clarity 
+
 ## v.0.12.1
 
 - fix an issue in tracking paths and subpaths in move/init analysis
