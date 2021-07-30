@@ -10,9 +10,9 @@ pub struct Input {
 impl Input {
     pub fn new(
         placeholders: Vec<String>,
-        known_subsets: Option<Vec<KnownSubset>>,
-        use_of_var_derefs_origin: Option<Vec<(String, String)>>,
-        drop_of_var_derefs_origin: Option<Vec<(String, String)>>,
+        known_subsets: Vec<KnownSubset>,
+        use_of_var_derefs_origin: Vec<(String, String)>,
+        drop_of_var_derefs_origin: Vec<(String, String)>,
         blocks: Vec<Block>,
     ) -> Input {
         // set-up placeholders as origins with a placeholder loan of the same name
@@ -26,9 +26,9 @@ impl Input {
 
         Input {
             placeholders,
-            known_subsets: known_subsets.unwrap_or_default(),
-            use_of_var_derefs_origin: use_of_var_derefs_origin.unwrap_or_default(),
-            drop_of_var_derefs_origin: drop_of_var_derefs_origin.unwrap_or_default(),
+            known_subsets,
+            use_of_var_derefs_origin,
+            drop_of_var_derefs_origin,
             blocks,
         }
     }
@@ -85,10 +85,7 @@ impl Statement {
         // entry to the start point.
         let effects_start = effects
             .iter()
-            .filter(|effect| match effect {
-                Effect::Fact(Fact::OriginLiveOnEntry { .. }) => true,
-                _ => false,
-            })
+            .filter(|effect| matches!(effect, Effect::Fact(Fact::OriginLiveOnEntry { .. })))
             .cloned()
             .collect();
 
