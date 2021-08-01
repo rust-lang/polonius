@@ -140,8 +140,10 @@ struct Context<'ctx, T: FactTypes> {
     // initialization and liveness, so already computed by the time we get to borrowcking.
     cfg_edge: Relation<(T::Point, T::Point)>,
 
-    // Partial results possibly used by other variants as input
+    // Partial results possibly used by other variants as input. Not currently used yet.
+    #[allow(dead_code)]
     potential_errors: Option<FxHashSet<T::Loan>>,
+    #[allow(dead_code)]
     potential_subset_errors: Option<Relation<(T::Origin, T::Origin)>>,
 }
 
