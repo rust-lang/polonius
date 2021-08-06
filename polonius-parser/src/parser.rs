@@ -121,11 +121,9 @@ where
         self.consume(T!['{'])?;
         let mut known_subsets = Vec::new();
         while self.at(T![origin]) {
-            let a = self.text().to_string();
-            self.consume(T![origin])?;
+            let a = self.parse_parameter(T![origin])?;
             self.consume(T![:])?;
-            let b = self.text().to_string();
-            self.consume(T![origin])?;
+            let b = self.parse_parameter(T![origin])?;
             known_subsets.push(KnownSubset { a, b });
             if !self.try_consume(T![,]) {
                 break;
@@ -154,11 +152,9 @@ where
     pub fn parse_var_region_mappings(&mut self) -> Result<Vec<(String, String)>> {
         let mut var_region_mappings = Vec::new();
         while self.try_consume(T!['(']) {
-            let variable = self.text().to_string();
-            self.consume(T![variable])?;
+            let variable = self.parse_parameter(T![variable])?;
             self.consume(T![,])?;
-            let origin = self.text().to_string();
-            self.consume(T![origin])?;
+            let origin = self.parse_parameter(T![origin])?;
             self.consume(T![')'])?;
             var_region_mappings.push((variable, origin));
             if !self.try_consume(T![,]) {
@@ -171,8 +167,7 @@ where
     pub fn parse_blocks(&mut self) -> Result<Vec<Block>> {
         let mut blocks = Vec::new();
         while self.try_consume(T![block]) {
-            let name = self.text().to_string();
-            self.consume(T![Block])?;
+            let name = self.parse_parameter(T![Block])?;
             self.consume(T!['{'])?;
             let statements = self.parse_statements()?;
             let goto = self.parse_goto()?;
@@ -241,70 +236,60 @@ where
             T![outlives] => {
                 self.consume(T![outlives])?;
                 self.consume(T!['('])?;
-                let a = self.text().to_string();
-                self.consume(T![origin])?;
+                let a = self.parse_parameter(T![origin])?;
                 self.consume(T![:])?;
-                let b = self.text().to_string();
-                self.consume(T![origin])?;
+                let b = self.parse_parameter(T![origin])?;
                 self.consume(T![')'])?;
                 Ok(Fact::Outlives { a, b })
             }
             T![loan issued at] => {
                 self.consume(T![loan issued at])?;
                 self.consume(T!['('])?;
-                let origin = self.text().to_string();
-                self.consume(T![origin])?;
+                let origin = self.parse_parameter(T![origin])?;
                 self.consume(T![,])?;
-                let loan = self.text().to_string();
-                self.consume(T![loan])?;
+                let loan = self.parse_parameter(T![loan])?;
                 self.consume(T![')'])?;
                 Ok(Fact::LoanIssuedAt { origin, loan })
             }
             T![loan invalidated at] => {
                 self.consume(T![loan invalidated at])?;
                 self.consume(T!['('])?;
-                let loan = self.text().to_string();
-                self.consume(T![loan])?;
+                let loan = self.parse_parameter(T![loan])?;
                 self.consume(T![')'])?;
                 Ok(Fact::LoanInvalidatedAt { loan })
             }
             T![loan killed at] => {
                 self.consume(T![loan killed at])?;
                 self.consume(T!['('])?;
-                let loan = self.text().to_string();
-                self.consume(T![loan])?;
+                let loan = self.parse_parameter(T![loan])?;
                 self.consume(T![')'])?;
                 Ok(Fact::LoanKilledAt { loan })
             }
             T![var used at] => {
                 self.consume(T![var used at])?;
                 self.consume(T!['('])?;
-                let variable = self.text().to_string();
-                self.consume(T![variable])?;
+                let variable = self.parse_parameter(T![variable])?;
                 self.consume(T![')'])?;
                 Ok(Fact::UseVariable { variable })
             }
             T![var defined at] => {
                 self.consume(T![var defined at])?;
                 self.consume(T!['('])?;
-                let variable = self.text().to_string();
-                self.consume(T![variable])?;
+                let variable = self.parse_parameter(T![variable])?;
                 self.consume(T![')'])?;
                 Ok(Fact::DefineVariable { variable })
             }
             T![origin live on entry] => {
                 self.consume(T![origin live on entry])?;
                 self.consume(T!['('])?;
-                let origin = self.text().to_string();
-                self.consume(T![origin])?;
+                let origin = self.parse_parameter(T![origin])?;
                 self.consume(T![')'])?;
                 Ok(Fact::OriginLiveOnEntry { origin })
             }
             T![var dropped at] => {
                 self.consume(T![var dropped at])?;
                 self.consume(T!['('])?;
-                let variable = self.text().to_string();
-                self.consume(T![variable])?;
+                let variable = self.parse_parameter(T![variable])?;
                 self.consume(T![')'])?;
                 Ok(Fact::UseVariable { variable })
             }
@@ -341,6 +326,12 @@ where
         } else {
             Ok(vec![])
         }
+    }
+
+    pub fn parse_parameter(&mut self, kind: TokenKind) -> Result<String> {
+        let text = self.text().to_string();
+        self.consume(kind)?;
+        Ok(text)
     }
 
     /// Parses a sequence of tokens of kind `kind` that are delimited by tokens of kind `delimiter`
