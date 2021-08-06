@@ -1,6 +1,5 @@
 mod error;
 pub mod ir;
-// mod lexer;
 mod lexer;
 mod parser;
 mod token;
