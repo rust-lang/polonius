@@ -1,30 +1,24 @@
+//! Defines the output of the [`Lexer`](crate::lexer::Lexer).
+
 use std::{
     fmt,
     ops::{Index, Range},
 };
 
+/// [`Token`]s produced by the lexer.
+///
+/// The primary information inside each token is its [`kind`](TokenKind), which stores which
+/// syntactical element the token represents.
+/// Instead of storing a token's source string, which would involve either lifetimes or allocation,
+/// we store its position (in bytes) inside the source. The input string can be indexed with this
+/// [`span`](Span) to obtain the token text.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
 }
 
-impl fmt::Debug for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?} - <{}, {}>",
-            self.kind, self.span.start, self.span.end
-        )
-    }
-}
-
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
+/// Represents what input was lexed into a [`Token`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u16)]
 pub enum TokenKind {
@@ -66,6 +60,33 @@ pub enum TokenKind {
     Eof,
 }
 
+/// A source range in bytes.
+///
+/// A [`Span`] is essentially a [`Range<u32>`] that is [`Copy`].
+/// Spans implement [`Index`], so they can be used directly to index the source string.
+///
+/// Can be converted [`Into`] and [`From`] a [`Range<usize>`].
+#[derive(Eq, PartialEq, Clone, Copy, Hash, Default, Debug)]
+pub struct Span {
+    /// inclusive
+    pub start: u32,
+    /// exclusive
+    pub end: u32,
+}
+
+impl Index<Span> for str {
+    type Output = str;
+
+    fn index(&self, index: Span) -> &Self::Output {
+        &self[Range::<usize>::from(index)]
+    }
+}
+
+/// Returns the [`TokenKind`] of a character, or that of keywords and parameters by a short name.
+///
+/// This is mostly a convenience to avoid typing and reading `TokenKind::Comma` and
+/// `TokenKind::KwDropOfVarDerefsOrigin` everywhere, and instead be able to write `T![,]` and
+/// `T![drop_of_var_derefs_origin]`.
 #[macro_export]
 macro_rules! T {
     [,] => { $crate::token::TokenKind::Comma};
@@ -106,6 +127,22 @@ macro_rules! T {
     [eof] => { $crate::token::TokenKind::Eof};
 }
 
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?} - <{}, {}>",
+            self.kind, self.span.start, self.span.end
+        )
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
 impl fmt::Display for TokenKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -144,14 +181,6 @@ impl fmt::Display for TokenKind {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Copy, Hash, Default, Debug)]
-pub struct Span {
-    /// inclusive
-    pub start: u32,
-    /// exclusive
-    pub end: u32,
-}
-
 impl From<Span> for Range<usize> {
     fn from(span: Span) -> Self {
         span.start as usize..span.end as usize
@@ -164,13 +193,5 @@ impl From<Range<usize>> for Span {
             start: range.start as u32,
             end: range.end as u32,
         }
-    }
-}
-
-impl Index<Span> for str {
-    type Output = str;
-
-    fn index(&self, index: Span) -> &Self::Output {
-        &self[Range::<usize>::from(index)]
     }
 }

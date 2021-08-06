@@ -1,3 +1,5 @@
+//! test input data model
+
 #[derive(Debug)]
 pub struct Input {
     pub placeholders: Vec<Placeholder>,

@@ -1,3 +1,5 @@
+//! Defines the [`Parser`].
+
 use std::iter::Peekable;
 use std::vec;
 
@@ -9,6 +11,10 @@ use crate::token::TokenKind;
 use crate::Result;
 use crate::T;
 
+/// Input parser.
+///
+/// Construct with an iterator that produces [`Token`]s and choose any of the `parse_` methods as an entrypoint.
+/// The main entrypoint for full programs is [`parse_input`](Parser::parse_input).
 pub struct Parser<'input, I>
 where
     I: Iterator,
@@ -33,19 +39,24 @@ impl<'input, I> Parser<'input, I>
 where
     I: Iterator<Item = Token>,
 {
+    /// Returns the [`TokenKind`] of the next token, or `T![eof]` if at the end of input.
     pub(crate) fn peek(&mut self) -> TokenKind {
         self.lexer.peek().map(|token| token.kind).unwrap_or(T![eof])
     }
 
+    /// Returns the string text of the next token, or an empty string if at the end of input.
     pub(crate) fn text(&mut self) -> &str {
         &self.input[self.position()]
     }
 
+    /// Returns the [`Span`] of the next token, or an empty span at byte 0 if at the end of input.
     pub(crate) fn position(&mut self) -> Span {
         let peek = self.lexer.peek().map(|token| token.span);
         peek.unwrap_or_else(|| (0..0).into())
     }
 
+    /// If the next token is of kind `expected`, advances past it and returns `true`.
+    /// Otherwise, does not advance and returns `false`.
     pub(crate) fn try_consume(&mut self, expected: TokenKind) -> bool {
         if !self.at(expected) {
             return false;
@@ -54,6 +65,8 @@ where
         true
     }
 
+    /// Tries to advance past a token of kind `expected`.
+    /// If the next token is of a different kind, returns [`ParseError::UnexpectedToken`].
     pub(crate) fn consume(&mut self, expected: TokenKind) -> Result<TokenKind> {
         if self.try_consume(expected) {
             return Ok(expected);
@@ -65,10 +78,12 @@ where
         })
     }
 
+    /// Returns `true` if the next token is of kind `kind`.
     pub(crate) fn at(&mut self, kind: TokenKind) -> bool {
         self.peek() == kind
     }
 
+    /// Unconditionally advances the lexer by one token.
     pub(crate) fn bump(&mut self) {
         self.lexer.next();
     }
@@ -328,6 +343,8 @@ where
         }
     }
 
+    /// Parses a sequence of tokens of kind `kind` that are delimited by tokens of kind `delimiter`
+    /// into a [`Vec`] of their string contents.
     pub(crate) fn delimited(
         &mut self,
         kind: TokenKind,

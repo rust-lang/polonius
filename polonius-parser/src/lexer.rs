@@ -1,8 +1,16 @@
+//! Defines the [`Lexer`].
+
 use crate::{
     token::{Span, Token},
     T,
 };
 
+/// Input tokenizer.
+///
+/// The primary way to use the lexer is through its implementation of [`Iterator`], which produces
+/// [`Token`]s lazily.
+/// A single [end-of-file token](crate::token::TokenKind::Eof) will be created at the end of the input.
+/// Erroneous inputs will result in [`T![error]`](crate::token::TokenKind::Error) tokens.
 pub struct Lexer<'input> {
     input: &'input str,
     position: u32,
@@ -18,7 +26,7 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    pub fn next_token(&mut self, input: &str) -> Token {
+    fn next_token(&mut self, input: &str) -> Token {
         self.valid_token(input)
             .unwrap_or_else(|| self.invalid_token(input))
     }
