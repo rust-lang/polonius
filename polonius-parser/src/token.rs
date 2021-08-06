@@ -98,8 +98,8 @@ macro_rules! T {
     ['{'] => { $crate::token::TokenKind::LCurly};
     ['}'] => { $crate::token::TokenKind::RCurly};
     // relation keywords
-    [use of var derefs origin] => { $crate::token::TokenKind::KwUseOfVarDerefsOrigin};
-    [drop of var derefs origin] => { $crate::token::TokenKind::KwDropOfVarDerefsOrigin};
+    [use_of_var_derefs_origin] => { $crate::token::TokenKind::KwUseOfVarDerefsOrigin};
+    [drop_of_var_derefs_origin] => { $crate::token::TokenKind::KwDropOfVarDerefsOrigin};
     [placeholders] => { $crate::token::TokenKind::KwPlaceholders};
     [known subsets] => { $crate::token::TokenKind::KwKnownSubsets};
     // CFG keywords
@@ -107,13 +107,13 @@ macro_rules! T {
     [goto] => { $crate::token::TokenKind::KwGoto};
     // effect keywords - facts
     [outlives] => { $crate::token::TokenKind::KwOutlives};
-    [loan issued at] => { $crate::token::TokenKind::KwLoanIssuedAt};
-    [loan invalidated at] => { $crate::token::TokenKind::KwLoanInvalidatedAt};
-    [loan killed at] => { $crate::token::TokenKind::KwLoanKilledAt};
-    [var used at] => { $crate::token::TokenKind::KwVarUsedAt};
-    [var defined at] => { $crate::token::TokenKind::KwVarDefinedAt};
-    [origin live on entry] => { $crate::token::TokenKind::KwOriginLiveOnEntry};
-    [var dropped at] => { $crate::token::TokenKind::KwVarDroppedAt};
+    [loan_issued_at] => { $crate::token::TokenKind::KwLoanIssuedAt};
+    [loan_invalidated_at] => { $crate::token::TokenKind::KwLoanInvalidatedAt};
+    [loan_killed_at] => { $crate::token::TokenKind::KwLoanKilledAt};
+    [var_used_at] => { $crate::token::TokenKind::KwVarUsedAt};
+    [var_defined_at] => { $crate::token::TokenKind::KwVarDefinedAt};
+    [origin_live_on_entry] => { $crate::token::TokenKind::KwOriginLiveOnEntry};
+    [var_dropped_at] => { $crate::token::TokenKind::KwVarDroppedAt};
     // effect keywords - use
     [use] => { $crate::token::TokenKind::KwUse};
     // parameters
@@ -154,20 +154,20 @@ impl fmt::Display for TokenKind {
             T![')'] => write!(f, ")"),
             T!['{'] => write!(f, "{{"),
             T!['}'] => write!(f, "}}"),
-            T![use of var derefs origin] => write!(f, "use_of_var_derefs_origin"),
-            T![drop of var derefs origin] => write!(f, "drop_of_var_derefs_origin"),
+            T![use_of_var_derefs_origin] => write!(f, "use_of_var_derefs_origin"),
+            T![drop_of_var_derefs_origin] => write!(f, "drop_of_var_derefs_origin"),
             T![placeholders] => write!(f, "placeholders"),
             T![known subsets] => write!(f, "known_subsets"),
             T![block] => write!(f, "block"),
             T![goto] => write!(f, "goto"),
             T![outlives] => write!(f, "outlives"),
-            T![loan issued at] => write!(f, "loan_issued_at"),
-            T![loan invalidated at] => write!(f, "loan_invalidated_at"),
-            T![loan killed at] => write!(f, "loan_killed_at"),
-            T![var used at] => write!(f, "var_used_at"),
-            T![var defined at] => write!(f, "var_defined_at"),
-            T![origin live on entry] => write!(f, "origin_live_on_entry"),
-            T![var dropped at] => write!(f, "var_dropped_at"),
+            T![loan_issued_at] => write!(f, "loan_issued_at"),
+            T![loan_invalidated_at] => write!(f, "loan_invalidated_at"),
+            T![loan_killed_at] => write!(f, "loan_killed_at"),
+            T![var_used_at] => write!(f, "var_used_at"),
+            T![var_defined_at] => write!(f, "var_defined_at"),
+            T![origin_live_on_entry] => write!(f, "origin_live_on_entry"),
+            T![var_dropped_at] => write!(f, "var_dropped_at"),
             T![use] => write!(f, "use"),
             T![origin] => write!(f, "Origin"),
             T![Block] => write!(f, "Block"),

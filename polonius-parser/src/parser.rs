@@ -134,7 +134,7 @@ where
     }
 
     pub fn parse_use_of_var_derefs_origin(&mut self) -> Result<Vec<(String, String)>> {
-        self.consume(T![use of var derefs origin])?;
+        self.consume(T![use_of_var_derefs_origin])?;
         self.consume(T!['{'])?;
         let var_region_mappings = self.parse_var_region_mappings()?;
         self.consume(T!['}'])?;
@@ -142,7 +142,7 @@ where
     }
 
     pub fn parse_drop_of_var_derefs_origin(&mut self) -> Result<Vec<(String, String)>> {
-        self.consume(T![drop of var derefs origin])?;
+        self.consume(T![drop_of_var_derefs_origin])?;
         self.consume(T!['{'])?;
         let var_region_mappings = self.parse_var_region_mappings()?;
         self.consume(T!['}'])?;
@@ -242,8 +242,8 @@ where
                 self.consume(T![')'])?;
                 Ok(Fact::Outlives { a, b })
             }
-            T![loan issued at] => {
-                self.consume(T![loan issued at])?;
+            T![loan_issued_at] => {
+                self.consume(T![loan_issued_at])?;
                 self.consume(T!['('])?;
                 let origin = self.parse_parameter(T![origin])?;
                 self.consume(T![,])?;
@@ -251,43 +251,43 @@ where
                 self.consume(T![')'])?;
                 Ok(Fact::LoanIssuedAt { origin, loan })
             }
-            T![loan invalidated at] => {
-                self.consume(T![loan invalidated at])?;
+            T![loan_invalidated_at] => {
+                self.consume(T![loan_invalidated_at])?;
                 self.consume(T!['('])?;
                 let loan = self.parse_parameter(T![loan])?;
                 self.consume(T![')'])?;
                 Ok(Fact::LoanInvalidatedAt { loan })
             }
-            T![loan killed at] => {
-                self.consume(T![loan killed at])?;
+            T![loan_killed_at] => {
+                self.consume(T![loan_killed_at])?;
                 self.consume(T!['('])?;
                 let loan = self.parse_parameter(T![loan])?;
                 self.consume(T![')'])?;
                 Ok(Fact::LoanKilledAt { loan })
             }
-            T![var used at] => {
-                self.consume(T![var used at])?;
+            T![var_used_at] => {
+                self.consume(T![var_used_at])?;
                 self.consume(T!['('])?;
                 let variable = self.parse_parameter(T![variable])?;
                 self.consume(T![')'])?;
                 Ok(Fact::UseVariable { variable })
             }
-            T![var defined at] => {
-                self.consume(T![var defined at])?;
+            T![var_defined_at] => {
+                self.consume(T![var_defined_at])?;
                 self.consume(T!['('])?;
                 let variable = self.parse_parameter(T![variable])?;
                 self.consume(T![')'])?;
                 Ok(Fact::DefineVariable { variable })
             }
-            T![origin live on entry] => {
-                self.consume(T![origin live on entry])?;
+            T![origin_live_on_entry] => {
+                self.consume(T![origin_live_on_entry])?;
                 self.consume(T!['('])?;
                 let origin = self.parse_parameter(T![origin])?;
                 self.consume(T![')'])?;
                 Ok(Fact::OriginLiveOnEntry { origin })
             }
-            T![var dropped at] => {
-                self.consume(T![var dropped at])?;
+            T![var_dropped_at] => {
+                self.consume(T![var_dropped_at])?;
                 self.consume(T!['('])?;
                 let variable = self.parse_parameter(T![variable])?;
                 self.consume(T![')'])?;
@@ -297,13 +297,13 @@ where
                 found,
                 expected: vec![
                     T![outlives],
-                    T![loan issued at],
-                    T![loan invalidated at],
-                    T![loan killed at],
-                    T![var used at],
-                    T![var defined at],
-                    T![origin live on entry],
-                    T![var dropped at],
+                    T![loan_issued_at],
+                    T![loan_invalidated_at],
+                    T![loan_killed_at],
+                    T![var_used_at],
+                    T![var_defined_at],
+                    T![origin_live_on_entry],
+                    T![var_dropped_at],
                 ],
                 position: self.position(),
             }),

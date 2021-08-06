@@ -83,11 +83,11 @@ impl<'input> Lexer<'input> {
             // relation keywords
             kw if kw.starts_with("use_of_var_derefs_origin".as_bytes()) => (
                 "use_of_var_derefs_origin".len() as u32,
-                T![use of var derefs origin],
+                T![use_of_var_derefs_origin],
             ),
             kw if kw.starts_with("drop_of_var_derefs_origin".as_bytes()) => (
                 "drop_of_var_derefs_origin".len() as u32,
-                T![drop of var derefs origin],
+                T![drop_of_var_derefs_origin],
             ),
             kw if kw.starts_with("placeholders".as_bytes()) => {
                 ("placeholders".len() as u32, T![placeholders])
@@ -101,26 +101,26 @@ impl<'input> Lexer<'input> {
             // effect keywords - facts
             kw if kw.starts_with("outlives".as_bytes()) => ("outlives".len() as u32, T![outlives]),
             kw if kw.starts_with("loan_issued_at".as_bytes()) => {
-                ("loan_issued_at".len() as u32, T![loan issued at])
+                ("loan_issued_at".len() as u32, T![loan_issued_at])
             }
             kw if kw.starts_with("loan_invalidated_at".as_bytes()) => {
-                ("loan_invalidated_at".len() as u32, T![loan invalidated at])
+                ("loan_invalidated_at".len() as u32, T![loan_invalidated_at])
             }
             kw if kw.starts_with("loan_killed_at".as_bytes()) => {
-                ("loan_killed_at".len() as u32, T![loan killed at])
+                ("loan_killed_at".len() as u32, T![loan_killed_at])
             }
             kw if kw.starts_with("var_used_at".as_bytes()) => {
-                ("var_used_at".len() as u32, T![var used at])
+                ("var_used_at".len() as u32, T![var_used_at])
             }
             kw if kw.starts_with("var_defined_at".as_bytes()) => {
-                ("var_defined_at".len() as u32, T![var defined at])
+                ("var_defined_at".len() as u32, T![var_defined_at])
             }
             kw if kw.starts_with("origin_live_on_entry".as_bytes()) => (
                 "origin_live_on_entry".len() as u32,
-                T![origin live on entry],
+                T![origin_live_on_entry],
             ),
             kw if kw.starts_with("var_dropped_at".as_bytes()) => {
-                ("var_dropped_at".len() as u32, T![var dropped at])
+                ("var_dropped_at".len() as u32, T![var_dropped_at])
             }
             // effect keywords - use
             kw if kw.starts_with("use".as_bytes()) => ("use".len() as u32, T![use]),
