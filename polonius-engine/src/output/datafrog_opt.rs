@@ -30,13 +30,10 @@ pub(super) fn compute<T: FactTypes>(
         let loan_killed_at = &ctx.loan_killed_at;
         let known_placeholder_subset = &ctx.known_placeholder_subset;
         let placeholder_origin = &ctx.placeholder_origin;
+        let loan_invalidated_at = &ctx.loan_invalidated_at;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
-
-        // `loan_invalidated_at` facts, stored ready for joins
-        let loan_invalidated_at =
-            iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
 
         // `loan_issued_at` input but organized for join
         let loan_issued_at_op =
@@ -138,11 +135,6 @@ pub(super) fn compute<T: FactTypes>(
             ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
-        );
-        loan_invalidated_at.extend(
-            ctx.loan_invalidated_at
-                .iter()
-                .map(|&(loan, point)| ((loan, point), ())),
         );
 
         // subset(origin1, origin2, point) :-
@@ -383,8 +375,8 @@ pub(super) fn compute<T: FactTypes>(
             //   loan_invalidated_at(loan, point),
             //   loan_live_at(loan, point).
             errors.from_join(
-                &loan_invalidated_at,
                 &loan_live_at,
+                loan_invalidated_at,
                 |&(loan, point), _, _| (loan, point),
             );
 
