@@ -11,7 +11,7 @@ pub struct AllFacts<T: FactTypes> {
     pub loan_issued_at: Vec<(T::Origin, T::Loan, T::Point)>,
 
     /// `universal_region(origin)` -- this is a "free region" within fn body
-    pub universal_region: Vec<T::Origin>,
+    pub universal_region: Vec<(T::Origin,)>,
 
     /// `cfg_edge(point1, point2)` for each edge `point1 -> point2` in the control flow
     pub cfg_edge: Vec<(T::Point, T::Point)>,

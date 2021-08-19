@@ -255,7 +255,7 @@ impl<T: FactTypes> Output<T> {
             all_facts
                 .universal_region
                 .iter()
-                .map(|&origin| (origin, ())),
+                .map(|&origin| (origin.0, ())),
         );
 
         let placeholder_loan = Relation::from_iter(
