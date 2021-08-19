@@ -20,9 +20,21 @@ macro_rules! index_type {
             }
         }
 
+        impl From<u32> for $t {
+            fn from(index: u32) -> $t {
+                $t { index }
+            }
+        }
+
         impl Into<usize> for $t {
             fn into(self) -> usize {
                 self.index as usize
+            }
+        }
+
+        impl Into<u32> for $t {
+            fn into(self) -> u32 {
+                self.index
             }
         }
 

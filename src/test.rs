@@ -49,7 +49,7 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     for (naive_point, naive_origins) in &naive.subset_errors {
         // Potential location-insensitive errors don't have a meaningful location, and use 0
         // as a default when debugging.
-        match insensitive.subset_errors.get(&0.into()) {
+        match insensitive.subset_errors.get(&0u32.into()) {
             Some(insensitive_origins) => {
                 for &(origin1, origin2) in naive_origins {
                     if !insensitive_origins.contains(&(origin1, origin2)) {
@@ -152,8 +152,8 @@ fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
     let insensitive = Output::compute(&all_facts, Algorithm::LocationInsensitive, false);
 
     let mut expected = FxHashMap::default();
-    expected.insert(Point::from(24), vec![Loan::from(1)]);
-    expected.insert(Point::from(50), vec![Loan::from(2)]);
+    expected.insert(Point::from(24u32), vec![Loan::from(1u32)]);
+    expected.insert(Point::from(50u32), vec![Loan::from(2u32)]);
 
     assert_equal(&insensitive.errors, &expected);
     Ok(())
@@ -441,7 +441,7 @@ fn var_live_in_successor_propagates_to_predecessor() {
         assert_eq!(variables.len(), 1);
     }
 
-    assert!(!liveness.get(&0.into()).unwrap().is_empty());
+    assert!(!liveness.get(&0u32.into()).unwrap().is_empty());
 }
 
 #[test]
@@ -475,7 +475,7 @@ fn var_live_in_successor_killed_by_reassignment() {
     let liveness = result.var_live_on_entry;
     println!("CFG: {:#?}", facts.cfg_edge);
 
-    let first_defined: Point = 3.into(); // Mid(B1[0])
+    let first_defined: Point = 3u32.into(); // Mid(B1[0])
 
     for (&point, variables) in liveness.iter() {
         println!(
@@ -486,10 +486,10 @@ fn var_live_in_successor_killed_by_reassignment() {
         );
     }
 
-    let live_at_start = liveness.get(&0.into());
+    let live_at_start = liveness.get(&0u32.into());
 
     assert_eq!(
-        liveness.get(&0.into()),
+        liveness.get(&0u32.into()),
         None,
         "{:?} were live at start!",
         live_at_start.and_then(|var| Some(tables.variables.untern_vec(var))),
@@ -535,7 +535,7 @@ fn var_drop_used_simple() {
     println!("result: {:#?}", result);
     let liveness = result.var_drop_live_on_entry;
     println!("CFG: {:#?}", facts.cfg_edge);
-    let first_defined: Point = 3.into(); // Mid(B1[0])
+    let first_defined: Point = 3u32.into(); // Mid(B1[0])
 
     for (&point, variables) in liveness.iter() {
         println!(
@@ -546,10 +546,10 @@ fn var_drop_used_simple() {
         );
     }
 
-    let live_at_start = liveness.get(&0.into());
+    let live_at_start = liveness.get(&0u32.into());
 
     assert_eq!(
-        liveness.get(&0.into()),
+        liveness.get(&0u32.into()),
         None,
         "{:?} were live at start!",
         live_at_start.and_then(|var| Some(tables.variables.untern_vec(var))),
@@ -752,10 +752,10 @@ fn errors_in_subset_relations_dataset() {
 
     let expected_subset_error = {
         // in this dataset, `'a` is interned as `'1`
-        let origin_a = Origin::from(1);
+        let origin_a = Origin::from(1u32);
 
         // `'b` is interned as `'2`
-        let origin_b = Origin::from(2);
+        let origin_b = Origin::from(2u32);
 
         // and `'b` should flow into `'a`
         (origin_b, origin_a)
