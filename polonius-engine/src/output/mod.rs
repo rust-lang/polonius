@@ -55,6 +55,24 @@ impl Algorithm {
             "Hybrid",
         ]
     }
+
+    pub fn engine(&self) -> Engine {
+        match *self {
+            Self::Naive(eng) | Self::DatafrogOpt(eng) => eng,
+            Self::LocationInsensitive | Self::Compare | Self::Hybrid => Engine::Datafrog,
+        }
+    }
+
+    pub fn souffle_name(&self) -> Option<&'static str> {
+        let ret = match self {
+            Self::Naive(Engine::Souffle) => "naive",
+            Self::DatafrogOpt(Engine::Souffle) => "opt",
+
+            _ => return None,
+        };
+
+        Some(ret)
+    }
 }
 
 impl ::std::str::FromStr for Algorithm {

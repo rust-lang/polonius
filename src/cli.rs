@@ -11,7 +11,6 @@ use std::time::{Duration, Instant};
 
 use crate::dump;
 use crate::dump::Output;
-use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
 
@@ -42,12 +41,6 @@ impl fmt::Display for Error {
     }
 }
 
-macro_rules! attempt {
-    ($($tokens:tt)*) => {
-        (|| Ok({ $($tokens)* }))()
-    };
-}
-
 pub fn main(opt: Options) -> Result<(), Error> {
     let output_directory = opt
         .output_directory
@@ -61,43 +54,61 @@ pub fn main(opt: Options) -> Result<(), Error> {
     for facts_dir in &opt.fact_dirs {
         let tables = &mut intern::InternerTables::new();
 
-        let result: Result<(Duration, AllFacts, Output), Error> = attempt! {
-            let verbose = opt.verbose;
-            let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir))
-                .map_err(|e| Error(e.to_string()))?;
-            let algorithm = opt.algorithm;
-            let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
-            let (duration, output) =
-                timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
-            (duration, all_facts, output)
+        let verbose = opt.verbose;
+        let algorithm = opt.algorithm;
+        let graphviz_output = graphviz_file.is_some() || liveness_graph_file.is_some();
+        let all_facts = tab_delim::load_tab_delimited_facts(tables, &Path::new(&facts_dir));
+
+        let all_facts = match all_facts {
+            Ok(x) => x,
+            Err(e) => {
+                error!("`{}`: {}", facts_dir, e);
+                continue;
+            }
         };
 
-        match result {
-            Ok((duration, all_facts, output)) => {
-                println!("--------------------------------------------------");
-                println!("Directory: {}", facts_dir);
-                if !opt.skip_timing {
-                    let seconds = duration.as_secs() as f64;
-                    let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
-                    println!("Time: {:0.3}s", seconds + millis);
-                }
-                if opt.show_tuples {
-                    dump::dump_output(&output, &output_directory, tables)
-                        .expect("Failed to write output");
-                }
-                if let Some(ref graphviz_file) = graphviz_file {
-                    dump::graphviz(&output, &all_facts, graphviz_file, tables)
-                        .expect("Failed to write GraphViz");
-                }
-                if let Some(ref liveness_graph_file) = liveness_graph_file {
-                    dump::liveness_graph(&output, &all_facts, liveness_graph_file, tables)
-                        .expect("Failed to write liveness graph");
-                }
+        println!("--------------------------------------------------");
+        println!("Directory: {}", facts_dir);
+
+        // Don't use `Output` for the `Souffle` algorthm variants, since we would have to serialize
+        // all the intermediate tuples to nested hash tables. It's easier to use our custom `dump`.
+        if algorithm.engine() == Engine::Souffle {
+            let name = algorithm
+                .souffle_name()
+                .expect("Algorithm does not have Soufflé version");
+
+            // FIXME This time includes loading/unloading tuples across the FFI boundary.
+            let (duration, output) = timed(|| polonius_souffle::run_from_facts(name, &all_facts));
+            if !opt.skip_timing {
+                let seconds = duration.as_secs() as f64;
+                let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
+                println!("Time: {:0.3}s", seconds + millis);
+            }
+            if opt.show_tuples {
+                dump::dump_souffle_output(&output, &output_directory, tables, opt.verbose)
+                    .expect("Failed to write output");
             }
 
-            Err(error) => {
-                error!("`{}`: {}", facts_dir, error);
-            }
+            continue;
+        }
+
+        let (duration, output) =
+            timed(|| Output::compute(&all_facts, algorithm, verbose || graphviz_output));
+        if !opt.skip_timing {
+            let seconds = duration.as_secs() as f64;
+            let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
+            println!("Time: {:0.3}s", seconds + millis);
+        }
+        if opt.show_tuples {
+            dump::dump_output(&output, &output_directory, tables).expect("Failed to write output");
+        }
+        if let Some(ref graphviz_file) = graphviz_file {
+            dump::graphviz(&output, &all_facts, graphviz_file, tables)
+                .expect("Failed to write GraphViz");
+        }
+        if let Some(ref liveness_graph_file) = liveness_graph_file {
+            dump::liveness_graph(&output, &all_facts, liveness_graph_file, tables)
+                .expect("Failed to write liveness graph");
         }
     }
 
@@ -162,7 +173,7 @@ ARGS:
 
     // 2) parse args
     let options = Options {
-        algorithm: arg_from_str(&mut args, "-a")?.unwrap_or(Algorithm::Naive),
+        algorithm: arg_from_str(&mut args, "-a")?.unwrap_or(Algorithm::default()),
         show_tuples: args.contains("--show-tuples"),
         skip_timing: args.contains("--skip-timing"),
         verbose: args.contains(["-v", "--verbose"]),

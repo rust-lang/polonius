@@ -1,0 +1,25 @@
+[package]
+name = "polonius-souffle"
+version = "0.1.0"
+edition = "2018"
+authors = ["The Rust Project Developers", "Polonius Developers"]
+description = "Core definition for the Rust borrow checker"
+license = "Apache-2.0/MIT"
+repository = "https://github.com/rust-lang-nursery/polonius"
+readme = "README.md"
+keywords = ["compiler", "borrowck", "datalog"]
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cxx = "1.0.50"
+log = "0.4"
+polonius-engine = { path = "../polonius-engine" }
+
+[build-dependencies]
+cc = "1.0.69"
+cxx-build = "1.0.50"
+glob = "0.3.0"
+is_executable = "1.0.1"
+which = "4.2.1"

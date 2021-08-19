@@ -15,6 +15,61 @@ use std::path::PathBuf;
 
 pub(crate) type Output = PoloniusEngineOutput<LocalFacts>;
 
+pub(crate) fn dump_souffle_output(
+    output: &HashMap<String, polonius_souffle::DynTuples>,
+    output_dir: &Option<PathBuf>,
+    intern: &InternerTables,
+    dump_enabled: bool,
+) -> io::Result<()> {
+    macro_rules! souffle_dump {
+        ($output:ident, $output_dir:ident, $intern:ident; $($name:ident : ($($ty:ident),*) ),* $(,)?) => {
+            $({
+                let name = stringify!($name);
+                if let Some(tuples) = $output.get(name) {
+                    let (_, mut w) = writer_for($output_dir, name)?;
+
+                    for tuple in tuples.iter() {
+                        let mut fields = tuple.iter().copied();
+                        let mut sep = "";
+
+                        $(
+                            let table = $ty::table($intern);
+                            let field = fields.next().expect("wrong arity");
+                            let unterned = table.untern(field.into());
+                            write!(w, "{}{}", sep, unterned)?;
+                            sep = "\t";
+                        )*
+
+                        let _ = sep;
+                        assert!(fields.next().is_none(), "wrong arity");
+                        writeln!(w, "")?;
+                    }
+                }
+            })*
+        }
+    }
+
+    souffle_dump!(output, output_dir, intern;
+        subset_errors: (Origin, Origin, Point),
+        errors: (Loan, Point),
+        move_errors: (Path, Point),
+    );
+
+    if dump_enabled {
+        souffle_dump!(output, output_dir, intern;
+            origin_contains_loan_at: (Origin, Loan, Point),
+            origin_live_on_entry: (Origin, Point),
+            loan_invalidated_at: (Point, Loan), // FIXME: This is backward
+            loan_live_at: (Loan, Point),
+            subset_anywhere: (Origin, Origin),
+
+            // TODO: complete this list
+        );
+    }
+
+    Ok(())
+}
+
 pub(crate) fn dump_output(
     output: &Output,
     output_dir: &Option<PathBuf>,
@@ -56,29 +111,29 @@ pub(crate) fn dump_output(
         ];
     }
     return Ok(());
+}
 
-    fn writer_for(
-        out_dir: &Option<PathBuf>,
-        name: &str,
-    ) -> io::Result<(Option<String>, Box<dyn Write>)> {
-        // create a writer for the provided output.
-        // If we have an output directory use that, otherwise just dump to stdout
-        use std::fs;
+fn writer_for(
+    out_dir: &Option<PathBuf>,
+    name: &str,
+) -> io::Result<(Option<String>, Box<dyn Write>)> {
+    // create a writer for the provided output.
+    // If we have an output directory use that, otherwise just dump to stdout
+    use std::fs;
 
-        Ok(match out_dir {
-            Some(dir) => {
-                fs::create_dir_all(&dir)?;
-                let mut of = dir.join(name);
-                of.set_extension("facts");
-                (None, Box::new(fs::File::create(of)?))
-            }
-            None => {
-                let mut stdout = io::stdout();
-                write!(&mut stdout, "# {}\n", name)?;
-                (Some(name.to_string()), Box::new(stdout))
-            }
-        })
-    }
+    Ok(match out_dir {
+        Some(dir) => {
+            fs::create_dir_all(&dir)?;
+            let mut of = dir.join(name);
+            of.set_extension("facts");
+            (None, Box::new(fs::File::create(of)?))
+        }
+        None => {
+            let mut stdout = io::stdout();
+            write!(&mut stdout, "# {}\n", name)?;
+            (Some(name.to_string()), Box::new(stdout))
+        }
+    })
 }
 
 trait OutputDump {
