@@ -75,4 +75,4 @@ To extend the parser with a new fact `loan_bazzles_var_at`, perform the followin
 
 ### Custom Relations
 Of course, it's also possible to add custom relations by following the same steps to add tokens to the lexer, writing their own parsing method, and add them to `parse_input`.
-A correponding `ir` representation should be added to the data model in this case.
+A corresponding `ir` representation should be added to the data model in this case.
