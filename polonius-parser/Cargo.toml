@@ -1,15 +1,8 @@
 [package]
-name = "polonius-parser"
-version = "0.4.0"
+name        = "polonius-parser"
+version     = "0.5.0"
 description = "Parser for the Polonius project"
-license = "Apache-2.0/MIT"
-authors = ["The Rust Project Developers"]
-repository = "https://github.com/rust-lang-nursery/polonius"
-build = "build.rs" # LALRPOP preprocessing
-
-[build-dependencies]
-lalrpop = { version = "0.19.5", default-features = false, features = ["lexer"]}
-
-[dependencies]
-lalrpop-util = "0.19.5"
-regex = "1.0.0"
+license     = "Apache-2.0/MIT"
+authors     = ["The Rust Project Developers"]
+repository  = "https://github.com/rust-lang/polonius"
+edition     = "2018"
