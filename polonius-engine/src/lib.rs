@@ -13,4 +13,5 @@ pub use facts::AllFacts;
 pub use facts::Atom;
 pub use facts::FactTypes;
 pub use output::Algorithm;
+pub use output::Engine;
 pub use output::Output;

@@ -9,13 +9,13 @@ use crate::test_util::{
     assert_checkers_match, assert_equal, assert_outputs_match, location_insensitive_checker_for,
     naive_checker_for, opt_checker_for,
 };
-use polonius_engine::Algorithm;
+use polonius_engine::{Algorithm, Engine};
 use rustc_hash::FxHashMap;
 use std::error::Error;
 use std::path::Path;
 
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
-    let naive = Output::compute(all_facts, Algorithm::Naive, true);
+    let naive = Output::compute(all_facts, Algorithm::Naive(Engine::Datafrog), true);
 
     // Check that the "naive errors" are a subset of the "insensitive
     // ones".
@@ -111,7 +111,7 @@ macro_rules! tests {
 
                 #[test]
                 fn datafrog_opt() -> Result<(), Box<dyn Error>> {
-                    test_fn($dir, $fn, Algorithm::DatafrogOpt)
+                    test_fn($dir, $fn, Algorithm::DatafrogOpt(Engine::Datafrog))
                 }
             }
         )*
@@ -168,7 +168,7 @@ fn test_sensitive_passes_issue_47680() -> Result<(), Box<dyn Error>> {
         .join("main");
     let tables = &mut intern::InternerTables::new();
     let all_facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir)?;
-    let sensitive = Output::compute(&all_facts, Algorithm::DatafrogOpt, false);
+    let sensitive = Output::compute(&all_facts, Algorithm::DatafrogOpt(Engine::Datafrog), false);
 
     assert!(sensitive.errors.is_empty());
 
@@ -201,7 +201,7 @@ fn no_subset_symmetries_exist() -> Result<(), Box<dyn Error>> {
         false
     };
 
-    let naive = Output::compute(&all_facts, Algorithm::Naive, true);
+    let naive = Output::compute(&all_facts, Algorithm::Naive(Engine::Datafrog), true);
     assert!(!subset_symmetries_exist(&naive));
 
     // FIXME: the issue-47680 dataset is suboptimal here as DatafrogOpt does not
@@ -209,7 +209,7 @@ fn no_subset_symmetries_exist() -> Result<(), Box<dyn Error>> {
     // that the assert in verbose  mode didn't trigger. Therefore, switch to this dataset
     // whenever it's fast enough to be enabled in tests, or somehow create a test facts program
     // or reduce it from clap.
-    let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt, true);
+    let opt = Output::compute(&all_facts, Algorithm::DatafrogOpt(Engine::Datafrog), true);
     assert!(!subset_symmetries_exist(&opt));
     Ok(())
 }
@@ -323,8 +323,8 @@ fn smoke_test_errors() {
         let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
         let location_insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
-        let naive = Output::compute(&facts, Algorithm::Naive, true);
-        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+        let naive = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt(Engine::Datafrog), true);
 
         // We have to find errors with every analysis
         assert!(
@@ -399,7 +399,8 @@ fn var_live_in_single_block() {
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
-    let liveness = Output::compute(&facts, Algorithm::Naive, true).var_live_on_entry;
+    let liveness =
+        Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true).var_live_on_entry;
     println!("Registered liveness data: {:?}", liveness);
     for (point, variables) in liveness.iter() {
         println!("{:?} has live variables: {:?}", point, variables);
@@ -433,7 +434,8 @@ fn var_live_in_successor_propagates_to_predecessor() {
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
-    let liveness = Output::compute(&facts, Algorithm::Naive, true).var_live_on_entry;
+    let liveness =
+        Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true).var_live_on_entry;
     println!("Registered liveness data: {:?}", liveness);
     println!("CFG: {:?}", facts.cfg_edge);
     for (point, variables) in liveness.iter() {
@@ -470,7 +472,7 @@ fn var_live_in_successor_killed_by_reassignment() {
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
-    let result = Output::compute(&facts, Algorithm::Naive, true);
+    let result = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
     println!("result: {:#?}", result);
     let liveness = result.var_live_on_entry;
     println!("CFG: {:#?}", facts.cfg_edge);
@@ -531,7 +533,7 @@ fn var_drop_used_simple() {
     let mut tables = intern::InternerTables::new();
     let facts = parse_from_program(program, &mut tables).expect("Parsing failure");
 
-    let result = Output::compute(&facts, Algorithm::Naive, true);
+    let result = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
     println!("result: {:#?}", result);
     let liveness = result.var_drop_live_on_entry;
     println!("CFG: {:#?}", facts.cfg_edge);
@@ -573,7 +575,7 @@ fn var_drop_used_simple() {
 fn illegal_subset_error() {
     let program = r"
         placeholders { 'a, 'b }
-        
+
         block B0 {
             // creates a transitive `'b: 'a` subset
             loan_issued_at('x, L0),
@@ -638,7 +640,7 @@ fn transitive_known_subset() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         known_subsets { 'a: 'b, 'b: 'c }
-        
+
         block B0 {
             loan_issued_at('x, L0),
               outlives('a: 'x),
@@ -670,7 +672,7 @@ fn transitive_illegal_subset_error() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         known_subsets { 'a: 'b }
-        
+
         block B0 {
             // this transitive `'a: 'b` subset is already known
             loan_issued_at('x, L0),
@@ -679,7 +681,7 @@ fn transitive_illegal_subset_error() {
 
             // creates unknown transitive subsets:
             // - `'b: 'c`
-            // - and therefore `'a: 'c` 
+            // - and therefore `'a: 'c`
             loan_issued_at('y, L1),
               outlives('b: 'y),
               outlives('y: 'c);
@@ -721,7 +723,7 @@ fn successes_in_subset_relations_dataset() {
         let tables = &mut intern::InternerTables::new();
         let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
-        let naive = Output::compute(&facts, Algorithm::Naive, true);
+        let naive = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
         assert!(naive.errors.is_empty());
         assert!(naive.subset_errors.is_empty());
 
@@ -729,7 +731,7 @@ fn successes_in_subset_relations_dataset() {
         assert!(insensitive.errors.is_empty());
         assert!(insensitive.subset_errors.is_empty());
 
-        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt(Engine::Datafrog), true);
         assert!(opt.errors.is_empty());
         assert!(opt.subset_errors.is_empty());
     }
@@ -746,7 +748,7 @@ fn errors_in_subset_relations_dataset() {
     let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
     // this function has no illegal access errors, but one subset error, over 3 points
-    let naive = Output::compute(&facts, Algorithm::Naive, true);
+    let naive = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
     assert!(naive.errors.is_empty());
     assert_eq!(naive.subset_errors.len(), 3);
 
@@ -782,7 +784,7 @@ fn errors_in_subset_relations_dataset() {
     assert!(insensitive_subset_errors.contains(&expected_subset_error));
 
     // And the optimized analysis results should be the same as the naive one's.
-    let opt = Output::compute(&facts, Algorithm::Naive, true);
+    let opt = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
     assert_outputs_match(&naive, &opt);
 }
 
@@ -802,7 +804,7 @@ fn successes_in_move_errors_dataset() {
         let tables = &mut intern::InternerTables::new();
         let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
-        let naive = Output::compute(&facts, Algorithm::Naive, true);
+        let naive = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
         assert!(naive.errors.is_empty());
         assert!(naive.subset_errors.is_empty());
         assert!(naive.move_errors.is_empty());
@@ -812,7 +814,7 @@ fn successes_in_move_errors_dataset() {
         assert!(insensitive.subset_errors.is_empty());
         assert!(insensitive.move_errors.is_empty());
 
-        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt(Engine::Datafrog), true);
         assert!(opt.errors.is_empty());
         assert!(opt.subset_errors.is_empty());
         assert!(opt.move_errors.is_empty());
@@ -829,7 +831,7 @@ fn basic_move_error() {
     let tables = &mut intern::InternerTables::new();
     let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
-    let result = Output::compute(&facts, Algorithm::Naive, true);
+    let result = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
     assert!(result.errors.is_empty());
     assert!(result.subset_errors.is_empty());
 
@@ -853,7 +855,7 @@ fn conditional_init() {
     let tables = &mut intern::InternerTables::new();
     let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
-    let result = Output::compute(&facts, Algorithm::Naive, true);
+    let result = Output::compute(&facts, Algorithm::Naive(Engine::Datafrog), true);
     assert!(result.errors.is_empty());
     assert!(result.subset_errors.is_empty());
 

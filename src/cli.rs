@@ -1,6 +1,6 @@
 use log::{error, Level, LevelFilter, Metadata, Record, SetLoggerError};
 use pico_args as pico;
-use polonius_engine::Algorithm;
+use polonius_engine::{Algorithm, Engine};
 use std::env;
 use std::error;
 use std::fmt;
