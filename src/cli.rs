@@ -4,13 +4,14 @@ use polonius_engine::{Algorithm, Engine};
 use std::env;
 use std::error;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use crate::dump;
 use crate::dump::Output;
+use crate::facts::AllFacts;
 use crate::intern;
 use crate::tab_delim;
 
@@ -77,16 +78,9 @@ pub fn main(opt: Options) -> Result<(), Error> {
                 .souffle_name()
                 .expect("Algorithm does not have Soufflé version");
 
-            // FIXME This time includes loading/unloading tuples across the FFI boundary.
-            let (duration, output) = timed(|| polonius_souffle::run_from_facts(name, &all_facts));
-            if !opt.skip_timing {
-                let seconds = duration.as_secs() as f64;
-                let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
-                println!("Time: {:0.3}s", seconds + millis);
-            }
-            if opt.show_tuples {
-                dump::dump_souffle_output(&output, &output_directory, tables, opt.verbose)
-                    .expect("Failed to write output");
+            if let Err(e) = run_polonius_souffle(&all_facts, &output_directory, tables, name, &opt)
+            {
+                error!("`{}`: {}", facts_dir, e);
             }
 
             continue;
@@ -113,6 +107,41 @@ pub fn main(opt: Options) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+#[cfg(feature = "polonius-souffle")]
+fn run_polonius_souffle(
+    all_facts: &AllFacts,
+    output_directory: &Option<PathBuf>,
+    tables: &intern::InternerTables,
+    souffle_name: &str,
+    opt: &Options,
+) -> Result<(), Error> {
+    // FIXME This time includes loading/unloading tuples across the FFI boundary.
+    let (duration, output) = timed(|| polonius_souffle::run_from_facts(souffle_name, &all_facts));
+    if !opt.skip_timing {
+        let seconds = duration.as_secs() as f64;
+        let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
+        println!("Time: {:0.3}s", seconds + millis);
+    }
+    if opt.show_tuples {
+        dump::dump_souffle_output(&output, &output_directory, tables, opt.verbose)
+            .expect("Failed to write output");
+    }
+    Ok(())
+}
+
+#[cfg(not(feature = "polonius-souffle"))]
+fn run_polonius_souffle(
+    _: &AllFacts,
+    _: &Option<PathBuf>,
+    _: &intern::InternerTables,
+    _: &str,
+    _: &Options,
+) -> Result<(), Error> {
+    Err(Error(
+        "`polonius` was compiled without Soufflé backend (`--feature polonius-souffle`)".into(),
+    ))
 }
 
 fn timed<T>(op: impl FnOnce() -> T) -> (Duration, T) {

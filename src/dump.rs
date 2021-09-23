@@ -15,6 +15,7 @@ use std::path::PathBuf;
 
 pub(crate) type Output = PoloniusEngineOutput<LocalFacts>;
 
+#[cfg(feature = "polonius-souffle")]
 pub(crate) fn dump_souffle_output(
     output: &HashMap<String, polonius_souffle::DynTuples>,
     output_dir: &Option<PathBuf>,

@@ -188,6 +188,12 @@ impl<T: FactTypes> Output<T> {
     ///   partial results can also be stored in the context, so that the following
     ///   variant can use it to prune its own input data
     pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
+        #[cfg(not(feature = "polonius-souffle"))]
+        if algorithm.engine() == Engine::Souffle {
+            panic!("Polonius built without `--feature polonius-souffle`")
+        }
+
+        #[cfg(feature = "polonius-souffle")]
         if algorithm.engine() == Engine::Souffle {
             let name = algorithm
                 .souffle_name()
