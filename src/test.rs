@@ -17,6 +17,13 @@ use std::path::Path;
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     let naive = Output::compute(all_facts, Algorithm::Naive(Engine::Datafrog), true);
 
+    #[cfg(feature = "polonius-souffle")]
+    {
+        let souffle_naive = Output::compute(all_facts, Algorithm::Naive(Engine::Souffle), false);
+        assert_equal(&naive.errors, &souffle_naive.errors);
+        assert_equal(&naive.subset_errors, &souffle_naive.subset_errors);
+    }
+
     // Check that the "naive errors" are a subset of the "insensitive
     // ones".
     let insensitive = Output::compute(all_facts, Algorithm::LocationInsensitive, false);
@@ -82,6 +89,17 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
         assert_equal(&naive.errors, &opt.errors);
         assert_equal(&naive.subset_errors, &opt.subset_errors);
         assert_equal(&naive.move_errors, &opt.move_errors);
+
+        #[cfg(feature = "polonius-souffle")]
+        if matches!(
+            optimized_algorithm,
+            Algorithm::DatafrogOpt(Engine::Datafrog)
+        ) {
+            let souffle_opt =
+                Output::compute(all_facts, Algorithm::DatafrogOpt(Engine::Souffle), false);
+            assert_equal(&opt.errors, &souffle_opt.errors);
+            assert_equal(&opt.subset_errors, &souffle_opt.subset_errors);
+        }
     }
 
     // The hybrid algorithm gets the same errors as the naive version
