@@ -15,7 +15,7 @@ build = "build.rs"
 [dependencies]
 cxx = "1.0.50"
 log = "0.4"
-polonius-engine = { path = "../polonius-engine" }
+polonius-facts = { path = "../polonius-facts" }
 
 [build-dependencies]
 cc = "1.0.69"

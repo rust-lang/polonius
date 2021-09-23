@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use cxx::let_cxx_string;
-use polonius_engine::{AllFacts, FactTypes};
+use polonius_facts::{AllFacts, FactTypes};
 
 pub fn run_from_dir(prog: &str, facts_dir: &Path) {
     let_cxx_string!(facts = facts_dir.to_string_lossy().as_bytes());

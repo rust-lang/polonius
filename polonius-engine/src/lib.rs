@@ -3,6 +3,7 @@
 extern crate datafrog;
 #[macro_use]
 extern crate log;
+extern crate polonius_facts;
 extern crate rustc_hash;
 
 mod facts;

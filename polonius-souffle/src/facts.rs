@@ -2,7 +2,7 @@ use std::convert::TryInto;
 use std::pin::Pin;
 
 use log::warn;
-use polonius_engine::{AllFacts, FactTypes};
+use polonius_facts::{AllFacts, FactTypes};
 
 use crate::ffi::{self, InsertIntoRelation};
 
