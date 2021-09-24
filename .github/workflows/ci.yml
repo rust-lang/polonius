@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    
+
 jobs:
   rustfmt:
     name: Check formatting
@@ -56,10 +56,16 @@ jobs:
     strategy:
       matrix:
         rust: [beta, nightly]
+        features: [[], ['polonius-souffle']]
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 1
+
+      - name: Install Souffle
+        run: |
+          curl -s https://packagecloud.io/install/repositories/souffle-lang/souffle/script.deb.sh | sudo bash
+          sudo apt-get install souffle
 
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
@@ -69,7 +75,7 @@ jobs:
           override: true
 
       - name: Build polonius
-        run: cargo build
+        run: cargo build --features "${{ join(matrix.features) }}"
 
       - name: Execute tests for all crates in the workspace
-        run: cargo test --all
+        run: cargo test --all --features "${{ join(matrix.features) }}"
