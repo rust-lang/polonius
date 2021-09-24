@@ -624,16 +624,9 @@ fn compare_errors<Loan: Atom, Point: Atom>(
 mod tests {
     use super::*;
 
-    impl Atom for usize {
-        fn index(self) -> usize {
-            self
-        }
-    }
+    type Idx = u32;
 
-    fn compare(
-        errors1: &FxHashMap<usize, Vec<usize>>,
-        errors2: &FxHashMap<usize, Vec<usize>>,
-    ) -> bool {
+    fn compare(errors1: &FxHashMap<Idx, Vec<Idx>>, errors2: &FxHashMap<Idx, Vec<Idx>>) -> bool {
         let diff1 = compare_errors(errors1, errors2);
         let diff2 = compare_errors(errors2, errors1);
         assert_eq!(diff1, diff2);

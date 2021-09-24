@@ -118,6 +118,12 @@ pub trait Atom: From<u32> + Into<u32> + Copy + Clone + Debug + Eq + Ord + Hash +
     fn index(self) -> usize;
 }
 
+impl Atom for u32 {
+    fn index(self) -> usize {
+        self as usize
+    }
+}
+
 pub trait FactTypes: Copy + Clone + Debug {
     type Origin: Atom;
     type Loan: Atom;
