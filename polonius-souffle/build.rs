@@ -56,20 +56,11 @@ fn main() -> Result<()> {
             return Err("Duplicate filenames".into());
         }
 
-        let cpp_filename = souffle_generate(&ruleset)?;
+        let cpp_filename = souffle_generate(&ruleset, stem)?;
         cpp_filenames.push(cpp_filename);
     }
 
-    for stem in known_stems {
-        // HACK: Souffle adds datalog programs to the registry in the initializer of a global
-        // variable (whose name begins with `__factory_Sf`). Since that global variable is never used
-        // by the Rust program, it is occasionally removed by the linker, its initializer is never
-        // run (!!!), and the program is never registered.
-        //
-        // `-u` marks the symbol as undefined, so that it will not be optimized out.
-        let prog_symbol = format!("__factory_Sf_{}_instance", stem);
-        println!("cargo:rustc-link-arg=-u{}", prog_symbol);
-    }
+    odr_use_generate(&known_stems)?;
 
     let mut cc = cxx_build::bridge(CXX_BRIDGE);
 
@@ -88,8 +79,15 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn odr_use_func_name(stem: &str) -> String {
+    format!("odr_use_{}_global", stem)
+}
+
 /// Uses Souffle to generate a C++ file for evaluating the given datalog program.
-fn souffle_generate(datalog_filename: &Path) -> Result<PathBuf> {
+///
+/// Returns the filename for the generated C code, as well as the name of a generated function that
+/// will trigger the global initializers in that translation unit.
+fn souffle_generate(datalog_filename: &Path, stem: &str) -> Result<PathBuf> {
     let mut cpp_filename = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     cpp_filename.push(datalog_filename.with_extension("cpp").file_name().unwrap());
 
@@ -105,5 +103,43 @@ fn souffle_generate(datalog_filename: &Path) -> Result<PathBuf> {
         return Err("Invalid datalog".into());
     }
 
+    let mut generated_cpp = fs::OpenOptions::new().append(true).open(&cpp_filename)?;
+    writeln!(
+        generated_cpp,
+        r#"
+        extern "C"
+        void {}() {{}}"#,
+        odr_use_func_name(stem)
+    )?;
+
     Ok(cpp_filename)
+}
+
+// HACK: Souffle adds datalog programs to the registry in the initializer of a global
+// variable (whose name begins with `__factory_Sf`). That global variable is eligible for
+// deferred initialization, so we need to force its initializer to run before we do a lookup in
+// the registry (which happens in a different translation unit from the generated code).
+//
+// We accomplish this by defining a single, no-op function in each generated C++ file, and calling
+// it on the Rust side before doing any meaningful work. By the C++ standard, this forces global
+// initializers for anything in the that translation unit to run, since calling the function is an
+// ODR-use of something in the same translation unit. We also define a helper function,
+// `odr_use_all`, which calls the no-op function in every known module.
+fn odr_use_generate(known_stems: &HashSet<String>) -> Result<()> {
+    let mut odr_use_filename = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    odr_use_filename.push("odr_use.rs");
+
+    let mut odr_use = BufWriter::new(fs::File::create(odr_use_filename)?);
+    writeln!(odr_use, r#"extern "C" {{"#)?;
+    for stem in known_stems {
+        writeln!(odr_use, "fn {}();", odr_use_func_name(stem))?;
+    }
+    writeln!(odr_use, r#"}}"#)?;
+
+    writeln!(odr_use, "fn odr_use_all() {{")?;
+    for stem in known_stems {
+        writeln!(odr_use, "unsafe {{ {}(); }}", odr_use_func_name(stem))?;
+    }
+    writeln!(odr_use, "}}")?;
+    Ok(())
 }

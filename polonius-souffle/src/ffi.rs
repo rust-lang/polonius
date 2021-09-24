@@ -100,8 +100,12 @@ impl Relation {
 
 // Rust wrappers
 
+// See `build.rs` for background.
+include!(concat!(env!("OUT_DIR"), "/odr_use.rs"));
+
 impl Program {
     pub fn new(name: &str) -> cxx::UniquePtr<Self> {
+        odr_use_all();
         let_cxx_string!(name = name);
         ffi::ProgramFactory_newInstance(&*name)
     }
