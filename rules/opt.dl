@@ -172,6 +172,9 @@ subset(origin1, origin3, point2) :-
 
 .decl requires(origin: Origin, loan: Loan, point: Node)
 
+requires(origin, loan, point) :-
+    loan_issued_at(origin, loan, point).
+
 // Communicate a `origin1 requires loan` relation across
 // an edge `point1 -> point2` where `origin1` is dead in `point2`; in
 // that case, for each origin `origin2` live in `point2`
