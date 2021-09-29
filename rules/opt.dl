@@ -91,6 +91,9 @@ dying_region_requires(origin, point1, point2, loan) :-
 // can reach.
 .decl dying_can_reach_origins(origin: Origin, point1: Node, point2: Node)
 
+dying_can_reach_origins(origin, point1, point2) :-
+    dying_region_requires(origin, point1, point2, _loan).
+
 dying_can_reach_origins(origin2, point1, point2) :-
     live_to_dying_regions(_, origin2, point1, point2).
 
