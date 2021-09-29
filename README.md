@@ -6,7 +6,7 @@ This is a core library that models the borrow check. It implements the analysis
 
 ### Why the name "Polonius"?
 
-The name comes from the famous quote ["Neither borrower nor lender
+The name comes from the famous quote ["Neither a borrower nor a lender
 be"][nblnb], which comes from the character Polonius in Shakespeare's
 *Hamlet*.
 
