@@ -52,6 +52,12 @@ placeholder_origin(o) :- placeholder(o, _).
 .input known_placeholder_subset
 
 
+.decl origin_live_on_entry_or_placeholder(origin: Origin, point: Node) inline
+
+origin_live_on_entry_or_placeholder(origin, point) :- origin_live_on_entry(origin, point).
+origin_live_on_entry_or_placeholder(origin, point) :- placeholder_origin(origin), cfg_node(point).
+
+
 // The origins `origin1` and `origin2` are "live to dead"
 // on the edge `point1 -> point2` if:
 //
@@ -65,8 +71,8 @@ placeholder_origin(o) :- placeholder(o, _).
 live_to_dying_regions(origin1, origin2, point1, point2) :-
     subset(origin1, origin2, point1),
     cfg_edge(point1, point2),
-    origin_live_on_entry(origin1, point2),
-    !origin_live_on_entry(origin2, point2).
+    origin_live_on_entry_or_placeholder(origin1, point2),
+    !origin_live_on_entry_or_placeholder(origin2, point2).
 
 
 // The `origin` requires `loan`, but the `origin` goes dead
@@ -77,7 +83,7 @@ dying_region_requires(origin, point1, point2, loan) :-
     requires(origin, loan, point1),
     !loan_killed_at(loan, point1),
     cfg_edge(point1, point2),
-    !origin_live_on_entry(origin, point2).
+    !origin_live_on_entry_or_placeholder(origin, point2).
 
 
 // Contains dead origins where we are interested
@@ -106,7 +112,7 @@ dying_can_reach(origin1, origin2, point1, point2) :-
 // "intermediate" `origin2` is dead at `point2`.
 dying_can_reach(origin1, origin3, point1, point2) :-
     dying_can_reach(origin1, origin2, point1, point2),
-    !origin_live_on_entry(origin2, point2),
+    !origin_live_on_entry_or_placeholder(origin2, point2),
     subset(origin2, origin3, point1).
 
 
@@ -119,7 +125,7 @@ dying_can_reach(origin1, origin3, point1, point2) :-
 
 dying_can_reach_live(origin1, origin2, point1, point2) :-
     dying_can_reach(origin1, origin2, point1, point2),
-    origin_live_on_entry(origin2, point2).
+    origin_live_on_entry_or_placeholder(origin2, point2).
 
 
 // Indicates a "borrow region" `origin` at `point` which is not live on
@@ -128,7 +134,7 @@ dying_can_reach_live(origin1, origin2, point1, point2) :-
 
 dead_borrow_region_can_reach_root(origin, point, loan) :-
     loan_issued_at(origin, loan, point),
-    !origin_live_on_entry(origin, point).
+    !origin_live_on_entry_or_placeholder(origin, point).
 
 
 .decl dead_borrow_region_can_reach_dead(origin: Origin, point: Node, loan: Loan)
@@ -139,7 +145,7 @@ dead_borrow_region_can_reach_dead(origin, point, loan) :-
 dead_borrow_region_can_reach_dead(origin2, point, loan) :-
     dead_borrow_region_can_reach_dead(origin1, point, loan),
     subset(origin1, origin2, point),
-    !origin_live_on_entry(origin2, point).
+    !origin_live_on_entry_or_placeholder(origin2, point).
 
 
 .decl subset(origin1: Origin, origin2: Origin, point: Node)
@@ -152,12 +158,13 @@ subset(origin1, origin2, point) :- subset_base(origin1, origin2, point).
 subset(origin1, origin2, point2) :-
     subset(origin1, origin2, point1),
     cfg_edge(point1, point2),
-    origin_live_on_entry(origin1, point2),
-    origin_live_on_entry(origin2, point2).
+    origin_live_on_entry_or_placeholder(origin1, point2),
+    origin_live_on_entry_or_placeholder(origin2, point2).
 
 subset(origin1, origin3, point2) :-
     live_to_dying_regions(origin1, origin2, point1, point2),
-    dying_can_reach_live(origin2, origin3, point1, point2).
+    dying_can_reach_live(origin2, origin3, point1, point2),
+    origin1 != origin3.
 
 
 .decl requires(origin: Origin, loan: Loan, point: Node)
@@ -175,19 +182,19 @@ requires(origin, loan, point2) :-
     requires(origin, loan, point1),
     !loan_killed_at(loan, point1),
     cfg_edge(point1, point2),
-    origin_live_on_entry(origin, point2).
+    origin_live_on_entry_or_placeholder(origin, point2).
 
 
 .decl borrow_live_at(loan: Loan, point: Node)
 
 borrow_live_at(loan, point) :-
   requires(origin, loan, point),
-  origin_live_on_entry(origin, point).
+  origin_live_on_entry_or_placeholder(origin, point).
 
 borrow_live_at(loan, point) :-
   dead_borrow_region_can_reach_dead(origin1, point, loan),
   subset(origin1, origin2, point),
-  origin_live_on_entry(origin2, point).
+  origin_live_on_entry_or_placeholder(origin2, point).
 
 
 .decl errors(loan: Loan, point: Node)
