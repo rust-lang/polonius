@@ -63,6 +63,7 @@ jobs:
           fetch-depth: 1
 
       - name: Install Souffle
+        if: contains(matrix.features, 'polonius-souffle')
         run: |
           curl -s https://packagecloud.io/install/repositories/souffle-lang/souffle/script.deb.sh | sudo bash
           sudo apt-get install souffle
@@ -77,5 +78,9 @@ jobs:
       - name: Build polonius
         run: cargo build --features "${{ join(matrix.features) }}"
 
-      - name: Execute tests for all crates in the workspace
-        run: cargo test --all --features "${{ join(matrix.features) }}"
+      - name: Execute tests for all crates in the workspace (except `polonius-souffle`)
+        run: cargo test --all --exclude polonius-souffle  --features "${{ join(matrix.features) }}"
+
+      - name: Execute tests for `polonius-souffle`
+        if: contains(matrix.features, 'polonius-souffle')
+        run: cargo test -p polonius-souffle
