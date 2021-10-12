@@ -65,8 +65,8 @@ jobs:
       - name: Install Souffle
         if: contains(matrix.features, 'polonius-souffle')
         run: |
-          curl -s https://packagecloud.io/install/repositories/souffle-lang/souffle/script.deb.sh | sudo bash
-          sudo apt-get install souffle
+          wget https://github.com/ecstatic-morse/souffle/releases/download/2.0.2-alpha/souffle-2.0.2-Linux.deb
+          sudo apt install ./souffle-2.0.2-Linux.deb
 
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
