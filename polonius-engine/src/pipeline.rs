@@ -169,7 +169,9 @@ pub trait ComputationDyn<T: FactTypes> {
 // FIXME: Can we write this impl without the feature gate?
 impl<C, T> ComputationDyn<T> for C
 where
-    C: for<'db> Computation<T, Input<'db>: LoadFrom<'db, T>, Output: StoreTo<T>>,
+    C: Computation<T>,
+    for<'db> C::Input<'db>: LoadFrom<'db, T>,
+    C::Output: StoreTo<T>,
     T: FactTypes,
 {
     fn name(&self) -> &'static str {
@@ -192,7 +194,9 @@ where
 /// Loads the input for a [`Computation`], runs it, and stores the result.
 fn compute_<C, T>(computation: &C, db: &mut Db<T>, dump: &mut Dump<'_>)
 where
-    C: for<'db> Computation<T, Input<'db>: LoadFrom<'db, T>, Output: StoreTo<T>>,
+    C: Computation<T>,
+    for<'db> C::Input<'db>: LoadFrom<'db, T>,
+    C::Output: StoreTo<T>,
     T: FactTypes,
 {
     let name = readable_typename::<C>();

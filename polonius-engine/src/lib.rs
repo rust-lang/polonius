@@ -1,6 +1,5 @@
 #![feature(const_type_id)]
 #![feature(generic_associated_types)]
-#![feature(associated_type_bounds)]
 
 #[macro_use]
 mod util;
