@@ -7,6 +7,8 @@ There have been a number of blog posts related to Polonius as it evolves:
 - [Polonius and the case of the hereditary harrop predicate](https://smallcultfollowing.com/babysteps/blog/2019/01/21/hereditary-harrop-region-constraints/)
 - ... TODO add the rest ...
 
+[polonius-proof](https://github.com/lengyijun/polonius-proof/) uses theorem prover to prove that `naive` and `datafrog-opt` generate same error.
+
 The academic work "Oxide" is partially inspired by Polonius:
 
 - [Oxide](https://aaronweiss.us/pubs/draft19-oxide.pdf) by Aaron Weiss, et al.
