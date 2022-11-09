@@ -326,3 +326,75 @@ fn known_subsets() {
         ]
     );
 }
+
+#[test]
+fn path_effects() {
+    let program = r"
+        placeholders {}
+
+        block B0 {
+            path_moved_at_base(P1);
+            path_assigned_at_base(P2);
+            path_accessed_at_base(P3);
+        }
+    ";
+    let input = parse_input(program).expect("Path Effects");
+    let block = &input.blocks[0];
+    assert_eq!(block.statements.len(), 3);
+
+    let statement = &block.statements[0];
+    assert_eq!(
+        statement.effects,
+        [Effect::Fact(Fact::PathMovedAtBase {
+            path: "P1".to_string()
+        })]
+    );
+
+    let statement = &block.statements[1];
+    assert_eq!(
+        statement.effects,
+        [Effect::Fact(Fact::PathAssignedAtBase {
+            path: "P2".to_string()
+        })]
+    );
+
+    let statement = &block.statements[2];
+    assert_eq!(
+        statement.effects,
+        [Effect::Fact(Fact::PathAccessedAtBase {
+            path: "P3".to_string()
+        })]
+    );
+}
+
+#[test]
+fn child_path() {
+    let program = r"
+        placeholders {}
+        child_path {(P1, P2), (P2, P3)}
+    ";
+    let input = parse_input(program).expect("Child Path");
+    assert_eq!(
+        input.child_path,
+        [
+            ("P1".to_string(), "P2".to_string()),
+            ("P2".to_string(), "P3".to_string())
+        ]
+    );
+}
+
+#[test]
+fn path_is_var() {
+    let program = r"
+        placeholders {}
+        path_is_var {(P1, V1), (P2, V2)}
+    ";
+    let input = parse_input(program).expect("Path is Var");
+    assert_eq!(
+        input.path_is_var,
+        [
+            ("P1".to_string(), "V1".to_string()),
+            ("P2".to_string(), "V2".to_string())
+        ]
+    );
+}
