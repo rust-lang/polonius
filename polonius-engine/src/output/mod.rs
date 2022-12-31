@@ -12,6 +12,7 @@ use datafrog::Relation;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
+use std::convert::TryInto;
 
 use crate::facts::{AllFacts, Atom, FactTypes};
 
@@ -21,13 +22,19 @@ mod liveness;
 mod location_insensitive;
 mod naive;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Engine {
+    Souffle,
+    Datafrog,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Algorithm {
     /// Simple rules, but slower to execute
-    Naive,
+    Naive(Engine),
 
     /// Optimized variant of the rules
-    DatafrogOpt,
+    DatafrogOpt(Engine),
 
     /// Fast to compute, but imprecise: there can be false-positives
     /// but no false-negatives. Tailored for quick "early return" situations.
@@ -42,18 +49,42 @@ pub enum Algorithm {
     Hybrid,
 }
 
+impl Default for Algorithm {
+    fn default() -> Self {
+        Self::Naive(Engine::Datafrog)
+    }
+}
+
 impl Algorithm {
     /// Optimized variants that ought to be equivalent to "naive"
-    pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt];
+    pub const OPTIMIZED: &'static [Algorithm] = &[Algorithm::DatafrogOpt(Engine::Datafrog)];
 
     pub fn variants() -> [&'static str; 5] {
         [
-            "Naive",
-            "DatafrogOpt",
+            "Naive(-Souffle)",
+            "DatafrogOpt(-Souffle)",
             "LocationInsensitive",
             "Compare",
             "Hybrid",
         ]
+    }
+
+    pub fn engine(&self) -> Engine {
+        match *self {
+            Self::Naive(eng) | Self::DatafrogOpt(eng) => eng,
+            Self::LocationInsensitive | Self::Compare | Self::Hybrid => Engine::Datafrog,
+        }
+    }
+
+    pub fn souffle_name(&self) -> Option<&'static str> {
+        let ret = match self {
+            Self::Naive(Engine::Souffle) => "naive",
+            Self::DatafrogOpt(Engine::Souffle) => "opt",
+
+            _ => return None,
+        };
+
+        Some(ret)
     }
 }
 
@@ -61,14 +92,14 @@ impl ::std::str::FromStr for Algorithm {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_ref() {
-            "naive" => Ok(Algorithm::Naive),
-            "datafrogopt" => Ok(Algorithm::DatafrogOpt),
+            "naive" => Ok(Algorithm::Naive(Engine::Datafrog)),
+            "naive-souffle" => Ok(Algorithm::Naive(Engine::Souffle)),
+            "datafrogopt" => Ok(Algorithm::DatafrogOpt(Engine::Datafrog)),
+            "datafrogopt-souffle" => Ok(Algorithm::DatafrogOpt(Engine::Souffle)),
             "locationinsensitive" => Ok(Algorithm::LocationInsensitive),
             "compare" => Ok(Algorithm::Compare),
             "hybrid" => Ok(Algorithm::Hybrid),
-            _ => Err(String::from(
-                "valid values: Naive, DatafrogOpt, LocationInsensitive, Compare, Hybrid",
-            )),
+            _ => Err(format!("valid values: {}", Self::variants().join(", "))),
         }
     }
 }
@@ -157,6 +188,39 @@ impl<T: FactTypes> Output<T> {
     ///   partial results can also be stored in the context, so that the following
     ///   variant can use it to prune its own input data
     pub fn compute(all_facts: &AllFacts<T>, algorithm: Algorithm, dump_enabled: bool) -> Self {
+        #[cfg(not(feature = "polonius-souffle"))]
+        if algorithm.engine() == Engine::Souffle {
+            panic!("Polonius built without `--feature polonius-souffle`")
+        }
+
+        #[cfg(feature = "polonius-souffle")]
+        if algorithm.engine() == Engine::Souffle {
+            let name = algorithm
+                .souffle_name()
+                .expect("Algorithm does not have Soufflé version");
+            let facts = polonius_souffle::run_from_facts(name, &all_facts);
+
+            let mut out = Output::new(dump_enabled);
+
+            for tuple in facts.get("errors").unwrap().iter() {
+                let [loan, location]: [u32; 2] = tuple.try_into().unwrap();
+                out.errors
+                    .entry(T::Point::from(location))
+                    .or_default()
+                    .push(T::Loan::from(loan));
+            }
+
+            for tuple in facts.get("subset_errors").unwrap().iter() {
+                let [origin1, origin2, location]: [u32; 3] = tuple.try_into().unwrap();
+                out.subset_errors
+                    .entry(T::Point::from(location))
+                    .or_default()
+                    .insert((T::Origin::from(origin1), T::Origin::from(origin2)));
+            }
+
+            return out;
+        }
+
         let mut result = Output::new(dump_enabled);
 
         // TODO: remove all the cloning thereafter, but that needs to be done in concert with rustc
@@ -255,7 +319,7 @@ impl<T: FactTypes> Output<T> {
             all_facts
                 .universal_region
                 .iter()
-                .map(|&origin| (origin, ())),
+                .map(|&origin| (origin.0, ())),
         );
 
         let placeholder_loan = Relation::from_iter(
@@ -299,8 +363,8 @@ impl<T: FactTypes> Output<T> {
 
                 (potential_errors, potential_subset_errors)
             }
-            Algorithm::Naive => naive::compute(&ctx, &mut result),
-            Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
+            Algorithm::Naive(_) => naive::compute(&ctx, &mut result),
+            Algorithm::DatafrogOpt(_) => datafrog_opt::compute(&ctx, &mut result),
             Algorithm::Hybrid => {
                 // Execute the fast `LocationInsensitive` computation as a pre-pass:
                 // if it finds no possible errors, we don't need to do the more complex
@@ -560,16 +624,9 @@ fn compare_errors<Loan: Atom, Point: Atom>(
 mod tests {
     use super::*;
 
-    impl Atom for usize {
-        fn index(self) -> usize {
-            self
-        }
-    }
+    type Idx = u32;
 
-    fn compare(
-        errors1: &FxHashMap<usize, Vec<usize>>,
-        errors2: &FxHashMap<usize, Vec<usize>>,
-    ) -> bool {
+    fn compare(errors1: &FxHashMap<Idx, Vec<Idx>>, errors2: &FxHashMap<Idx, Vec<Idx>>) -> bool {
         let diff1 = compare_errors(errors1, errors2);
         let diff2 = compare_errors(errors2, errors1);
         assert_eq!(diff1, diff2);

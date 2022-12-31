@@ -14,7 +14,7 @@ use crate::intern::InternerTables;
 #[derive(Default)]
 struct Facts {
     loan_issued_at: BTreeSet<(Origin, Loan, Point)>,
-    universal_region: BTreeSet<Origin>,
+    universal_region: BTreeSet<(Origin,)>,
     cfg_edge: BTreeSet<(Point, Point)>,
     loan_killed_at: BTreeSet<(Loan, Point)>,
     subset_base: BTreeSet<(Origin, Origin, Point)>,
@@ -72,7 +72,7 @@ pub(crate) fn parse_from_program(
         input
             .placeholders
             .iter()
-            .map(|placeholder| tables.origins.intern(&placeholder.origin)),
+            .map(|placeholder| (tables.origins.intern(&placeholder.origin),)),
     );
 
     // facts: placeholder(Origin, Loan)
@@ -296,7 +296,7 @@ mod tests {
         let universal_regions: Vec<_> = facts
             .universal_region
             .iter()
-            .map(|origin| tables.origins.untern(*origin))
+            .map(|origin| tables.origins.untern(origin.0))
             .collect();
         assert_eq!(universal_regions, ["'a", "'b", "'c"]);
 
