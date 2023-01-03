@@ -98,12 +98,16 @@ where
         let known_subsets = self.parse_known_subsets().unwrap_or_default();
         let use_of_var_derefs_origin = self.parse_use_of_var_derefs_origin().unwrap_or_default();
         let drop_of_var_derefs_origin = self.parse_drop_of_var_derefs_origin().unwrap_or_default();
+        let child_path = self.parse_child_path().unwrap_or_default();
+        let path_is_var = self.parse_path_is_var().unwrap_or_default();
         let blocks = self.parse_blocks()?;
         Ok(Input::new(
             placeholders,
             known_subsets,
             use_of_var_derefs_origin,
             drop_of_var_derefs_origin,
+            child_path,
+            path_is_var,
             blocks,
         ))
     }
@@ -162,6 +166,52 @@ where
             }
         }
         Ok(var_region_mappings)
+    }
+
+    pub fn parse_child_path(&mut self) -> Result<Vec<(String, String)>> {
+        self.consume(T![child_path])?;
+        self.consume(T!['{'])?;
+        let path_path_mappings = self.parse_path_path_mappings()?;
+        self.consume(T!['}'])?;
+        Ok(path_path_mappings)
+    }
+
+    pub fn parse_path_path_mappings(&mut self) -> Result<Vec<(String, String)>> {
+        let mut path_var_mappings = Vec::new();
+        while self.try_consume(T!['(']) {
+            let child = self.parse_parameter(T![path])?;
+            self.consume(T![,])?;
+            let parent = self.parse_parameter(T![path])?;
+            self.consume(T![')'])?;
+            path_var_mappings.push((child, parent));
+            if !self.try_consume(T![,]) {
+                break;
+            }
+        }
+        Ok(path_var_mappings)
+    }
+
+    pub fn parse_path_is_var(&mut self) -> Result<Vec<(String, String)>> {
+        self.consume(T![path_is_var])?;
+        self.consume(T!['{'])?;
+        let path_var_mappings = self.parse_path_var_mappings()?;
+        self.consume(T!['}'])?;
+        Ok(path_var_mappings)
+    }
+
+    pub fn parse_path_var_mappings(&mut self) -> Result<Vec<(String, String)>> {
+        let mut path_var_mappings = Vec::new();
+        while self.try_consume(T!['(']) {
+            let path = self.parse_parameter(T![path])?;
+            self.consume(T![,])?;
+            let variable = self.parse_parameter(T![variable])?;
+            self.consume(T![')'])?;
+            path_var_mappings.push((path, variable));
+            if !self.try_consume(T![,]) {
+                break;
+            }
+        }
+        Ok(path_var_mappings)
     }
 
     pub fn parse_blocks(&mut self) -> Result<Vec<Block>> {
@@ -293,6 +343,27 @@ where
                 self.consume(T![')'])?;
                 Ok(Fact::UseVariable { variable })
             }
+            T![path_moved_at_base] => {
+                self.consume(T![path_moved_at_base])?;
+                self.consume(T!['('])?;
+                let path = self.parse_parameter(T![path])?;
+                self.consume(T![')'])?;
+                Ok(Fact::PathMovedAtBase { path })
+            }
+            T![path_assigned_at_base] => {
+                self.consume(T![path_assigned_at_base])?;
+                self.consume(T!['('])?;
+                let path = self.parse_parameter(T![path])?;
+                self.consume(T![')'])?;
+                Ok(Fact::PathAssignedAtBase { path })
+            }
+            T![path_accessed_at_base] => {
+                self.consume(T![path_accessed_at_base])?;
+                self.consume(T!['('])?;
+                let path = self.parse_parameter(T![path])?;
+                self.consume(T![')'])?;
+                Ok(Fact::PathAccessedAtBase { path })
+            }
             found => Err(ParseError::UnexpectedToken {
                 found,
                 expected: vec![
@@ -304,6 +375,9 @@ where
                     T![var_defined_at],
                     T![origin_live_on_entry],
                     T![var_dropped_at],
+                    T![path_moved_at_base],
+                    T![path_assigned_at_base],
+                    T![path_accessed_at_base],
                 ],
                 position: self.position(),
             }),
