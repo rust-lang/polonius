@@ -122,9 +122,9 @@ let b: &u32 = &a;
 
 To be valid, this last expression requires that the type `&'a u32` is a subtype of `&'b u32`. This requires `'a: 'b` and the `subset_base` relation will contain this basic fact that `'a` outlives / is a subset of / flows into `'b` at this point.
 
-### 6. `origin_live_at`
+### 6. `origin_live_on_entry`
 
-`origin_live_at(origin, point)`: this relation stores that the origin `origin` appears in a live variable at the point `point`.
+`origin_live_on_entry(origin, point)`: this relation stores that the origin `origin` appears in a live variable at the point `point`.
 
 These facts are created by the liveness computation, and its facts and relations will be described later in a lot more detail. In the meantime, its implementation is in [liveness.rs here](https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/liveness.rs).
 
