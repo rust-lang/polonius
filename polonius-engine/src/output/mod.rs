@@ -514,6 +514,10 @@ impl<T: FactTypes> Output<T> {
             None => Cow::Owned(BTreeMap::default()),
         }
     }
+
+    pub fn has_errors(&self) -> bool {
+        !(self.errors.is_empty() && self.move_errors.is_empty() && self.subset_errors.is_empty())
+    }
 }
 
 /// Compares errors reported by Naive implementation with the errors
