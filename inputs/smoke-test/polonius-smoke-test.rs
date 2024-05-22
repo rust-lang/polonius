@@ -2,8 +2,6 @@
 // ignore-compare-mode-nll
 // compile-flags: -Z borrowck=mir -Zpolonius
 
-#![feature(nll)]
-
 fn random() -> bool {
     unimplemented!()
 }

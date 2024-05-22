@@ -1,5 +1,3 @@
-#![feature(nll)]
-
 #[derive(Debug)]
 struct Foo<'a> {
     data: &'a u32,

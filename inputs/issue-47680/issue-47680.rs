@@ -1,5 +1,3 @@
-#![feature(nll)]
-
 struct Thing;
 
 impl Thing {
