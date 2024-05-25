@@ -1,0 +1,76 @@
+#pragma once
+#include "atoms.dl"
+#include "paths.dl"
+
+// # Initialization
+
+// ## Relations
+
+// Here we compute the set of paths that *may* contain a value on exit from
+// each given node in the CFG. This is used later as part of the liveness
+// analysis. In particular, if a value has been moved, then its drop is a
+// no-op.
+//
+// This is not used to compute move errors -- it would be too "optimistic",
+// since it only computes if a value *may* be initialized. See the next section
+// on computing *uninitialization*.
+.decl path_maybe_initialized_on_exit(path: Path, node: Node) brie
+
+path_maybe_initialized_on_exit(path, node) :-
+    path_assigned_at(path, node).
+
+path_maybe_initialized_on_exit(path, targetNode) :-
+    path_maybe_initialized_on_exit(path, sourceNode),
+    cfg_edge(sourceNode, targetNode),
+    !path_moved_at(path, targetNode).
+
+
+// We also compute which **variables** may be initialized (or at least partly
+// initialized). Drops for variables that are not even partly initialized are
+// known to be a no-op.
+.decl var_maybe_partly_initialized_on_exit(var: Var, node: Node)
+
+var_maybe_partly_initialized_on_exit(var, node) :-
+    path_maybe_initialized_on_exit(path, node),
+    path_begins_with_var(path, var).
+
+
+// Here we compute the set of paths that are maybe *uninitialized* on exit from
+// a node. Naturally, it would be illegal to access a path that is maybe
+// uninitialized.
+//
+// We compute "maybe uninitialized" because it is easier than computing "must
+// be initialized" (though they are equivalent), since the latter requires
+// intersection, which is not available in "core datalog". It may make sense --
+// as an optimization -- to try and convert to intersection, although it is
+// debatable which will result in more tuples overall.
+.decl path_maybe_uninitialized_on_exit(path: Path, node: Node) brie
+
+path_maybe_uninitialized_on_exit(path, node) :-
+    path_moved_at(path, node).
+
+path_maybe_uninitialized_on_exit(path, targetNode) :-
+    path_maybe_uninitialized_on_exit(path, sourceNode),
+    cfg_edge(sourceNode, targetNode),
+    !path_assigned_at(path, targetNode).
+
+
+.decl path_maybe_accessed_later(path: Path, node: Node) brie
+
+path_maybe_accessed_later(path, node) :-
+    path_accessed_at(path, node).
+
+path_maybe_accessed_later(path, src) :-
+    path_maybe_accessed_later(path, dst),
+    cfg_edge(src, dst).
+
+
+// ## Errors
+
+.decl move_errors(path: Path, node: Node)
+.output move_errors
+
+move_errors(path, targetNode) :-
+    path_maybe_uninitialized_on_exit(path, sourceNode),
+    cfg_edge(sourceNode, targetNode),
+    path_accessed_at(path, targetNode).
