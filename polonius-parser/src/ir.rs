@@ -7,6 +7,8 @@ pub struct Input {
     pub blocks: Vec<Block>,
     pub use_of_var_derefs_origin: Vec<(String, String)>,
     pub drop_of_var_derefs_origin: Vec<(String, String)>,
+    pub child_path: Vec<(String, String)>,
+    pub path_is_var: Vec<(String, String)>,
 }
 
 impl Input {
@@ -15,6 +17,8 @@ impl Input {
         known_subsets: Vec<KnownSubset>,
         use_of_var_derefs_origin: Vec<(String, String)>,
         drop_of_var_derefs_origin: Vec<(String, String)>,
+        child_path: Vec<(String, String)>,
+        path_is_var: Vec<(String, String)>,
         blocks: Vec<Block>,
     ) -> Input {
         // set-up placeholders as origins with a placeholder loan of the same name
@@ -31,6 +35,8 @@ impl Input {
             known_subsets,
             use_of_var_derefs_origin,
             drop_of_var_derefs_origin,
+            child_path,
+            path_is_var,
             blocks,
         }
     }
@@ -67,6 +73,9 @@ pub enum Fact {
     OriginLiveOnEntry { origin: String },
     DefineVariable { variable: String },
     UseVariable { variable: String },
+    PathMovedAtBase { path: String },
+    PathAssignedAtBase { path: String },
+    PathAccessedAtBase { path: String },
 }
 
 #[derive(Debug, PartialEq)]
