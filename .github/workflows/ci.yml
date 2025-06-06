@@ -43,7 +43,7 @@ jobs:
         run: mdbook build ./book/
 
       - name: Upload book
-        uses: upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v3
         with:
           path: book/book
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository_owner == 'rust-lang'
