@@ -4,13 +4,13 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    
+
 jobs:
   rustfmt:
     name: Check formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -29,7 +29,7 @@ jobs:
     name: Build and upload book
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -42,12 +42,28 @@ jobs:
       - name: Build book
         run: mdbook build ./book/
 
-      - name: Deploy book to GitHub Pages
-        uses: rust-lang/simpleinfra/github-actions/static-websites@master
+      - name: Upload book
+        uses: upload-pages-artifact@v3
         with:
-          deploy_dir: book/book
-          github_token: "${{ secrets.github_token }}"
-        if: github.ref == 'refs/heads/master'
+          path: book/book
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository_owner == 'rust-lang'
+
+  # Deploy is run as a separate job as it needs elevated permissions
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    needs: book  # the `book` job uploads the pages artifact
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository_owner == 'rust-lang'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        id: deployment
 
   test:
     name: Run tests
@@ -57,7 +73,7 @@ jobs:
       matrix:
         rust: [beta, nightly]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
