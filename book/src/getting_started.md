@@ -19,9 +19,9 @@ slower) -- these are the exact rules described in [the
 blogpost][post]. You can also use `-a LocationInsensitive` to use a
 location insensitive analysis (faster, but may yield spurious errors).
 
-By default, `cargo run` just prints timing. If you also want to see
-the results, try `--show-tuples` (which will show errors) and maybe
-`-v` (to show more intermediate computations). You can supply `--help`
-to get more docs.
+By default, `cargo run` will print any errors found, but otherwise
+just prints timing. If you also want to see successful results, try
+`--show-tuples` and maybe `-v` (to show more intermediate computations).
+You can supply `--help` to get more docs.
 
 [post]: http://smallcultfollowing.com/babysteps/blog/2018/04/27/an-alias-based-formulation-of-the-borrow-checker/

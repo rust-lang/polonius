@@ -22,7 +22,7 @@ const PKG_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 #[derive(Debug)]
 pub struct Options {
     algorithm: Algorithm,
-    show_tuples: bool,
+    show_tuples: Option<bool>,
     skip_timing: bool,
     verbose: bool,
     graphviz_file: Option<String>,
@@ -81,7 +81,7 @@ pub fn main(opt: Options) -> Result<(), Error> {
                     let millis = f64::from(duration.subsec_nanos()) * 0.000_000_001_f64;
                     println!("Time: {:0.3}s", seconds + millis);
                 }
-                if opt.show_tuples {
+                if opt.show_tuples.unwrap_or_else(|| output.has_errors()) {
                     dump::dump_output(&output, &output_directory, tables)
                         .expect("Failed to write output");
                 }
@@ -131,11 +131,11 @@ USAGE:
     polonius [FLAGS] [OPTIONS] <fact_dirs>...
 
 FLAGS:
-    -h, --help           Prints help information
-        --show-tuples    Show output tuples on stdout
-        --skip-timing    Do not display timing results
-    -V, --version        Prints version information
-    -v, --verbose        Show intermediate output tuples and not just errors
+    -h, --help                Prints help information
+        --[no-]show-tuples    Show output tuples on stdout, or suppress errors
+        --skip-timing         Do not display timing results
+    -V, --version             Prints version information
+    -v, --verbose             Show intermediate output tuples and not just errors
 
 OPTIONS:
     -a <algorithm> [default: Naive]
@@ -163,7 +163,13 @@ ARGS:
     // 2) parse args
     let options = Options {
         algorithm: arg_from_str(&mut args, "-a")?.unwrap_or(Algorithm::Naive),
-        show_tuples: args.contains("--show-tuples"),
+        show_tuples: if args.contains("--show-tuples") {
+            Some(true)
+        } else if args.contains("--no-show-tuples") {
+            Some(false)
+        } else {
+            None
+        },
         skip_timing: args.contains("--skip-timing"),
         verbose: args.contains(["-v", "--verbose"]),
         graphviz_file: arg_from_str(&mut args, "--graphviz-file")?,
