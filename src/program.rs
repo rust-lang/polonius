@@ -123,6 +123,18 @@ pub(crate) fn parse_from_program(
             }),
     );
 
+    facts.child_path.extend(
+        input.child_path.iter().map(|(ref child, ref parent)| {
+            (tables.paths.intern(child), tables.paths.intern(parent))
+        }),
+    );
+
+    facts
+        .path_is_var
+        .extend(input.path_is_var.iter().map(|(ref path, ref variable)| {
+            (tables.paths.intern(path), tables.variables.intern(variable))
+        }));
+
     for block in &input.blocks {
         let block_name = &block.name;
 
@@ -252,7 +264,25 @@ fn emit_fact(facts: &mut Facts, fact: &Fact, point: Point, tables: &mut Interner
             facts.var_used_at.insert((variable, point));
         }
 
-        _ => {}
+        // facts: path_moved_at_base(Path, Point)
+        Fact::PathMovedAtBase { ref path } => {
+            let path = tables.paths.intern(path);
+            facts.path_moved_at_base.insert((path, point));
+        }
+
+        // facts: path_assigned_at_base(Path, Point)
+        Fact::PathAssignedAtBase { ref path } => {
+            let path = tables.paths.intern(path);
+            facts.path_assigned_at_base.insert((path, point));
+        }
+
+        // facts: path_accessed_at_base(Path, Point)
+        Fact::PathAccessedAtBase { ref path } => {
+            let path = tables.paths.intern(path);
+            facts.path_accessed_at_base.insert((path, point));
+        }
+
+        Fact::OriginLiveOnEntry { origin: _ } => {}
     };
 }
 
