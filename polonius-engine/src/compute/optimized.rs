@@ -9,34 +9,40 @@
 // except according to those terms.
 
 use datafrog::{Iteration, Relation, RelationLeaper};
-use std::time::Instant;
 
-use crate::facts::FactTypes;
-use crate::output::{Context, Output};
+use super::{BorrowckErrors, BorrowckInput, Computation, Dump};
+use crate::FactTypes;
 
-pub(super) fn compute<T: FactTypes>(
-    ctx: &Context<'_, T>,
-    result: &mut Output<T>,
-) -> (
-    Relation<(T::Loan, T::Point)>,
-    Relation<(T::Origin, T::Origin, T::Point)>,
-) {
-    let timer = Instant::now();
+#[derive(Clone, Copy)]
+pub struct BorrowckOptimized;
 
-    let (errors, subset_errors) = {
-        // Static inputs
-        let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
-        let cfg_edge_rel = &ctx.cfg_edge;
-        let loan_killed_at = &ctx.loan_killed_at;
-        let known_placeholder_subset = &ctx.known_placeholder_subset;
-        let placeholder_origin = &ctx.placeholder_origin;
+impl<T: FactTypes> Computation<T> for BorrowckOptimized {
+    type Input<'db> = BorrowckInput<'db, T>;
+    type Output = BorrowckErrors<T>;
+
+    fn compute(&self, input: Self::Input<'_>, dump: &mut Dump<'_>) -> Self::Output {
+        let BorrowckInput {
+            cfg_edge,
+            origin_live_on_entry: origin_live_on_entry_rel,
+            loan_invalidated_at,
+            subset_base,
+            loan_issued_at,
+            loan_killed_at,
+            placeholder,
+            known_placeholder_subset,
+        } = input;
+
+        let placeholder_origin: Relation<_> = placeholder.iter().map(|&(o, _l)| (o, ())).collect();
+
+        // `loan_invalidated_at` facts, stored ready for joins
+        let loan_invalidated_at = Relation::from_iter(
+            loan_invalidated_at
+                .iter()
+                .map(|&(loan, point)| ((loan, point), ())),
+        );
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
-
-        // `loan_invalidated_at` facts, stored ready for joins
-        let loan_invalidated_at =
-            iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
 
         // we need `origin_live_on_entry` in both variable and relation forms,
         // (respectively, for join and antijoin).
@@ -140,14 +146,9 @@ pub(super) fn compute<T: FactTypes>(
 
         // Make "variable" versions of the relations, needed for joins.
         loan_issued_at_op.extend(
-            ctx.loan_issued_at
+            loan_issued_at
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
-        );
-        loan_invalidated_at.extend(
-            ctx.loan_invalidated_at
-                .iter()
-                .map(|&(loan, point)| ((loan, point), ())),
         );
         origin_live_on_entry_var.extend(
             origin_live_on_entry_rel
@@ -158,7 +159,7 @@ pub(super) fn compute<T: FactTypes>(
         // subset(origin1, origin2, point) :-
         //   subset_base(origin1, origin2, point).
         subset_o1p.extend(
-            ctx.subset_base
+            subset_base
                 .iter()
                 .map(|&(origin1, origin2, point)| ((origin1, point), origin2)),
         );
@@ -166,7 +167,7 @@ pub(super) fn compute<T: FactTypes>(
         // origin_contains_loan_on_entry(origin, loan, point) :-
         //   loan_issued_at(origin, loan, point).
         origin_contains_loan_on_entry_op.extend(
-            ctx.loan_issued_at
+            loan_issued_at
                 .iter()
                 .map(|&(origin, loan, point)| ((origin, point), loan)),
         );
@@ -204,7 +205,7 @@ pub(super) fn compute<T: FactTypes>(
             live_to_dying_regions_o2pq.from_leapjoin(
                 &subset_o1p,
                 (
-                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    cfg_edge.extend_with(|&((_, point1), _)| point1),
                     origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1),
                     origin_live_on_entry_rel.extend_anti(|&((_, _), origin2)| origin2),
                 ),
@@ -220,7 +221,7 @@ pub(super) fn compute<T: FactTypes>(
                 &origin_contains_loan_on_entry_op,
                 (
                     loan_killed_at.filter_anti(|&((_, point1), loan)| (loan, point1)),
-                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    cfg_edge.extend_with(|&((_, point1), _)| point1),
                     origin_live_on_entry_rel.extend_anti(|&((origin, _), _)| origin),
                 ),
                 |&((origin, point1), loan), &point2| ((origin, point1, point2), loan),
@@ -290,7 +291,7 @@ pub(super) fn compute<T: FactTypes>(
             subset_o1p.from_leapjoin(
                 &subset_o1p,
                 (
-                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    cfg_edge.extend_with(|&((_, point1), _)| point1),
                     origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1),
                     origin_live_on_entry_rel.extend_with(|&((_, _), origin2)| origin2),
                 ),
@@ -330,7 +331,7 @@ pub(super) fn compute<T: FactTypes>(
                 &origin_contains_loan_on_entry_op,
                 (
                     loan_killed_at.filter_anti(|&((_, point1), loan)| (loan, point1)),
-                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    cfg_edge.extend_with(|&((_, point1), _)| point1),
                     origin_live_on_entry_rel.extend_with(|&((origin, _), _)| origin),
                 ),
                 |&((origin, _), loan), &point2| ((origin, point2), loan),
@@ -393,8 +394,8 @@ pub(super) fn compute<T: FactTypes>(
             //   loan_invalidated_at(loan, point),
             //   loan_live_at(loan, point).
             errors.from_join(
-                &loan_invalidated_at,
                 &loan_live_at,
+                &loan_invalidated_at,
                 |&(loan, point), _, _| (loan, point),
             );
 
@@ -444,52 +445,17 @@ pub(super) fn compute<T: FactTypes>(
             );
         }
 
-        if result.dump_enabled {
-            let subset_o1p = subset_o1p.complete();
-            assert!(
-                subset_o1p
-                    .iter()
-                    .filter(|&((origin1, _), origin2)| origin1 == origin2)
-                    .count()
-                    == 0,
-                "unwanted subset symmetries"
-            );
-            for &((origin1, location), origin2) in subset_o1p.iter() {
-                result
-                    .subset
-                    .entry(location)
-                    .or_default()
-                    .entry(origin1)
-                    .or_default()
-                    .insert(origin2);
-            }
+        dump.var_mapped(&loan_live_at, |x| x.0);
+        dump.var_named_mapped("subset", &subset_o1p, |&((o1, p), o2)| (o1, o2, p));
+        dump.var_named_mapped(
+            "origin_contains_loan_on_entry",
+            &origin_contains_loan_on_entry_op,
+            |&((o, p), l)| (o, l, p),
+        );
 
-            let origin_contains_loan_on_entry_op = origin_contains_loan_on_entry_op.complete();
-            for &((origin, location), loan) in origin_contains_loan_on_entry_op.iter() {
-                result
-                    .origin_contains_loan_at
-                    .entry(location)
-                    .or_default()
-                    .entry(origin)
-                    .or_default()
-                    .insert(loan);
-            }
-
-            let loan_live_at = loan_live_at.complete();
-            for &((loan, location), _) in loan_live_at.iter() {
-                result.loan_live_at.entry(location).or_default().push(loan);
-            }
+        BorrowckErrors {
+            errors: errors.complete(),
+            subset_errors: subset_errors.complete(),
         }
-
-        (errors.complete(), subset_errors.complete())
-    };
-
-    info!(
-        "analysis done: {} `errors` tuples, {} `subset_errors` tuples, {:?}",
-        errors.len(),
-        subset_errors.len(),
-        timer.elapsed()
-    );
-
-    (errors, subset_errors)
+    }
 }
