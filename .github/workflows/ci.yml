@@ -72,10 +72,17 @@ jobs:
     strategy:
       matrix:
         rust: [beta, nightly]
+        features: [[], ['polonius-souffle']]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Install Souffle
+        if: contains(matrix.features, 'polonius-souffle')
+        run: |
+          wget https://github.com/ecstatic-morse/souffle/releases/download/2.0.2-alpha/souffle-2.0.2-Linux.deb
+          sudo apt install ./souffle-2.0.2-Linux.deb
 
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
@@ -85,7 +92,11 @@ jobs:
           override: true
 
       - name: Build polonius
-        run: cargo build
+        run: cargo build --features "${{ join(matrix.features) }}"
 
-      - name: Execute tests for all crates in the workspace
-        run: cargo test --all
+      - name: Execute tests for all crates in the workspace (except `polonius-souffle`)
+        run: cargo test --all --exclude polonius-souffle  --features "${{ join(matrix.features) }}"
+
+      - name: Execute tests for `polonius-souffle`
+        if: contains(matrix.features, 'polonius-souffle')
+        run: cargo test -p polonius-souffle
