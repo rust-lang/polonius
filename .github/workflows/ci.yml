@@ -89,3 +89,20 @@ jobs:
 
       - name: Execute tests for all crates in the workspace
         run: cargo test --all
+
+  clippy:
+    name: Lint code
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          components: clippy
+
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --all-targets --all
