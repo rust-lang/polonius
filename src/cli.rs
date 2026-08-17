@@ -13,6 +13,7 @@ use crate::dump;
 use crate::dump::Output;
 use crate::facts::AllFacts;
 use crate::intern;
+use crate::mir_parser;
 use crate::tab_delim;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
@@ -29,6 +30,7 @@ pub struct Options {
     output_directory: Option<String>,
     fact_dirs: Vec<String>,
     liveness_graph_file: Option<String>,
+    mir_file: Option<String>,
 }
 
 #[derive(Debug)]
@@ -86,7 +88,11 @@ pub fn main(opt: Options) -> Result<(), Error> {
                         .expect("Failed to write output");
                 }
                 if let Some(ref graphviz_file) = graphviz_file {
-                    dump::graphviz(&output, &all_facts, graphviz_file, tables)
+                    let mir = opt
+                        .mir_file
+                        .as_ref()
+                        .map(|x| mir_parser::parse(Path::new(&x)));
+                    dump::graphviz(&output, &all_facts, graphviz_file, tables, &mir)
                         .expect("Failed to write GraphViz");
                 }
                 if let Some(ref liveness_graph_file) = liveness_graph_file {
@@ -169,6 +175,7 @@ ARGS:
         graphviz_file: arg_from_str(&mut args, "--graphviz-file")?,
         output_directory: arg_from_str(&mut args, "-o")?.or(arg_from_str(&mut args, "--output")?),
         liveness_graph_file: arg_from_str(&mut args, "--dump-liveness-graph")?,
+        mir_file: arg_from_str(&mut args, "--mir-file")?,
         fact_dirs: args.free().map_err(readable_pico_error)?,
     };
 
