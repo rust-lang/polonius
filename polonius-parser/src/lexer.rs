@@ -53,7 +53,7 @@ impl<'input> Lexer<'input> {
             [b'{', ..] => (1, T!['{']),
             [b'}', ..] => (1, T!['}']),
             // parameters
-            [c @ b'\'' | c @ b'B' | c @ b'L' | c @ b'V', ..] => (
+            [c @ b'\'' | c @ b'B' | c @ b'L' | c @ b'V' | c @ b'P', ..] => (
                 input
                     .char_indices()
                     .skip(1)
@@ -67,6 +67,7 @@ impl<'input> Lexer<'input> {
                     b'B' => T![Block],
                     b'L' => T![loan],
                     b'V' => T![variable],
+                    b'P' => T![path],
                     _ => unreachable!(),
                 },
             ),
@@ -95,6 +96,12 @@ impl<'input> Lexer<'input> {
             kw if kw.starts_with("known_subsets".as_bytes()) => {
                 ("known_subsets".len() as u32, T![known subsets])
             }
+            kw if kw.starts_with("child_path".as_bytes()) => {
+                ("child_path".len() as u32, T![child_path])
+            }
+            kw if kw.starts_with("path_is_var".as_bytes()) => {
+                ("path_is_var".len() as u32, T![path_is_var])
+            }
             // CFG keywords
             kw if kw.starts_with("block".as_bytes()) => ("block".len() as u32, T![block]),
             kw if kw.starts_with("goto".as_bytes()) => ("goto".len() as u32, T![goto]),
@@ -122,6 +129,17 @@ impl<'input> Lexer<'input> {
             kw if kw.starts_with("var_dropped_at".as_bytes()) => {
                 ("var_dropped_at".len() as u32, T![var_dropped_at])
             }
+            kw if kw.starts_with("path_moved_at_base".as_bytes()) => {
+                ("path_moved_at_base".len() as u32, T![path_moved_at_base])
+            }
+            kw if kw.starts_with("path_assigned_at_base".as_bytes()) => (
+                "path_assigned_at_base".len() as u32,
+                T![path_assigned_at_base],
+            ),
+            kw if kw.starts_with("path_accessed_at_base".as_bytes()) => (
+                "path_accessed_at_base".len() as u32,
+                T![path_accessed_at_base],
+            ),
             // effect keywords - use
             kw if kw.starts_with("use".as_bytes()) => ("use".len() as u32, T![use]),
             _ => return None,
