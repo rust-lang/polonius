@@ -600,11 +600,11 @@ fn maybe_render_point(
 }
 
 fn escape_for_graphviz(s: &str) -> String {
-    s.replace(r"\", r"\\")
-        .replace("\"", "\\\"")
-        .replace(r"(", r"\(")
-        .replace(r")", r"\)")
-        .replace("\n", r"\n")
+    s.replace('\\', r"\\")
+        .replace('\"', "\\\"")
+        .replace('(', r"\(")
+        .replace(')', r"\)")
+        .replace('\n', r"\n")
         .to_string()
 }
 
@@ -693,7 +693,7 @@ fn render_cfg_label(node: &Liveness, intern: &InternerTables) -> String {
     let mut fragments = vec![if cfg_points.len() <= 3 {
         node.cfg_points
             .iter()
-            .map(|point| intern.points.untern(*point).replace("\"", ""))
+            .map(|point| intern.points.untern(*point).replace('\"', ""))
             .collect::<Vec<String>>()
             .join(", ")
     } else {
@@ -702,11 +702,11 @@ fn render_cfg_label(node: &Liveness, intern: &InternerTables) -> String {
             intern
                 .points
                 .untern(*cfg_points.first().unwrap())
-                .replace("\"", ""),
+                .replace('\"', ""),
             intern
                 .points
                 .untern(*cfg_points.last().unwrap())
-                .replace("\"", "")
+                .replace('\"', "")
         )
     }];
 
@@ -716,8 +716,8 @@ fn render_cfg_label(node: &Liveness, intern: &InternerTables) -> String {
         format!(
             "{}({}, {}).",
             label,
-            intern.variables.untern(*var).replace("\"", ""),
-            intern.points.untern(*point).replace("\"", ""),
+            intern.variables.untern(*var).replace('\"', ""),
+            intern.points.untern(*point).replace('\"', ""),
         )
     }));
 
@@ -839,7 +839,7 @@ pub(crate) fn liveness_graph(
                 "{} -> {} [label=\" {} {}\", color=\"{}\", penwidth = 2 arrowhead = none]",
                 cfg.to_index(edge.target()),
                 cfg.to_index(edge.source()),
-                intern.variables.untern(var).replace("\"", ""),
+                intern.variables.untern(var).replace('\"', ""),
                 liveness_status,
                 colour_palette[var.index() % colour_palette.len()],
             ));
