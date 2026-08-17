@@ -15,12 +15,9 @@ jobs:
           fetch-depth: 1
 
       - name: Install rust beta toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: beta
-          profile: minimal
-          override: true
-          components: rustfmt
+        run: |
+          rustup toolchain install beta --profile minimal --component rustfmt
+          rustup default beta
 
       - name: Check formatting of all crates
         run: cargo fmt --all -- --check
@@ -78,11 +75,9 @@ jobs:
           fetch-depth: 1
 
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
+        run: |
+          rustup toolchain install ${{ matrix.rust }} --profile minimal
+          rustup default ${{ matrix.rust }}
 
       - name: Build polonius
         run: cargo build
