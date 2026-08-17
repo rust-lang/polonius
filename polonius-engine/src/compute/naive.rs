@@ -11,27 +11,37 @@
 //! A version of the Naive datalog analysis using Datafrog.
 
 use datafrog::{Iteration, Relation, RelationLeaper};
-use std::time::Instant;
 
-use crate::facts::FactTypes;
-use crate::output::{Context, Output};
+use super::{BorrowckErrors, BorrowckInput, Computation, Dump};
+use crate::FactTypes;
 
-pub(super) fn compute<T: FactTypes>(
-    ctx: &Context<'_, T>,
-    result: &mut Output<T>,
-) -> (
-    Relation<(T::Loan, T::Point)>,
-    Relation<(T::Origin, T::Origin, T::Point)>,
-) {
-    let timer = Instant::now();
+#[derive(Clone, Copy)]
+pub struct BorrowckNaive;
 
-    let (errors, subset_errors) = {
-        // Static inputs
-        let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
-        let cfg_edge = &ctx.cfg_edge;
-        let loan_killed_at = &ctx.loan_killed_at;
-        let known_placeholder_subset = &ctx.known_placeholder_subset;
-        let placeholder_origin = &ctx.placeholder_origin;
+impl<T: FactTypes> Computation<T> for BorrowckNaive {
+    type Input<'db> = BorrowckInput<'db, T>;
+    type Output = BorrowckErrors<T>;
+
+    fn compute(&self, input: Self::Input<'_>, dump: &mut Dump<'_>) -> Self::Output {
+        let BorrowckInput {
+            cfg_edge,
+            origin_live_on_entry: origin_live_on_entry_rel,
+            loan_invalidated_at,
+            subset_base,
+            loan_issued_at,
+            loan_killed_at,
+            placeholder,
+            known_placeholder_subset,
+        } = input;
+
+        let placeholder_origin: Relation<_> = placeholder.iter().map(|&(o, _l)| (o, ())).collect();
+
+        // `loan_invalidated_at` facts, stored ready for joins
+        let loan_invalidated_at = Relation::from_iter(
+            loan_invalidated_at
+                .iter()
+                .map(|&(loan, point)| ((loan, point), ())),
+        );
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -41,13 +51,6 @@ pub(super) fn compute<T: FactTypes>(
         let origin_contains_loan_on_entry =
             iteration.variable::<(T::Origin, T::Loan, T::Point)>("origin_contains_loan_on_entry");
         let loan_live_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_live_at");
-
-        // `loan_invalidated_at` facts, stored ready for joins
-        let loan_invalidated_at = Relation::from_iter(
-            ctx.loan_invalidated_at
-                .iter()
-                .map(|&(loan, point)| ((loan, point), ())),
-        );
 
         // different indices for `subset`.
         let subset_o1p = iteration.variable_indistinct("subset_o1p");
@@ -94,13 +97,13 @@ pub(super) fn compute<T: FactTypes>(
         //
         // subset(Origin1, Origin2, Point) :-
         //   subset_base(Origin1, Origin2, Point).
-        subset.extend(ctx.subset_base.iter());
+        subset.extend(subset_base.iter());
 
         // Rule 4: the issuing origins are the ones initially containing loans.
         //
         // origin_contains_loan_on_entry(Origin, Loan, Point) :-
         //   loan_issued_at(Origin, Loan, Point).
-        origin_contains_loan_on_entry.extend(ctx.loan_issued_at.iter());
+        origin_contains_loan_on_entry.extend(loan_issued_at.iter());
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -247,53 +250,13 @@ pub(super) fn compute<T: FactTypes>(
             );
         }
 
-        // Handle verbose output data
-        if result.dump_enabled {
-            let subset = subset.complete();
-            assert!(
-                subset
-                    .iter()
-                    .filter(|&(origin1, origin2, _)| origin1 == origin2)
-                    .count()
-                    == 0,
-                "unwanted subset symmetries"
-            );
-            for &(origin1, origin2, location) in subset.iter() {
-                result
-                    .subset
-                    .entry(location)
-                    .or_default()
-                    .entry(origin1)
-                    .or_default()
-                    .insert(origin2);
-            }
+        dump.var(&subset);
+        dump.var(&origin_contains_loan_on_entry);
+        dump.var_mapped(&loan_live_at, |x| x.0);
 
-            let origin_contains_loan_on_entry = origin_contains_loan_on_entry.complete();
-            for &(origin, loan, location) in origin_contains_loan_on_entry.iter() {
-                result
-                    .origin_contains_loan_at
-                    .entry(location)
-                    .or_default()
-                    .entry(origin)
-                    .or_default()
-                    .insert(loan);
-            }
-
-            let loan_live_at = loan_live_at.complete();
-            for &((loan, location), _) in loan_live_at.iter() {
-                result.loan_live_at.entry(location).or_default().push(loan);
-            }
+        BorrowckErrors {
+            errors: errors.complete(),
+            subset_errors: subset_errors.complete(),
         }
-
-        (errors.complete(), subset_errors.complete())
-    };
-
-    info!(
-        "analysis done: {} `errors` tuples, {} `subset_errors` tuples, {:?}",
-        errors.len(),
-        subset_errors.len(),
-        timer.elapsed()
-    );
-
-    (errors, subset_errors)
+    }
 }

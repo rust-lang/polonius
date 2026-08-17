@@ -1,40 +1,51 @@
-// Copyright 2017 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
+use super::BorrowckErrors;
+use crate::{Computation, Dump, FactTypes};
 use datafrog::{Iteration, Relation, RelationLeaper};
-use std::time::Instant;
 
-use crate::facts::FactTypes;
-use crate::output::{Context, Output};
+input! {
+    BorrowckLocationInsensitiveInput {
+        origin_live_on_entry,
+        loan_invalidated_at,
+        known_placeholder_requires,
+        placeholder,
+        loan_issued_at,
+        subset_base,
+    }
+}
 
-pub(super) fn compute<T: FactTypes>(
-    ctx: &Context<'_, T>,
-    result: &mut Output<T>,
-) -> (
-    Relation<(T::Loan, T::Point)>,
-    Relation<(T::Origin, T::Origin)>,
-) {
-    let timer = Instant::now();
+output! {
+    BorrowckLocationInsensitiveErrors {
+        potential_errors,
+        potential_subset_errors,
+    }
+}
 
-    let (potential_errors, potential_subset_errors) = {
-        // Static inputs
-        let origin_live_on_entry = &ctx.origin_live_on_entry;
-        let loan_invalidated_at = &ctx.loan_invalidated_at;
-        let placeholder_origin = &ctx.placeholder_origin;
-        let placeholder_loan = &ctx.placeholder_loan;
-        let known_contains = &ctx.known_contains;
+#[derive(Clone, Copy)]
+pub struct BorrowckLocationInsensitive;
+
+impl<T: FactTypes> Computation<T> for BorrowckLocationInsensitive {
+    type Input<'db> = BorrowckLocationInsensitiveInput<'db, T>;
+    type Output = BorrowckLocationInsensitiveErrors<T>;
+
+    fn compute(&self, input: Self::Input<'_>, dump: &mut Dump) -> Self::Output {
+        let BorrowckLocationInsensitiveInput {
+            origin_live_on_entry,
+            loan_invalidated_at,
+            loan_issued_at,
+            placeholder: placeholder_loan,
+            known_placeholder_requires: known_contains,
+            subset_base,
+        } = input;
+
+        let placeholder_loan_lo: Relation<_> =
+            placeholder_loan.iter().map(|&(o, l)| (l, o)).collect();
+        let placeholder_origin: Relation<_> =
+            placeholder_loan.iter().map(|&(o, _l)| (o, ())).collect();
 
         // subset(Origin1, Origin2) :-
         //   subset_base(Origin1, Origin2, _).
         let subset = Relation::from_iter(
-            ctx.subset_base
+            subset_base
                 .iter()
                 .map(|&(origin1, origin2, _point)| (origin1, origin2)),
         );
@@ -55,18 +66,14 @@ pub(super) fn compute<T: FactTypes>(
         // origin_contains_loan_on_entry(Origin, Loan) :-
         //   loan_issued_at(Origin, Loan, _).
         origin_contains_loan_on_entry.extend(
-            ctx.loan_issued_at
+            loan_issued_at
                 .iter()
                 .map(|&(origin, loan, _point)| (origin, loan)),
         );
 
         // origin_contains_loan_on_entry(Origin, Loan) :-
         //   placeholder_loan(Origin, Loan).
-        origin_contains_loan_on_entry.extend(
-            placeholder_loan
-                .iter()
-                .map(|&(loan, origin)| (origin, loan)),
-        );
+        origin_contains_loan_on_entry.extend(placeholder_loan.iter().copied());
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -112,7 +119,7 @@ pub(super) fn compute<T: FactTypes>(
                 (
                     known_contains.filter_anti(|&(origin2, loan1)| (origin2, loan1)),
                     placeholder_origin.filter_with(|&(origin2, _loan1)| (origin2, ())),
-                    placeholder_loan.extend_with(|&(_origin2, loan1)| loan1),
+                    placeholder_loan_lo.extend_with(|&(_origin2, loan1)| loan1),
                     // remove symmetries:
                     datafrog::ValueFilter::from(|&(origin2, _loan1), &origin1| origin2 != origin1),
                 ),
@@ -120,37 +127,43 @@ pub(super) fn compute<T: FactTypes>(
             );
         }
 
-        if result.dump_enabled {
-            for &(origin1, origin2) in subset.iter() {
-                result
-                    .subset_anywhere
-                    .entry(origin1)
-                    .or_default()
-                    .insert(origin2);
-            }
+        dump.var(&origin_contains_loan_on_entry);
+        dump.rel("subset", subset);
 
-            let origin_contains_loan_on_entry = origin_contains_loan_on_entry.complete();
-            for &(origin, loan) in origin_contains_loan_on_entry.iter() {
-                result
-                    .origin_contains_loan_anywhere
-                    .entry(origin)
-                    .or_default()
-                    .insert(loan);
-            }
+        Self::Output {
+            potential_errors: potential_errors.complete(),
+            potential_subset_errors: potential_subset_errors.complete(),
         }
+    }
+}
 
-        (
-            potential_errors.complete(),
-            potential_subset_errors.complete(),
-        )
-    };
+/// Copies `potential_errors` and `potential_subset_errors` into `errors` and `subset_errors`
+/// respectively.
+///
+/// This is a hack to conform to the old `Output` interface. It will cause a panic if run
+/// alongside any other location-sensitive borrow-checking one, since the results may not match.
+#[derive(Clone, Copy)]
+pub struct BorrowckLocationInsensitiveAsSensitive;
 
-    info!(
-        "analysis done: {} `potential_errors` tuples, {} `potential_subset_errors` tuples, {:?}",
-        potential_errors.len(),
-        potential_subset_errors.len(),
-        timer.elapsed()
-    );
+input! {
+    BorrowckLocationInsensitiveErrorsRef {
+        potential_errors,
+        potential_subset_errors,
+    }
+}
 
-    (potential_errors, potential_subset_errors)
+impl<T: FactTypes> Computation<T> for BorrowckLocationInsensitiveAsSensitive {
+    type Input<'db> = BorrowckLocationInsensitiveErrorsRef<'db, T>;
+    type Output = BorrowckErrors<T>;
+
+    fn compute(&self, input: Self::Input<'_>, _dump: &mut Dump<'_>) -> Self::Output {
+        BorrowckErrors {
+            errors: input.potential_errors.clone(),
+            subset_errors: input
+                .potential_subset_errors
+                .iter()
+                .map(|&(o1, o2)| (o1, o2, 0.into()))
+                .collect(),
+        }
+    }
 }
