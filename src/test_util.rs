@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use polonius_engine::{Algorithm, AllFacts, Output};
+use polonius_engine::{Algorithm, AllFacts, Engine, Output};
 use std::fmt::Debug;
 
 use crate::facts::LocalFacts;
@@ -76,7 +76,7 @@ pub(crate) fn check_program(
 }
 
 pub(crate) fn naive_checker_for(program: &str) -> FactChecker {
-    check_program(program, Algorithm::Naive, true)
+    check_program(program, Algorithm::Naive(Engine::Datafrog), true)
 }
 
 pub(crate) fn location_insensitive_checker_for(program: &str) -> FactChecker {
@@ -84,7 +84,7 @@ pub(crate) fn location_insensitive_checker_for(program: &str) -> FactChecker {
 }
 
 pub(crate) fn opt_checker_for(program: &str) -> FactChecker {
-    check_program(program, Algorithm::DatafrogOpt, true)
+    check_program(program, Algorithm::DatafrogOpt(Engine::Datafrog), true)
 }
 
 pub(crate) fn assert_checkers_match(checker_a: &FactChecker, checker_b: &FactChecker) {
