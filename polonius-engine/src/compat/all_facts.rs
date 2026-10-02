@@ -1,5 +1,6 @@
-use std::fmt::Debug;
-use std::hash::Hash;
+//! An adapter for the existing `polonius-engine` interface.
+
+use crate::{Db, Dump, FactTypes, StoreTo};
 
 /// The "facts" which are the basis of the NLL borrow analysis.
 #[derive(Clone, Debug)]
@@ -114,16 +115,51 @@ impl<T: FactTypes> Default for AllFacts<T> {
     }
 }
 
-pub trait Atom:
-    From<usize> + Into<usize> + Copy + Clone + Debug + Eq + Ord + Hash + 'static
-{
-    fn index(self) -> usize;
-}
+impl<T: FactTypes> StoreTo<T> for AllFacts<T> {
+    const RELATIONS: crate::Rels = &[
+        "loan_issued_at",
+        "universal_region",
+        "cfg_edge",
+        "loan_killed_at",
+        "subset_base",
+        "loan_invalidated_at",
+        "var_used_at",
+        "var_defined_at",
+        "var_dropped_at",
+        "use_of_var_derefs_origin",
+        "drop_of_var_derefs_origin",
+        "child_path",
+        "path_is_var",
+        "path_assigned_at_base",
+        "path_moved_at_base",
+        "path_accessed_at_base",
+        "known_placeholder_subset_base",
+        "placeholder",
+    ];
 
-pub trait FactTypes: Copy + Clone + Debug {
-    type Origin: Atom;
-    type Loan: Atom;
-    type Point: Atom;
-    type Variable: Atom;
-    type Path: Atom;
+    fn store_to_db(self, db: &mut Db<T>, _: &mut Dump<'_>) {
+        db.loan_issued_at = Some(self.loan_issued_at.into());
+        db.universal_region = Some(self.universal_region.into_iter().map(|x| (x,)).collect());
+        db.cfg_edge = Some(self.cfg_edge.into());
+        db.loan_killed_at = Some(self.loan_killed_at.into());
+        db.subset_base = Some(self.subset_base.into());
+        db.loan_invalidated_at = Some(
+            self.loan_invalidated_at
+                .into_iter()
+                .map(|(a, b)| (b, a))
+                .collect(),
+        );
+        db.var_used_at = Some(self.var_used_at.into());
+        db.var_defined_at = Some(self.var_defined_at.into());
+        db.var_dropped_at = Some(self.var_dropped_at.into());
+        db.use_of_var_derefs_origin = Some(self.use_of_var_derefs_origin.into());
+        db.drop_of_var_derefs_origin = Some(self.drop_of_var_derefs_origin.into());
+        db.child_path = Some(self.child_path.into());
+        db.path_is_var = Some(self.path_is_var.into());
+        db.path_assigned_at_base = Some(self.path_assigned_at_base.into());
+        db.path_moved_at_base = Some(self.path_moved_at_base.into());
+        db.path_accessed_at_base = Some(self.path_accessed_at_base.into());
+        db.known_placeholder_subset_base = Some(self.known_placeholder_subset.into());
+        db.placeholder = Some(self.placeholder.into());
+    }
 }
