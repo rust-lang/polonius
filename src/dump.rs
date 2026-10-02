@@ -504,6 +504,7 @@ pub(crate) fn graphviz(
     all_facts: &AllFacts,
     output_file: &PathBuf,
     intern: &InternerTables,
+    mir: &Option<HashMap<String, Vec<String>>>,
 ) -> io::Result<()> {
     let mut file = File::create(output_file)?;
     let mut output_fragments: Vec<String> = Vec::new();
@@ -522,6 +523,7 @@ pub(crate) fn graphviz(
             &inputs_by_point,
             &outputs_by_point,
             intern,
+            mir,
         )
         .into_iter();
         output_fragments.extend(graphviz_code);
@@ -540,6 +542,7 @@ fn graphviz_for_edge(
     inputs_by_point: &[HashMap<Point, String>],
     outputs_by_point: &[HashMap<Point, String>],
     intern: &InternerTables,
+    mir: &Option<HashMap<String, Vec<String>>>,
 ) -> Vec<String> {
     let mut ret = Vec::new();
     maybe_render_point(
@@ -549,6 +552,7 @@ fn graphviz_for_edge(
         outputs_by_point,
         &mut ret,
         intern,
+        mir,
     );
     maybe_render_point(
         point2,
@@ -557,6 +561,7 @@ fn graphviz_for_edge(
         outputs_by_point,
         &mut ret,
         intern,
+        mir,
     );
     ret.push(format!(
         "\"node{0}\" -> \"node{1}\":f0 [\n  id = {2}\n];\n",
@@ -574,6 +579,7 @@ fn maybe_render_point(
     outputs_by_point: &[HashMap<Point, String>],
     render_vec: &mut Vec<String>,
     intern: &InternerTables,
+    mir: &Option<HashMap<String, Vec<String>>>,
 ) {
     if seen_points.contains(&point.index()) {
         return;
@@ -592,11 +598,24 @@ fn maybe_render_point(
         .collect::<Vec<_>>()
         .join(" | ");
 
-    render_vec.push(format!("\"node{0}\" [\n  label = \"{{ <f0> {1} | INPUTS | {2} | OUTPUTS | {3} }}\"\n  shape = \"record\"\n];\n",
+    let point_str = escape_for_graphviz(Point::table(intern).untern(point));
+    let (bb_name, offset) = extract(&point_str);
+    let instr: String = mir
+        .as_ref()
+        .and_then(|hm| Some(format!("| {}", escape_for_graphviz(&hm[bb_name][offset]))))
+        .unwrap_or_default();
+    render_vec.push(format!("\"node{0}\" [\n  label = \"{{ <f0> {point_str} {instr} | INPUTS | {input_tuples} | OUTPUTS | {output_tuples} }}\"\n  shape = \"record\"\n];\n",
                      point.index(),
-                     escape_for_graphviz(Point::table(intern).untern(point)),
-                     &input_tuples,
-                     &output_tuples));
+                    ));
+}
+
+fn extract(x: &str) -> (&str, usize) {
+    let a = x.find('(').unwrap();
+    let b = x.find('[').unwrap();
+    let c = x.find(']').unwrap();
+    let bb_name = &x[a + 1..b];
+    let offset = &x[b + 1..c];
+    (bb_name, offset.parse().unwrap())
 }
 
 fn escape_for_graphviz(s: &str) -> String {

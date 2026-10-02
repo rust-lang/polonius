@@ -19,5 +19,7 @@ polonius-engine = { path = "./polonius-engine" }
 log             = "0.4"
 petgraph        = "0.4.13"
 pico-args       = "0.2"
+pest = "2.7.4"
+pest_derive = "2.7.4"
 
 [workspace]
