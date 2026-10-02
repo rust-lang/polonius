@@ -173,25 +173,6 @@ pub(super) fn compute<T: FactTypes>(
 
         // .. and then start iterating rules!
         while iteration.changed() {
-            // Cleanup step: remove symmetries
-            // - remove origins which are `subset`s of themselves
-            //
-            // FIXME: investigate whether is there a better way to do that without complicating
-            // the rules too much, because it would also require temporary variables and
-            // impact performance. Until then, the big reduction in tuples improves performance
-            // a lot, even if we're potentially adding a small number of tuples
-            // per round just to remove them in the next round.
-            subset_o1p
-                .recent
-                .borrow_mut()
-                .elements
-                .retain(|&((origin1, _), origin2)| origin1 != origin2);
-
-            subset_placeholder
-                .recent
-                .borrow_mut()
-                .elements
-                .retain(|&(origin1, origin2, _)| origin1 != origin2);
             subset_placeholder_o2p.from_map(&subset_placeholder, |&(origin1, origin2, point)| {
                 ((origin2, point), origin1)
             });
@@ -299,11 +280,14 @@ pub(super) fn compute<T: FactTypes>(
 
             // subset(origin1, origin3, point2) :-
             //   live_to_dying_regions(origin1, origin2, point1, point2),
-            //   dying_can_reach_live(origin2, origin3, point1, point2).
-            subset_o1p.from_join(
+            //   dying_can_reach_live(origin2, origin3, point1, point2),
+            //   origin1 != origin3.
+            subset_o1p.from_join_filtered(
                 &live_to_dying_regions_o2pq,
                 &dying_can_reach_live,
-                |&(_origin2, _point1, point2), &origin1, &origin3| ((origin1, point2), origin3),
+                |&(_origin2, _point1, point2), &origin1, &origin3| {
+                    (origin1 != origin3).then(|| ((origin1, point2), origin3))
+                },
             );
 
             // origin_contains_loan_on_entry(origin2, loan, point2) :-
@@ -403,13 +387,7 @@ pub(super) fn compute<T: FactTypes>(
             //     placeholder_origin(Origin1).
             subset_placeholder.from_leapjoin(
                 &subset_o1p,
-                (
-                    placeholder_origin.extend_with(|&((origin1, _point), _origin2)| origin1),
-                    // remove symmetries:
-                    datafrog::ValueFilter::from(|&((origin1, _point), origin2), _| {
-                        origin1 != origin2
-                    }),
-                ),
+                placeholder_origin.extend_with(|&((origin1, _point), _origin2)| origin1),
                 |&((origin1, point), origin2), _| (origin1, origin2, point),
             );
 
@@ -418,11 +396,14 @@ pub(super) fn compute<T: FactTypes>(
             //
             // subset_placeholder(Origin1, Origin3, Point) :-
             //     subset_placeholder(Origin1, Origin2, Point),
-            //     subset(Origin2, Origin3, Point).
-            subset_placeholder.from_join(
+            //     subset(Origin2, Origin3, Point),
+            //     Origin1 != Origin3.
+            subset_placeholder.from_join_filtered(
                 &subset_placeholder_o2p,
                 &subset_o1p,
-                |&(_origin2, point), &origin1, &origin3| (origin1, origin3, point),
+                |&(_origin2, point), &origin1, &origin3| {
+                    (origin1 != origin3).then(|| (origin1, origin3, point))
+                },
             );
 
             // subset_error(Origin1, Origin2, Point) :-
@@ -435,10 +416,6 @@ pub(super) fn compute<T: FactTypes>(
                     placeholder_origin.extend_with(|&(_origin1, origin2, _point)| origin2),
                     known_placeholder_subset
                         .filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
-                    // remove symmetries:
-                    datafrog::ValueFilter::from(|&(origin1, origin2, _point), _| {
-                        origin1 != origin2
-                    }),
                 ),
                 |&(origin1, origin2, point), _| (origin1, origin2, point),
             );
