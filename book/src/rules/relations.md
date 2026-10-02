@@ -126,7 +126,7 @@ To be valid, this last expression requires that the type `&'a u32` is a subtype 
 
 `origin_live_at(origin, point)`: this relation stores that the origin `origin` appears in a live variable at the point `point`.
 
-These facts are created by the liveness computation, and its facts and relations will be described later in a lot more detail. In the meantime, its implementation is in [liveness.rs here](https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/liveness.rs).
+These facts are created by the liveness computation, and its facts and relations will be described later in a lot more detail. In the meantime, its implementation is in [liveness.rs here](https://github.com/rust-lang/polonius/blob/HEAD/polonius-engine/src/output/liveness.rs).
 
 ### 7. `loan_invalidated_at`
 

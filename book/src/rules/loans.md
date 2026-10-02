@@ -60,7 +60,7 @@ The input relations will be described below, but the [dedicated page](./relation
 .input known_placeholder_subset
 ```
 
-The datalog rules below are considered the "naive" implementation, as it computes the whole transitive closure of the subset relation, but are easy to describe and explain. They are implemented using the datafrog engine in the [Naive variant](https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/naive.rs).
+The datalog rules below are considered the "naive" implementation, as it computes the whole transitive closure of the subset relation, but are easy to describe and explain. They are implemented using the datafrog engine in the [Naive variant](https://github.com/rust-lang/polonius/blob/HEAD/polonius-engine/src/output/naive.rs).
 
 Some trivial differences exist with the implementation:
 - the use of the `;` alternative operator in the rules
@@ -204,7 +204,7 @@ potential_errors(Loan, Point) :-
   loan_live_at(Loan, Point).
 ```
 
-Note: rules "5a" and "5b" above are named to match [the implementation](https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/location_insensitive.rs) which computes `potential_errors` as a single "rule 5" without materializing the `loan_live_at` intermediate relation of "rule 5a".
+Note: rules "5a" and "5b" above are named to match [the implementation](https://github.com/rust-lang/polonius/blob/HEAD/polonius-engine/src/output/location_insensitive.rs) which computes `potential_errors` as a single "rule 5" without materializing the `loan_live_at` intermediate relation of "rule 5a".
 
 Illegal subset relation errors (which are by definition about "subsets") can still be computed by propagating the placeholder loans, and detecting when they unexpectedly flow into another placeholder origin: one where this specific relationship between the two placeholders was not declared.
 
@@ -240,4 +240,4 @@ In the current implementation, this quick `LocationInsensitive` filter is used a
 
 A more detailed description of the rules in this `Opt` variant will be added later but it computes the same data as the `Naive` variant described above, more efficiently, by limiting where the subset transitive closure is computed: some origins are short-lived, or part of a subsection of the subset graph into which no loan ever flows, and therefore don't contribute to errors or loan propagation. There's no need to track these specific cases.
 
-In the meantime, [the implementation](https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/datafrog_opt.rs) documents the relations and rules it uses in its computation.
+In the meantime, [the implementation](https://github.com/rust-lang/polonius/blob/HEAD/polonius-engine/src/output/datafrog_opt.rs) documents the relations and rules it uses in its computation.
