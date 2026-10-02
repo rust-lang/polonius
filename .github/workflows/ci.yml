@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -43,14 +43,14 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: book/book
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository_owner == 'rust-lang'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'rust-lang'
 
   # Deploy is run as a separate job as it needs elevated permissions
   deploy:
     name: deploy
     runs-on: ubuntu-latest
     needs: book  # the `book` job uploads the pages artifact
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository_owner == 'rust-lang'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository_owner == 'rust-lang'
     permissions:
       pages: write
       id-token: write
