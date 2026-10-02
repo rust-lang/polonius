@@ -157,12 +157,12 @@ pub(super) fn compute_live_origins<T: FactTypes>(
 pub(super) fn make_universal_regions_live<T: FactTypes>(
     origin_live_on_entry: &mut Vec<(T::Origin, T::Point)>,
     cfg_node: &BTreeSet<T::Point>,
-    universal_regions: &[T::Origin],
+    universal_regions: &[(T::Origin,)],
 ) {
     debug!("make_universal_regions_live()");
 
     origin_live_on_entry.reserve(universal_regions.len() * cfg_node.len());
-    for &origin in universal_regions.iter() {
+    for &(origin,) in universal_regions.iter() {
         for &point in cfg_node.iter() {
             origin_live_on_entry.push((origin, point));
         }
