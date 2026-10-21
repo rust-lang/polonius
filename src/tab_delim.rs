@@ -90,6 +90,19 @@ where
     }
 }
 
+impl<'input, T> FromTabDelimited<'input> for (T,)
+where
+    &'input str: InternTo<T>,
+{
+    fn parse(
+        tables: &mut InternerTables,
+        inputs: &mut dyn Iterator<Item = &'input str>,
+    ) -> Option<Self> {
+        let input = inputs.next()?;
+        Some((InternTo::intern(tables, input),))
+    }
+}
+
 impl<'input, T> FromTabDelimited<'input> for T
 where
     &'input str: InternTo<T>,
