@@ -35,6 +35,8 @@ pub enum TokenKind {
     KwDropOfVarDerefsOrigin,
     KwPlaceholders,
     KwKnownSubsets,
+    KwChildPath,
+    KwPathIsVar,
     // CFG keywords
     KwBlock,
     KwGoto,
@@ -47,6 +49,9 @@ pub enum TokenKind {
     KwVarDefinedAt,
     KwOriginLiveOnEntry,
     KwVarDroppedAt,
+    KwPathMovedAtBase,
+    KwPathAssignedAtBase,
+    KwPathAccesssedAtBase,
     // effect keywords - use
     KwUse,
     // parameters
@@ -54,6 +59,7 @@ pub enum TokenKind {
     Block,
     Loan,
     Variable,
+    Path,
     Comment,
     Whitespace,
     Error,
@@ -102,6 +108,8 @@ macro_rules! T {
     [drop_of_var_derefs_origin] => { $crate::token::TokenKind::KwDropOfVarDerefsOrigin};
     [placeholders] => { $crate::token::TokenKind::KwPlaceholders};
     [known subsets] => { $crate::token::TokenKind::KwKnownSubsets};
+    [child_path] => { $crate::token::TokenKind::KwChildPath};
+    [path_is_var] => { $crate::token::TokenKind::KwPathIsVar};
     // CFG keywords
     [block] => { $crate::token::TokenKind::KwBlock};
     [goto] => { $crate::token::TokenKind::KwGoto};
@@ -114,6 +122,9 @@ macro_rules! T {
     [var_defined_at] => { $crate::token::TokenKind::KwVarDefinedAt};
     [origin_live_on_entry] => { $crate::token::TokenKind::KwOriginLiveOnEntry};
     [var_dropped_at] => { $crate::token::TokenKind::KwVarDroppedAt};
+    [path_moved_at_base] => { $crate::token::TokenKind::KwPathMovedAtBase};
+    [path_assigned_at_base] => { $crate::token::TokenKind::KwPathAssignedAtBase};
+    [path_accessed_at_base] => { $crate::token::TokenKind::KwPathAccesssedAtBase};
     // effect keywords - use
     [use] => { $crate::token::TokenKind::KwUse};
     // parameters
@@ -121,6 +132,7 @@ macro_rules! T {
     [Block] => { $crate::token::TokenKind::Block};
     [loan] => { $crate::token::TokenKind::Loan};
     [variable] => { $crate::token::TokenKind::Variable};
+    [path] => { $crate::token::TokenKind::Path };
     [comment] => { $crate::token::TokenKind::Comment};
     [ws] => { $crate::token::TokenKind::Whitespace};
     [error] => { $crate::token::TokenKind::Error};
@@ -158,6 +170,8 @@ impl fmt::Display for TokenKind {
             T![drop_of_var_derefs_origin] => write!(f, "drop_of_var_derefs_origin"),
             T![placeholders] => write!(f, "placeholders"),
             T![known subsets] => write!(f, "known_subsets"),
+            T![child_path] => write!(f, "child_path"),
+            T![path_is_var] => write!(f, "path_is_var"),
             T![block] => write!(f, "block"),
             T![goto] => write!(f, "goto"),
             T![outlives] => write!(f, "outlives"),
@@ -168,11 +182,15 @@ impl fmt::Display for TokenKind {
             T![var_defined_at] => write!(f, "var_defined_at"),
             T![origin_live_on_entry] => write!(f, "origin_live_on_entry"),
             T![var_dropped_at] => write!(f, "var_dropped_at"),
+            T![path_moved_at_base] => write!(f, "path_moved_at_base"),
+            T![path_assigned_at_base] => write!(f, "path_assigned_at_base"),
+            T![path_accessed_at_base] => write!(f, "path_accessed_at_base"),
             T![use] => write!(f, "use"),
             T![origin] => write!(f, "Origin"),
             T![Block] => write!(f, "Block"),
             T![loan] => write!(f, "Loan"),
             T![variable] => write!(f, "Variable"),
+            T![path] => write!(f, "Path"),
             T![comment] => write!(f, "// Comment"),
             T![ws] => write!(f, "<ws>"),
             T![error] => write!(f, "<?>"),
