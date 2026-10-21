@@ -1,6 +1,6 @@
 > [!WARNING]
 > This implementation of Polonius is mainly used for experiments.
-> Rust compiler uses its own implementation that lives directly
+> The Rust compiler uses its own implementation that lives directly
 > in the [rust-lang/rust](https://github.com/rust-lang/rust) repository.
 
 This is a core library that models the borrow check. It implements the analysis
