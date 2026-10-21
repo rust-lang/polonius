@@ -573,7 +573,7 @@ fn var_drop_used_simple() {
 fn illegal_subset_error() {
     let program = r"
         placeholders { 'a, 'b }
-        
+
         block B0 {
             // creates a transitive `'b: 'a` subset
             loan_issued_at('x, L0),
@@ -638,7 +638,7 @@ fn transitive_known_subset() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         known_subsets { 'a: 'b, 'b: 'c }
-        
+
         block B0 {
             loan_issued_at('x, L0),
               outlives('a: 'x),
@@ -650,17 +650,17 @@ fn transitive_known_subset() {
 
     assert_eq!(checker.facts.universal_region.len(), 3);
     assert_eq!(checker.facts.placeholder.len(), 3);
+    assert_eq!(checker.subset_errors_count(), 0);
+
+    assert_checkers_match(&checker, &opt_checker_for(program));
+
+    let noloc = location_insensitive_checker_for(program);
 
     // the 2 `known_placeholder_subset`s here mean 3 `known_contains`, transitively
-    assert_eq!(checker.facts.known_placeholder_subset.len(), 2);
-    assert_eq!(checker.output.known_contains.len(), 3);
+    assert_eq!(noloc.facts.known_placeholder_subset.len(), 2);
+    assert_eq!(noloc.output.known_contains.len(), 3);
 
-    assert_eq!(checker.subset_errors_count(), 0);
-    assert_eq!(
-        location_insensitive_checker_for(program).subset_errors_count(),
-        0
-    );
-    assert_checkers_match(&checker, &opt_checker_for(program));
+    assert_eq!(noloc.subset_errors_count(), 0);
 }
 
 /// Even if `'a: 'b` is known, `'a`'s placeholder loan can flow into `'b''s supersets,
@@ -670,7 +670,7 @@ fn transitive_illegal_subset_error() {
     let program = r"
         placeholders { 'a, 'b, 'c }
         known_subsets { 'a: 'b }
-        
+
         block B0 {
             // this transitive `'a: 'b` subset is already known
             loan_issued_at('x, L0),
@@ -679,7 +679,7 @@ fn transitive_illegal_subset_error() {
 
             // creates unknown transitive subsets:
             // - `'b: 'c`
-            // - and therefore `'a: 'c` 
+            // - and therefore `'a: 'c`
             loan_issued_at('y, L1),
               outlives('b: 'y),
               outlives('y: 'c);
