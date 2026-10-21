@@ -104,20 +104,6 @@ pub(super) fn compute<T: FactTypes>(
 
         // .. and then start iterating rules!
         while iteration.changed() {
-            // Cleanup step: remove symmetries
-            // - remove origins which are `subset`s of themselves
-            //
-            // FIXME: investigate whether is there a better way to do that without complicating
-            // the rules too much, because it would also require temporary variables and
-            // impact performance. Until then, the big reduction in tuples improves performance
-            // a lot, even if we're potentially adding a small number of tuples
-            // per round just to remove them in the next round.
-            subset
-                .recent
-                .borrow_mut()
-                .elements
-                .retain(|&(origin1, origin2, _)| origin1 != origin2);
-
             // Remap fields to re-index by keys, to prepare the data needed by the rules below.
             subset_o1p.from_map(&subset, |&(origin1, origin2, point)| {
                 ((origin1, point), origin2)
@@ -137,11 +123,14 @@ pub(super) fn compute<T: FactTypes>(
             //
             // subset(Origin1, Origin3, Point) :-
             //   subset(Origin1, Origin2, Point),
-            //   subset(Origin2, Origin3, Point).
-            subset.from_join(
+            //   subset(Origin2, Origin3, Point),
+            //   Origin1 != Origin3.
+            subset.from_join_filtered(
                 &subset_o2p,
                 &subset_o1p,
-                |&(_origin2, point), &origin1, &origin3| (origin1, origin3, point),
+                |&(_origin2, point), &origin1, &origin3| {
+                    (origin1 != origin3).then(|| (origin1, origin3, point))
+                },
             );
 
             // Rule 3: propagate subsets along the CFG, according to liveness.
@@ -238,10 +227,6 @@ pub(super) fn compute<T: FactTypes>(
                     placeholder_origin.extend_with(|&(_origin1, origin2, _point)| origin2),
                     known_placeholder_subset
                         .filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
-                    // remove symmetries:
-                    datafrog::ValueFilter::from(|&(origin1, origin2, _point), _| {
-                        origin1 != origin2
-                    }),
                 ),
                 |&(origin1, origin2, point), _| (origin1, origin2, point),
             );
