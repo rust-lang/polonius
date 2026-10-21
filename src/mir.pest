@@ -1,0 +1,19 @@
+// no \n . =
+char2 = _{ 'a'..'z' | 'A'..'Z' | '0'..'9' | "_" | "-" | "(" | ")" | "[" | "]" | ":" | " " | "<" | ">" | "&" | "'" | "?" | "," }
+
+block_name = { (!"{" ~ ANY)+ }
+
+// not started with }
+instruction = { (!(NEWLINE | "}") ~ ANY) ~ (! NEWLINE ~ ANY)+ ~ NEWLINE }
+
+header = _{ (scope | instruction) * }
+
+scope = _{ "scope" ~ ASCII_ALPHANUMERIC+ ~ "{" ~ NEWLINE ~ header ~ "}" ~ NEWLINE }
+
+block = { block_name ~ "{" ~ NEWLINE ~ instruction+ ~ "}" ~ NEWLINE* }
+
+func = { SOI ~ "fn" ~ char2+ ~ "{" ~ NEWLINE ~ header ~ NEWLINE* ~ block+ ~ "}" ~ NEWLINE* ~ EOI }
+
+COMMENT = _{ ("//" | "|") ~ (!NEWLINE ~ ANY)* ~ NEWLINE* }
+WHITESPACE = _{ " " | "\t" }
+
