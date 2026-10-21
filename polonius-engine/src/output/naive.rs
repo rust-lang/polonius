@@ -27,7 +27,7 @@ pub(super) fn compute<T: FactTypes>(
 
     let (errors, subset_errors) = {
         // Static inputs
-        let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
+        let origin_live_on_entry = &ctx.origin_live_on_entry;
         let cfg_edge = &ctx.cfg_edge;
         let loan_killed_at = &ctx.loan_killed_at;
         let known_placeholder_subset = &ctx.known_placeholder_subset;
@@ -56,33 +56,6 @@ pub(super) fn compute<T: FactTypes>(
         // different index for `origin_contains_loan_on_entry`.
         let origin_contains_loan_on_entry_op =
             iteration.variable_indistinct("origin_contains_loan_on_entry_op");
-
-        // Unfortunately, we need `origin_live_on_entry` in both variable and relation forms:
-        // We need:
-        // - `origin_live_on_entry` as a Relation for the leapjoins in rules 3 & 6
-        // - `origin_live_on_entry` as a Variable for the join in rule 7
-        //
-        // The leapjoins use `origin_live_on_entry` as `(Origin, Point)` tuples, while the join uses
-        // it as a `((O, P), ())` tuple to filter the `((Origin, Point), Loan)` tuples from
-        // `origin_contains_loan_on_entry_op`.
-        //
-        // The regular join in rule 7 could be turned into a `filter_with` leaper but that would
-        // result in a leapjoin with no `extend_*` leapers: a leapjoin that is not well-formed.
-        // Doing the filtering via an `extend_with` leaper would be extremely inefficient.
-        //
-        // Until there's an API in datafrog to handle this use-case better, we do a slightly less
-        // inefficient thing of copying the whole static input into a Variable to use a regular
-        // join, even though the liveness information can be quite heavy (around 1M tuples
-        // on `clap`).
-        // This is the Naive variant so this is not a big problem, but needs an
-        // explanation.
-        let origin_live_on_entry_var =
-            iteration.variable::<((T::Origin, T::Point), ())>("origin_live_on_entry");
-        origin_live_on_entry_var.extend(
-            origin_live_on_entry_rel
-                .iter()
-                .map(|&(origin, point)| ((origin, point), ())),
-        );
 
         // output relations: illegal accesses errors, and illegal subset relations errors
         let errors = iteration.variable("errors");
@@ -155,8 +128,8 @@ pub(super) fn compute<T: FactTypes>(
                 &subset,
                 (
                     cfg_edge.extend_with(|&(_origin1, _origin2, point1)| point1),
-                    origin_live_on_entry_rel.extend_with(|&(origin1, _origin2, _point1)| origin1),
-                    origin_live_on_entry_rel.extend_with(|&(_origin1, origin2, _point1)| origin2),
+                    origin_live_on_entry.extend_with(|&(origin1, _origin2, _point1)| origin1),
+                    origin_live_on_entry.extend_with(|&(_origin1, origin2, _point1)| origin2),
                 ),
                 |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
@@ -186,7 +159,7 @@ pub(super) fn compute<T: FactTypes>(
                 (
                     loan_killed_at.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
                     cfg_edge.extend_with(|&(_origin, _loan, point1)| point1),
-                    origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin),
+                    origin_live_on_entry.extend_with(|&(origin, _loan, _point1)| origin),
                 ),
                 |&(origin, loan, _point1), &point2| (origin, loan, point2),
             );
@@ -197,9 +170,11 @@ pub(super) fn compute<T: FactTypes>(
             // loan_live_at(Loan, Point) :-
             //   origin_contains_loan_on_entry(Origin, Loan, Point),
             //   origin_live_on_entry(Origin, Point).
+            //
+            // FIXME: Should be merged with Rule 8 so we can leapjoin.
             loan_live_at.from_join(
                 &origin_contains_loan_on_entry_op,
-                &origin_live_on_entry_var,
+                origin_live_on_entry,
                 |&(_origin, point), &loan, _| ((loan, point), ()),
             );
 
