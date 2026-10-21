@@ -3,3 +3,16 @@
 /*/Cargo.lock
 /*/target/
 .DS_Store
+
+## Editor
+*.swp
+*.swo
+Session.vim
+.cproject
+.idea
+*.iml
+.vscode
+.project
+.favorites.json
+.settings/
+.vs/
