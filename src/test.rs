@@ -492,7 +492,7 @@ fn var_live_in_successor_killed_by_reassignment() {
         liveness.get(&0.into()),
         None,
         "{:?} were live at start!",
-        live_at_start.and_then(|var| Some(tables.variables.untern_vec(var))),
+        live_at_start.map(|var| tables.variables.untern_vec(var)),
     );
 
     let live_at_defined = liveness.get(&first_defined);
@@ -501,7 +501,7 @@ fn var_live_in_successor_killed_by_reassignment() {
         live_at_defined,
         None,
         "{:?} were alive at {}",
-        live_at_defined.and_then(|var| Some(tables.variables.untern_vec(var))),
+        live_at_defined.map(|var| tables.variables.untern_vec(var)),
         tables.points.untern(first_defined)
     );
 }
@@ -552,7 +552,7 @@ fn var_drop_used_simple() {
         liveness.get(&0.into()),
         None,
         "{:?} were live at start!",
-        live_at_start.and_then(|var| Some(tables.variables.untern_vec(var))),
+        live_at_start.map(|var| tables.variables.untern_vec(var)),
     );
 
     let live_at_defined = liveness.get(&first_defined);
@@ -561,7 +561,7 @@ fn var_drop_used_simple() {
         live_at_defined,
         None,
         "{:?} were alive at {}",
-        live_at_defined.and_then(|var| Some(tables.variables.untern_vec(var))),
+        live_at_defined.map(|var| tables.variables.untern_vec(var)),
         tables.points.untern(first_defined)
     );
 }
